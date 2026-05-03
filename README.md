@@ -60,8 +60,8 @@
 
 ```text
 sql/01_create_extensions.sql
-sql/02_create_graph_tables.sql
-sql/03_filter_guishan.sql
+sql/02_filter_guishan.sql
+sql/03_create_graph_table.sql
 sql/04_import_accidents.sql
 sql/05_match_accident_to_edge.sql
 sql/06_edge_risk_v1.sql
