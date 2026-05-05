@@ -5,7 +5,7 @@ DROP TABLE IF EXISTS road_edges_guishan;
 
 CREATE TABLE road_edges_guishan AS
 SELECT
-  ogc_fid AS edge_id,
+  gid AS edge_id,
   name,
   fclass,
   oneway,

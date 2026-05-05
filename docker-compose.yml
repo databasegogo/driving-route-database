@@ -1,0 +1,18 @@
+services:
+  postgis:
+    build: .
+    container_name: driving_route_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gisdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./data:/data
+      - ./sql:/sql
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
