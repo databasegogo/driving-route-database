@@ -1,3 +1,29 @@
+# Large raw datasets
 data/raw/*.csv
+data/raw/*.zip
+
+# OSM shapefile datasets
+data/gis_osm_*.shp
+data/gis_osm_*.shx
+data/gis_osm_*.dbf
+data/gis_osm_*.prj
+data/gis_osm_*.cpg
+
+# Optional large export files
+*.dump
+*.bak# Large raw datasets
+data/raw/*.csv
+data/raw/*.zip
+
+# OSM shapefile datasets
+data/gis_osm_*.shp
+data/gis_osm_*.shx
+data/gis_osm_*.dbf
+data/gis_osm_*.prj
+data/gis_osm_*.cpg
+
+# Optional large export files
+*.dump
+*.bakdata/raw/*.csv
 data/raw/*.zip
 

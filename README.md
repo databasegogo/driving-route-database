@@ -65,3 +65,26 @@ sql/03_create_graph_table.sql
 sql/04_import_accidents.sql
 sql/05_match_accident_to_edge.sql
 sql/06_edge_risk_v1.sql
+
+## docker 第一階段
+docker-compose up -d --build
+./setup/init_db.sh
+
+DBeaver：
+
+Host: localhost
+Port: 5433
+Database: gisdb
+Username: postgres
+Password: 123456
+
+請先從 Google Drive 下載：
+- accidents_a1.csv
+- accidents_a2.csv
+
+下載後放到：
+data/raw/accidents_a1.csv
+data/raw/accidents_a2.csv
+
+再執行：
+./setup/import_accidents.sh
