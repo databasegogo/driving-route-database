@@ -11,21 +11,29 @@
 
 ## Database Name
 
-目前開發使用的 database：
+本專案使用 Docker 部署，database 名稱：
 
 ```text
-osm
+gisdb
+```
 
-Coordinate System
-目前主要空間資料SRID:
+## Coordinate System
+
+目前主要空間資料 SRID：
+
+```text
 EPSG:4326
+```
 
-PostgreSQL Extensions
+## PostgreSQL Extensions
+
 Database 需啟用以下 extensions：
-SQL:
+
+```sql
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS pgrouting;
-Notes:
+```
 
-本專案使用 PostGIS 儲存道路與事故點空間資料，並使用 pgRouting 建立 graph topology，以支援 Dijkstra / 
-A* 路徑演算法。
+## Notes
+
+本專案使用 PostGIS 儲存道路與事故點空間資料，並使用 pgRouting 建立 graph topology，以支援 Dijkstra / A* 路徑演算法。

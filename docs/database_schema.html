@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>駕駛路線資料庫 — 資料表說明文件</title>
+  <style>
+    :root {
+      --primary:   #2563eb;
+      --primary-light: #eff6ff;
+      --accent:    #0ea5e9;
+      --success:   #16a34a;
+      --warning:   #d97706;
+      --danger:    #dc2626;
+      --gray-50:   #f8fafc;
+      --gray-100:  #f1f5f9;
+      --gray-200:  #e2e8f0;
+      --gray-500:  #64748b;
+      --gray-700:  #334155;
+      --gray-900:  #0f172a;
+      --radius:    10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+      background: var(--gray-50);
+      color: var(--gray-900);
+      line-height: 1.6;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #1e40af 0%, #0ea5e9 100%);
+      color: #fff;
+      padding: 48px 40px 36px;
+      text-align: center;
+    }
+    header h1 { font-size: 2rem; font-weight: 700; letter-spacing: .5px; }
+    header p  { margin-top: 8px; opacity: .85; font-size: .95rem; }
+    .badge-row {
+      display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;
+      margin-top: 18px;
+    }
+    .badge {
+      background: rgba(255,255,255,.18);
+      border: 1px solid rgba(255,255,255,.35);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: .8rem;
+      font-weight: 600;
+    }
+
+    /* ── Layout ── */
+    .layout { display: flex; min-height: calc(100vh - 160px); }
+
+    /* ── Sidebar ── */
+    nav.sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: #fff;
+      border-right: 1px solid var(--gray-200);
+      padding: 28px 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .sidebar-title {
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--gray-500);
+      padding: 0 20px 10px;
+    }
+    .sidebar-section { margin-bottom: 18px; }
+    .sidebar-section-label {
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--primary);
+      padding: 6px 20px 4px;
+      background: var(--primary-light);
+      border-left: 3px solid var(--primary);
+    }
+    .sidebar a {
+      display: block;
+      padding: 7px 20px 7px 28px;
+      color: var(--gray-700);
+      text-decoration: none;
+      font-size: .85rem;
+      transition: background .15s, color .15s;
+      border-left: 3px solid transparent;
+    }
+    .sidebar a:hover {
+      background: var(--gray-100);
+      color: var(--primary);
+      border-left-color: var(--primary);
+    }
+
+    /* ── Main content ── */
+    main {
+      flex: 1;
+      padding: 40px 48px;
+      max-width: 900px;
+    }
+
+    /* ── Section header ── */
+    .section-group {
+      margin-bottom: 56px;
+    }
+    .group-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--primary);
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: 8px;
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .group-icon {
+      width: 28px; height: 28px;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .85rem;
+    }
+
+    /* ── Table card ── */
+    .table-card {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      margin-bottom: 36px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .card-header {
+      background: var(--gray-900);
+      color: #fff;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .table-name {
+      font-family: 'Cascadia Code', 'Consolas', monospace;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #7dd3fc;
+    }
+    .table-label {
+      font-size: .8rem;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 12px;
+      padding: 2px 10px;
+    }
+    .card-desc {
+      padding: 12px 20px;
+      font-size: .88rem;
+      color: var(--gray-700);
+      background: var(--gray-50);
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    /* ── Attribute table ── */
+    .attr-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+    }
+    .attr-table thead th {
+      background: var(--gray-100);
+      color: var(--gray-500);
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      padding: 9px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .attr-table tbody tr:hover { background: #fafbff; }
+    .attr-table tbody td {
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--gray-100);
+      vertical-align: top;
+    }
+    .attr-table tbody tr:last-child td { border-bottom: none; }
+
+    .col-name  { width: 22%; }
+    .col-type  { width: 18%; }
+    .col-key   { width: 12%; }
+    .col-desc  { width: 48%; }
+
+    code {
+      font-family: 'Cascadia Code', 'Consolas', monospace;
+      font-size: .82em;
+      background: var(--gray-100);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #1d4ed8;
+    }
+
+    /* ── Key badges ── */
+    .key-badge {
+      display: inline-block;
+      font-size: .68rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+    .pk  { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+    .fk  { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .uk  { background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
+    .pfk { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+
+    /* ── ERD Legend ── */
+    .legend {
+      display: flex; gap: 14px; flex-wrap: wrap;
+      padding: 16px 20px;
+      background: var(--gray-50);
+      border-top: 1px solid var(--gray-200);
+      font-size: .78rem;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+
+    /* ── Relation diagram ── */
+    .relation-box {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 36px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .relation-title {
+      font-weight: 700;
+      color: var(--gray-700);
+      margin-bottom: 16px;
+      font-size: .9rem;
+    }
+    .flow {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: .83rem;
+      line-height: 2;
+    }
+    .flow-node {
+      background: var(--primary);
+      color: #fff;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-family: monospace;
+      font-weight: 600;
+    }
+    .flow-arrow {
+      color: var(--gray-500);
+      font-size: 1rem;
+    }
+    .flow-label {
+      font-size: .72rem;
+      color: var(--gray-500);
+      padding: 0 4px;
+    }
+
+    /* ── Score formula ── */
+    .formula-box {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin: 10px 16px 14px;
+      font-size: .84rem;
+      color: var(--success);
+    }
+    .formula-box strong { display: block; margin-bottom: 4px; color: #166534; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: .8rem;
+      color: var(--gray-500);
+      border-top: 1px solid var(--gray-200);
+      background: #fff;
+    }
+
+    @media (max-width: 768px) {
+      nav.sidebar { display: none; }
+      main { padding: 24px 16px; }
+      header { padding: 32px 20px 24px; }
+      header h1 { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🗺️ 駕駛路線資料庫 — 資料表說明文件</h1>
+  <p>龜山區路網風險分析與使用者路線規劃系統 · Database Schema Reference</p>
+  <div class="badge-row">
+    <span class="badge">PostgreSQL + PostGIS</span>
+    <span class="badge">pgRouting</span>
+    <span class="badge">14 張資料表</span>
+    <span class="badge">3NF 正規化</span>
+    <span class="badge">龜山區</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <nav class="sidebar">
+    <div class="sidebar-title">資料表導覽</div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">核心地圖 &amp; 事故</div>
+      <a href="#district">district　行政區</a>
+      <a href="#road">road　道路</a>
+      <a href="#road_edge">road_edge　路段邊</a>
+      <a href="#accident_severity">accident_severity　嚴重度</a>
+      <a href="#accident">accident　事故記錄</a>
+      <a href="#accident_edge_match">accident_edge_match　對應路段</a>
+      <a href="#edge_risk_score">edge_risk_score　風險分數</a>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">使用者 &amp; 路線</div>
+      <a href="#user_level">user_level　駕駛等級</a>
+      <a href="#app_user">app_user　使用者帳號</a>
+      <a href="#user_route_preference">user_route_preference　偏好</a>
+      <a href="#route_request">route_request　路線請求</a>
+      <a href="#route">route　路線結果</a>
+      <a href="#route_segment">route_segment　路段明細</a>
+      <a href="#user_practice_history">user_practice_history　練習歷史</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <!-- ════ 關聯示意 ════ -->
+    <div class="relation-box">
+      <div class="relation-title">📐 資料表關聯示意（ERD 簡圖）</div>
+      <div class="flow">
+        <span class="flow-node">district</span>
+        <span class="flow-arrow">←</span><span class="flow-label">1:N</span><span class="flow-arrow">—</span>
+        <span class="flow-node">road</span>
+        <span class="flow-arrow">←</span><span class="flow-label">1:N</span><span class="flow-arrow">—</span>
+        <span class="flow-node">road_edge</span>
+        <span class="flow-arrow">←</span><span class="flow-label">1:1</span><span class="flow-arrow">—</span>
+        <span class="flow-node">edge_risk_score</span>
+      </div>
+      <div class="flow" style="margin-top:10px">
+        <span class="flow-node">accident_severity</span>
+        <span class="flow-arrow">←</span><span class="flow-label">1:N</span><span class="flow-arrow">—</span>
+        <span class="flow-node">accident</span>
+        <span class="flow-arrow">←</span><span class="flow-label">1:N</span><span class="flow-arrow">—</span>
+        <span class="flow-node">accident_edge_match</span>
+        <span class="flow-arrow">—</span><span class="flow-label">N:1</span><span class="flow-arrow">→</span>
+        <span class="flow-node">road_edge</span>
+      </div>
+      <div class="flow" style="margin-top:10px">
+        <span class="flow-node">user_level</span>
+        <span class="flow-arrow">←</span><span class="flow-label">1:N</span><span class="flow-arrow">—</span>
+        <span class="flow-node">app_user</span>
+        <span class="flow-arrow">←</span><span class="flow-label">1:N</span><span class="flow-arrow">—</span>
+        <span class="flow-node">route_request</span>
+        <span class="flow-arrow">←</span><span class="flow-label">1:N</span><span class="flow-arrow">—</span>
+        <span class="flow-node">route</span>
+        <span class="flow-arrow">←</span><span class="flow-label">1:N</span><span class="flow-arrow">—</span>
+        <span class="flow-node">route_segment</span>
+      </div>
+      <div class="flow" style="margin-top:10px">
+        <span class="flow-node">app_user</span>
+        <span class="flow-arrow">←</span><span class="flow-label">1:N</span><span class="flow-arrow">—</span>
+        <span class="flow-node">user_practice_history</span>
+        <span>&nbsp;|&nbsp;</span>
+        <span class="flow-node">app_user</span>
+        <span class="flow-arrow">←</span><span class="flow-label">1:1</span><span class="flow-arrow">—</span>
+        <span class="flow-node">user_route_preference</span>
+      </div>
+      <div class="legend">
+        <span class="legend-item"><span class="key-badge pk">PK</span> 主鍵</span>
+        <span class="legend-item"><span class="key-badge fk">FK</span> 外鍵</span>
+        <span class="legend-item"><span class="key-badge uk">UK</span> 唯一鍵</span>
+        <span class="legend-item"><span class="key-badge pfk">PK+FK</span> 主鍵兼外鍵（弱實體）</span>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════
+         SECTION 1 — 核心地圖 & 事故
+    ════════════════════════════════ -->
+    <div class="section-group">
+      <div class="group-title">
+        <div class="group-icon">一</div>
+        核心地圖 &amp; 事故資料表
+      </div>
+
+      <!-- district -->
+      <div class="table-card" id="district">
+        <div class="card-header">
+          <span class="table-name">district</span>
+          <span class="table-label">行政區</span>
+        </div>
+        <div class="card-desc">
+          儲存地圖中的行政區域資訊。本專案以龜山區為空間查詢範圍，所有道路與事故資料皆限定在此區域內。
+        </div>
+        <table class="attr-table">
+          <thead>
+            <tr>
+              <th class="col-name">屬性名稱</th>
+              <th class="col-type">資料型別</th>
+              <th class="col-key">鍵值</th>
+              <th class="col-desc">詳細說明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>district_id</code></td>
+              <td><code>INTEGER</code></td>
+              <td><span class="key-badge pk">PK</span></td>
+              <td>行政區的唯一識別碼，對應 OSM 來源資料的 <code>gid</code> 欄位。</td>
+            </tr>
+            <tr>
+              <td><code>osm_id</code></td>
+              <td><code>TEXT</code></td>
+              <td>—</td>
+              <td>OpenStreetMap 原始資料的物件 ID，保留此欄位以便日後追溯資料來源或重新匯入。</td>
+            </tr>
+            <tr>
+              <td><code>name</code></td>
+              <td><code>TEXT</code></td>
+              <td>—</td>
+              <td>行政區的中文名稱，例如「龜山區」。此欄位不可為 NULL。</td>
+            </tr>
+            <tr>
+              <td><code>admin_level</code></td>
+              <td><code>TEXT</code></td>
+              <td>—</td>
+              <td>行政層級，對應 OSM 的 <code>fclass</code>。本專案篩選 <code>admin_level7</code>，即台灣鄉鎮市區層級。</td>
+            </tr>
+            <tr>
+              <td><code>geom</code></td>
+              <td><code>geometry</code></td>
+              <td>—</td>
+              <td>行政區的地理邊界多邊形（Polygon），座標系統為 WGS84（EPSG:4326）。建有 GIST 空間索引，可高效執行「點是否在區內」等空間查詢。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- road -->
+      <div class="table-card" id="road">
+        <div class="card-header">
+          <span class="table-name">road</span>
+          <span class="table-label">道路</span>
+        </div>
+        <div class="card-desc">
+          儲存龜山區內每一條道路的基本屬性，資料來源為 OpenStreetMap 路網資料集。
+        </div>
+        <table class="attr-table">
+          <thead>
+            <tr><th>屬性名稱</th><th>資料型別</th><th>鍵值</th><th>詳細說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>road_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge pk">PK</span></td><td>道路唯一識別碼，對應來源資料的 <code>gid</code>。</td></tr>
+            <tr><td><code>osm_id</code></td><td><code>TEXT</code></td><td>—</td><td>OpenStreetMap 原始道路 ID，可回查 OSM 地圖確認道路真實資訊。</td></tr>
+            <tr><td><code>name</code></td><td><code>TEXT</code></td><td>—</td><td>道路名稱，例如「文化二路」。無名小路或私人道路此欄位可能為 NULL。</td></tr>
+            <tr><td><code>road_class</code></td><td><code>TEXT</code></td><td>—</td><td>道路類型，對應 OSM 的 <code>fclass</code>，例如 <code>residential</code>（住宅區道路）、<code>primary</code>（主要幹道）、<code>motorway</code>（高速公路）、<code>footway</code>（人行道）等。可用於篩選適合車輛行駛的路段。</td></tr>
+            <tr><td><code>district_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge fk">FK</span></td><td>外鍵，關聯到 <code>district</code> 資料表，標示此道路所屬的行政區。不可為 NULL。</td></tr>
+            <tr><td><code>oneway</code></td><td><code>TEXT</code></td><td>—</td><td>行駛方向限制。<code>yes</code> 表示單向行駛（正向）、<code>no</code> 表示可雙向通行、<code>-1</code> 表示僅能反向行駛（逆向單行）。此資訊會影響路段邊的 <code>reverse_cost</code>。</td></tr>
+            <tr><td><code>maxspeed</code></td><td><code>SMALLINT</code></td><td>—</td><td>法定最高速限（公里 / 小時）。若 OSM 原始資料未記錄速限，此欄位為 NULL。可用於未來行駛時間估算功能。</td></tr>
+            <tr><td><code>bridge</code></td><td><code>TEXT</code></td><td>—</td><td>是否為橋梁結構。<code>yes</code> 表示是橋，路線規劃時可依使用者偏好（<code>avoid_bridge</code>）排除此類路段。</td></tr>
+            <tr><td><code>tunnel</code></td><td><code>TEXT</code></td><td>—</td><td>是否為隧道結構。<code>yes</code> 表示是隧道，同樣可依 <code>avoid_tunnel</code> 偏好排除。</td></tr>
+            <tr><td><code>geom</code></td><td><code>geometry</code></td><td>—</td><td>道路的地理線條（LineString），表示道路實際走向與位置，座標系統為 WGS84，建有 GIST 空間索引。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- road_edge -->
+      <div class="table-card" id="road_edge">
+        <div class="card-header">
+          <span class="table-name">road_edge</span>
+          <span class="table-label">路段邊（圖論）</span>
+        </div>
+        <div class="card-desc">
+          將道路拆成圖論中具有方向性的「邊（edge）」。每條邊有起終節點與通行成本，是 pgRouting 最短路徑演算法的核心輸入資料。
+        </div>
+        <table class="attr-table">
+          <thead>
+            <tr><th>屬性名稱</th><th>資料型別</th><th>鍵值</th><th>詳細說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>edge_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge pk">PK</span></td><td>路段邊的唯一識別碼。</td></tr>
+            <tr><td><code>road_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge fk">FK</span></td><td>外鍵，關聯到 <code>road</code>，代表此邊屬於哪條道路。一條道路可拆出多條邊（在交叉路口處被切割）。</td></tr>
+            <tr><td><code>source</code></td><td><code>INTEGER</code></td><td>—</td><td>邊的起始節點 ID，代表一個道路交叉口或端點，由 pgRouting 的拓撲建構工具自動產生。</td></tr>
+            <tr><td><code>target</code></td><td><code>INTEGER</code></td><td>—</td><td>邊的終止節點 ID，與 <code>source</code> 共同定義邊的方向（source → target）。</td></tr>
+            <tr><td><code>cost</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>正向通行成本（從 <code>source</code> 到 <code>target</code>）。通常以距離（公尺）表示，<code>-1</code> 表示此方向不可通行（例如單行道反向）。</td></tr>
+            <tr><td><code>reverse_cost</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>反向通行成本（從 <code>target</code> 到 <code>source</code>）。若是單行道，此值設為 <code>-1</code> 代表反向不可行駛。雙向道路則與 <code>cost</code> 相同。</td></tr>
+            <tr><td><code>length</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>路段的實際長度（公尺）。用於計算事故密度（<code>edge_risk_score</code>）及路線總距離統計。</td></tr>
+            <tr><td><code>geom</code></td><td><code>geometry</code></td><td>—</td><td>路段的地理線條，表示此段路的實際空間位置，建有 GIST 索引供空間查詢使用。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- accident_severity -->
+      <div class="table-card" id="accident_severity">
+        <div class="card-header">
+          <span class="table-name">accident_severity</span>
+          <span class="table-label">事故嚴重度代碼</span>
+        </div>
+        <div class="card-desc">
+          參考代碼表（Lookup Table），定義事故嚴重程度的分類。參考台灣交通部標準，避免在事故主表中重複儲存文字描述。
+        </div>
+        <table class="attr-table">
+          <thead>
+            <tr><th>屬性名稱</th><th>資料型別</th><th>鍵值</th><th>詳細說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>severity_id</code></td><td><code>SERIAL</code></td><td><span class="key-badge pk">PK</span></td><td>嚴重度的系統自動流水號識別碼。</td></tr>
+            <tr><td><code>severity_code</code></td><td><code>TEXT</code></td><td><span class="key-badge uk">UK</span></td><td>事故類型代碼，不可重複。<code>A1</code> = 死亡事故、<code>A2</code> = 受傷事故、<code>A3</code> = 財損事故，對應台灣警政署事故資料分類。</td></tr>
+            <tr><td><code>severity_name</code></td><td><code>TEXT</code></td><td>—</td><td>嚴重度的中文全名，例如「死亡事故」、「受傷事故」，用於前端介面顯示。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- accident -->
+      <div class="table-card" id="accident">
+        <div class="card-header">
+          <span class="table-name">accident</span>
+          <span class="table-label">事故記錄</span>
+        </div>
+        <div class="card-desc">
+          儲存每筆交通事故的核心資料。整合 A1（死亡）、A2（受傷）兩種來源資料集，統一格式後存入。
+        </div>
+        <table class="attr-table">
+          <thead>
+            <tr><th>屬性名稱</th><th>資料型別</th><th>鍵值</th><th>詳細說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>accident_id</code></td><td><code>SERIAL</code></td><td><span class="key-badge pk">PK</span></td><td>事故在本資料庫中的系統自動流水號，作為內部唯一識別碼。</td></tr>
+            <tr><td><code>source_type</code></td><td><code>TEXT</code></td><td>—</td><td>事故來源資料集的類型，例如 <code>A1</code> 或 <code>A2</code>。搭配 <code>source_accident_id</code> 組成複合唯一鍵，用於避免重複匯入。</td></tr>
+            <tr><td><code>source_accident_id</code></td><td><code>INTEGER</code></td><td>—</td><td>在原始來源資料集中的事故 ID。因不同資料集（A1、A2）的 ID 可能重疊，必須搭配 <code>source_type</code> 才能唯一定位一筆事故。</td></tr>
+            <tr><td><code>severity_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge fk">FK</span></td><td>外鍵，關聯到 <code>accident_severity</code>，標示此事故的嚴重程度（死亡 / 受傷 / 財損）。</td></tr>
+            <tr><td><code>district_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge fk">FK</span></td><td>外鍵，關聯到 <code>district</code>，標示事故發生所在的行政區，確保資料在空間範圍內的一致性。</td></tr>
+            <tr><td><code>longitude</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>事故發生地點的經度（WGS84），保留原始數值供計算使用。</td></tr>
+            <tr><td><code>latitude</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>事故發生地點的緯度（WGS84）。</td></tr>
+            <tr><td><code>geom</code></td><td><code>geometry(Point)</code></td><td>—</td><td>事故地點的空間點位，由經緯度建構而成，建有 GIST 索引。可用於「找出某路段附近 N 公尺內的所有事故」等空間查詢。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- accident_edge_match -->
+      <div class="table-card" id="accident_edge_match">
+        <div class="card-header">
+          <span class="table-name">accident_edge_match</span>
+          <span class="table-label">事故對應路段</span>
+        </div>
+        <div class="card-desc">
+          將每筆事故「對應（snap）」到最近的路段邊，解決事故 GPS 座標與路網線條不完全重疊的問題。此表是事故資料與路段風險計算的橋接中間表。
+        </div>
+        <table class="attr-table">
+          <thead>
+            <tr><th>屬性名稱</th><th>資料型別</th><th>鍵值</th><th>詳細說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>match_id</code></td><td><code>SERIAL</code></td><td><span class="key-badge pk">PK</span></td><td>對應記錄的唯一識別碼。</td></tr>
+            <tr><td><code>accident_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge fk">FK</span></td><td>外鍵，關聯到 <code>accident</code>，指出是哪筆事故被對應。</td></tr>
+            <tr><td><code>edge_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge fk">FK</span></td><td>外鍵，關聯到 <code>road_edge</code>，指出事故被對應到哪條路段邊（最近鄰搜尋結果）。</td></tr>
+            <tr><td><code>distance_to_edge_m</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>事故點到對應路段邊的距離（公尺）。距離越小代表對應越精準；可用於品質篩選，例如排除距離超過 50 公尺的疑似誤對應資料。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- edge_risk_score -->
+      <div class="table-card" id="edge_risk_score">
+        <div class="card-header">
+          <span class="table-name">edge_risk_score</span>
+          <span class="table-label">路段風險分數</span>
+        </div>
+        <div class="card-desc">
+          彙整每條路段邊上的事故數量與嚴重度，計算綜合風險分數。此分數是路線規劃演算法中「避開危險路段」功能的核心數據來源。
+        </div>
+        <div class="formula-box">
+          <strong>⚙️ 計算公式</strong>
+          severity_score = A1事故數 × 3 + A2事故數 × 2<br>
+          accident_density = 事故總數 ÷ MAX(路段長度km, 0.05km)<br>
+          <strong>risk_score = severity_score ÷ MAX(路段長度km, 0.05km)</strong>
+          <br><br>
+          <em>路段長度最小以 50 公尺計，避免極短路段的密度數值爆炸性放大。</em>
+        </div>
+        <table class="attr-table">
+          <thead>
+            <tr><th>屬性名稱</th><th>資料型別</th><th>鍵值</th><th>詳細說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>edge_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge pfk">PK+FK</span></td><td>同時為主鍵與外鍵，關聯到 <code>road_edge</code>。每條路段邊對應一筆風險記錄（1:1 關係）。</td></tr>
+            <tr><td><code>accident_count</code></td><td><code>INTEGER</code></td><td>—</td><td>此路段上的事故總筆數（A1 + A2 合計）。</td></tr>
+            <tr><td><code>a1_count</code></td><td><code>INTEGER</code></td><td>—</td><td>此路段上死亡事故（A1）的件數。</td></tr>
+            <tr><td><code>a2_count</code></td><td><code>INTEGER</code></td><td>—</td><td>此路段上受傷事故（A2）的件數。</td></tr>
+            <tr><td><code>severity_score</code></td><td><code>INTEGER</code></td><td>—</td><td>加權嚴重度分數。公式：<code>A1×3 + A2×2</code>，賦予死亡事故更高的懲罰權重，反映其社會成本。</td></tr>
+            <tr><td><code>accident_density</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>事故密度（件 / 公里）。避免長路段因絕對數量多而被高估，以密度標準化後可公平比較不同長度的路段。</td></tr>
+            <tr><td><code>risk_score</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>最終風險分數，結合嚴重度與路段長度正規化後的結果。路線規劃演算法以此值作為「風險成本」，加入最短路徑計算中。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div><!-- /section-group -->
+
+    <!-- ════════════════════════════════
+         SECTION 2 — 使用者 & 路線
+    ════════════════════════════════ -->
+    <div class="section-group">
+      <div class="group-title">
+        <div class="group-icon">二</div>
+        使用者 &amp; 路線資料表
+      </div>
+
+      <!-- user_level -->
+      <div class="table-card" id="user_level">
+        <div class="card-header">
+          <span class="table-name">user_level</span>
+          <span class="table-label">駕駛等級</span>
+        </div>
+        <div class="card-desc">
+          定義系統中的使用者駕駛等級分類，決定路線規劃時風險的權重比例。新手會更積極地避開高風險路段。
+        </div>
+        <table class="attr-table">
+          <thead>
+            <tr><th>屬性名稱</th><th>資料型別</th><th>鍵值</th><th>詳細說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>user_level_id</code></td><td><code>SERIAL</code></td><td><span class="key-badge pk">PK</span></td><td>等級的唯一識別碼。</td></tr>
+            <tr><td><code>level_code</code></td><td><code>TEXT</code></td><td><span class="key-badge uk">UK</span></td><td>等級代碼，不可重複。<code>BEGINNER</code>（新手）、<code>NORMAL</code>（一般）、<code>EXPERIENCED</code>（熟練）。</td></tr>
+            <tr><td><code>level_name</code></td><td><code>TEXT</code></td><td>—</td><td>等級中文名稱，例如「新手駕駛」，用於前端 UI 顯示。</td></tr>
+            <tr><td><code>risk_weight</code></td><td><code>INTEGER</code></td><td>—</td><td>風險權重（0–100）。數值越高代表路線規劃時越優先避開高風險路段。新手=80、一般=40、熟練=10。此值會被快照複製到 <code>route_request.risk_weight</code> 中。</td></tr>
+            <tr><td><code>min_score</code></td><td><code>INTEGER</code></td><td>—</td><td>晉升至此等級所需的最低累積分數。新手=0（預設入門）、一般=500、熟練=2000。系統依 <code>app_user.total_score</code> 自動判斷等級。</td></tr>
+            <tr><td><code>description</code></td><td><code>TEXT</code></td><td>—</td><td>等級的文字說明，描述此等級駕駛的行為特徵與路線規劃偏好，用於 App 內說明頁面。</td></tr>
+            <tr><td><code>updated_at</code></td><td><code>TIMESTAMP</code></td><td>—</td><td>此等級設定最後一次修改的時間戳記，供管理員追蹤設定變更歷程。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- app_user -->
+      <div class="table-card" id="app_user">
+        <div class="card-header">
+          <span class="table-name">app_user</span>
+          <span class="table-label">使用者帳號</span>
+        </div>
+        <div class="card-desc">
+          儲存所有 App 使用者的帳號資料、個人資訊與等級狀態。
+        </div>
+        <table class="attr-table">
+          <thead>
+            <tr><th>屬性名稱</th><th>資料型別</th><th>鍵值</th><th>詳細說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>user_id</code></td><td><code>SERIAL</code></td><td><span class="key-badge pk">PK</span></td><td>使用者的系統唯一識別碼。</td></tr>
+            <tr><td><code>username</code></td><td><code>TEXT</code></td><td>—</td><td>使用者在 App 中顯示的名稱（暱稱），允許重複，不作為登入識別。</td></tr>
+            <tr><td><code>email</code></td><td><code>TEXT</code></td><td><span class="key-badge uk">UK</span></td><td>電子郵件，作為帳號的唯一登入識別符，不可重複。</td></tr>
+            <tr><td><code>password_hash</code></td><td><code>TEXT</code></td><td>—</td><td>使用者密碼的雜湊值（Hash）。資料庫不儲存明文密碼，保護帳號安全。應使用 bcrypt 或 Argon2 等演算法產生。</td></tr>
+            <tr><td><code>birth_date</code></td><td><code>DATE</code></td><td>—</td><td>出生日期，可用於年齡分布統計分析，或未來實作未成年用戶的功能限制。</td></tr>
+            <tr><td><code>license_date</code></td><td><code>DATE</code></td><td>—</td><td>駕照取得日期，可輔助系統判斷駕駛年資，或作為初始等級設定的參考依據。</td></tr>
+            <tr><td><code>address</code></td><td><code>TEXT</code></td><td>—</td><td>使用者居住地址（純文字記錄），非空間欄位，用於聯絡或統計用途。</td></tr>
+            <tr><td><code>home_lat</code></td><td><code>DECIMAL(10,8)</code></td><td>—</td><td>住家位置緯度，精確到小數點後 8 位（約 1mm 精度）。可作為路線規劃的預設起點。</td></tr>
+            <tr><td><code>home_lng</code></td><td><code>DECIMAL(11,8)</code></td><td>—</td><td>住家位置經度，精確到小數點後 8 位。</td></tr>
+            <tr><td><code>user_level_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge fk">FK</span></td><td>外鍵，關聯到 <code>user_level</code>，代表使用者目前的駕駛等級。當 <code>total_score</code> 達到門檻時，此欄位應由應用程式邏輯更新。</td></tr>
+            <tr><td><code>total_score</code></td><td><code>INTEGER</code></td><td>—</td><td>使用者累積的練習總分數（預設 0）。每次練習完成後依 <code>score_earned</code> 累加，達到門檻後觸發等級晉升。</td></tr>
+            <tr><td><code>role</code></td><td><code>TEXT</code></td><td>—</td><td>帳號角色（預設 <code>user</code>）。<code>user</code> 為一般使用者，<code>admin</code> 為管理員，用於後端 API 的權限控管（RBAC）。</td></tr>
+            <tr><td><code>created_at</code></td><td><code>TIMESTAMP</code></td><td>—</td><td>帳號建立的時間戳記，自動記錄，用於稽核與新用戶趨勢分析。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- user_route_preference -->
+      <div class="table-card" id="user_route_preference">
+        <div class="card-header">
+          <span class="table-name">user_route_preference</span>
+          <span class="table-label">使用者路線偏好（弱實體）</span>
+        </div>
+        <div class="card-desc">
+          弱實體（Weak Entity），每位使用者對應唯一一筆偏好設定，以 <code>user_id</code> 作為主鍵兼外鍵。記錄使用者對路線特性的個人偏好。
+        </div>
+        <table class="attr-table">
+          <thead>
+            <tr><th>屬性名稱</th><th>資料型別</th><th>鍵值</th><th>詳細說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>user_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge pfk">PK+FK</span></td><td>同時為主鍵與外鍵，關聯到 <code>app_user</code>。確保每位使用者只有一筆偏好設定（1:1 關係）。</td></tr>
+            <tr><td><code>avoid_bridge</code></td><td><code>BOOLEAN</code></td><td>—</td><td>是否在路線規劃時避開橋梁。<code>true</code> 表示系統會排除含橋梁路段的路徑；預設 <code>false</code>。</td></tr>
+            <tr><td><code>avoid_tunnel</code></td><td><code>BOOLEAN</code></td><td>—</td><td>是否在路線規劃時避開隧道。<code>true</code> 表示系統會排除含隧道路段的路徑；預設 <code>false</code>。</td></tr>
+            <tr><td><code>updated_at</code></td><td><code>TIMESTAMP</code></td><td>—</td><td>偏好設定最後修改的時間戳記，記錄使用者何時調整設定。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- route_request -->
+      <div class="table-card" id="route_request">
+        <div class="card-header">
+          <span class="table-name">route_request</span>
+          <span class="table-label">路線請求</span>
+        </div>
+        <div class="card-desc">
+          記錄使用者每一次的導航請求，包含起終點座標，以及當下的等級與偏好設定快照。快照設計確保歷史紀錄的資料一致性，不受使用者日後升級或修改偏好影響。
+        </div>
+        <table class="attr-table">
+          <thead>
+            <tr><th>屬性名稱</th><th>資料型別</th><th>鍵值</th><th>詳細說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>request_id</code></td><td><code>SERIAL</code></td><td><span class="key-badge pk">PK</span></td><td>路線請求的唯一識別碼。</td></tr>
+            <tr><td><code>user_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge fk">FK</span></td><td>外鍵，關聯到 <code>app_user</code>，記錄是哪位使用者發出此請求。</td></tr>
+            <tr><td><code>user_level_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge fk">FK</span></td><td>外鍵，記錄請求當下的駕駛等級快照。即使使用者日後升級，此筆歷史紀錄仍保留當時的等級，確保資料可重現性。</td></tr>
+            <tr><td><code>start_lng</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>起點的經度座標。</td></tr>
+            <tr><td><code>start_lat</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>起點的緯度座標。</td></tr>
+            <tr><td><code>end_lng</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>終點的經度座標。</td></tr>
+            <tr><td><code>end_lat</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>終點的緯度座標。</td></tr>
+            <tr><td><code>start_geom</code></td><td><code>geometry(Point)</code></td><td>—</td><td>起點的空間點位，由 <code>start_lng/lat</code> 建構。建有 GIST 索引，供「找最近路網節點」等空間查詢使用，是路線規劃演算法的輸入起點。</td></tr>
+            <tr><td><code>end_geom</code></td><td><code>geometry(Point)</code></td><td>—</td><td>終點的空間點位，用途同 <code>start_geom</code>，作為路線規劃的終點輸入。</td></tr>
+            <tr><td><code>risk_weight</code></td><td><code>INTEGER</code></td><td>—</td><td>請求當下的風險權重快照（從 <code>user_level.risk_weight</code> 複製）。路線規劃演算法直接使用此值，確保即使等級參數日後調整，歷史路線仍可正確重算。</td></tr>
+            <tr><td><code>avoid_bridge</code></td><td><code>BOOLEAN</code></td><td>—</td><td>此次請求的避橋梁設定快照（從 <code>user_route_preference</code> 複製），同樣是歷史不可變設計。</td></tr>
+            <tr><td><code>avoid_tunnel</code></td><td><code>BOOLEAN</code></td><td>—</td><td>此次請求的避隧道設定快照。</td></tr>
+            <tr><td><code>created_at</code></td><td><code>TIMESTAMP</code></td><td>—</td><td>請求建立的時間戳記，可用於分析使用者的導航行為時段分布。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- route -->
+      <div class="table-card" id="route">
+        <div class="card-header">
+          <span class="table-name">route</span>
+          <span class="table-label">路線結果</span>
+        </div>
+        <div class="card-desc">
+          儲存每次路線請求計算出的路線摘要資訊。一個請求可能產生多條路線（例如同時提供「最短距離」與「最低風險」兩條備選路線）。
+        </div>
+        <table class="attr-table">
+          <thead>
+            <tr><th>屬性名稱</th><th>資料型別</th><th>鍵值</th><th>詳細說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>route_id</code></td><td><code>SERIAL</code></td><td><span class="key-badge pk">PK</span></td><td>路線的唯一識別碼。</td></tr>
+            <tr><td><code>request_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge fk">FK</span></td><td>外鍵，關聯到 <code>route_request</code>，對應產生此路線的請求。</td></tr>
+            <tr><td><code>route_name</code></td><td><code>TEXT</code></td><td>—</td><td>路線名稱，可由系統自動命名（例如「最短路線」、「最安全路線」）或由使用者自訂，方便日後識別與收藏。</td></tr>
+            <tr><td><code>total_distance_m</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>路線全程總距離（公尺），由各路段的 <code>segment_distance_m</code> 加總而來，顯示於導航 UI 上。</td></tr>
+            <tr><td><code>total_base_cost</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>路線的純距離成本總和（不含風險加權），反映若只考慮最短距離時的基礎行駛成本。</td></tr>
+            <tr><td><code>total_risk_score</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>路線的總風險分數，由各路段的 <code>segment_risk_score</code> 加總而來，用於向使用者展示「這條路線整體有多危險」。</td></tr>
+            <tr><td><code>total_final_cost</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>路線最終綜合成本，結合距離成本與風險分數（依 <code>risk_weight</code> 加權）的總和，是多條備選路線排名比較的依據。</td></tr>
+            <tr><td><code>created_at</code></td><td><code>TIMESTAMP</code></td><td>—</td><td>路線計算完成的時間戳記。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- route_segment -->
+      <div class="table-card" id="route_segment">
+        <div class="card-header">
+          <span class="table-name">route_segment</span>
+          <span class="table-label">路線路段明細（弱實體）</span>
+        </div>
+        <div class="card-desc">
+          弱實體，記錄路線中每一段路段邊的詳細成本與順序，是路線的逐段分解明細表。主鍵為 <code>(route_id, sequence_order)</code> 複合鍵。
+        </div>
+        <table class="attr-table">
+          <thead>
+            <tr><th>屬性名稱</th><th>資料型別</th><th>鍵值</th><th>詳細說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>route_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge pfk">PK+FK</span></td><td>複合主鍵之一，外鍵關聯到 <code>route</code>，標示此路段屬於哪條路線。</td></tr>
+            <tr><td><code>sequence_order</code></td><td><code>INTEGER</code></td><td><span class="key-badge pk">PK</span></td><td>複合主鍵之一，此路段在整條路線中的行駛順序編號（1, 2, 3...）。依此欄位排序可還原完整的行駛路徑。</td></tr>
+            <tr><td><code>edge_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge fk">FK</span></td><td>外鍵，關聯到 <code>road_edge</code>，指出此順序的路段對應到路網中的哪條邊。</td></tr>
+            <tr><td><code>segment_distance_m</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>此路段的長度（公尺），來自 <code>road_edge.length</code>。</td></tr>
+            <tr><td><code>segment_base_cost</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>此路段的純距離成本（不含風險），來自 <code>road_edge.cost</code>。</td></tr>
+            <tr><td><code>segment_risk_score</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>此路段的風險分數，來自 <code>edge_risk_score.risk_score</code>，代表此段路的危險程度。</td></tr>
+            <tr><td><code>segment_final_cost</code></td><td><code>DOUBLE PRECISION</code></td><td>—</td><td>此路段的最終綜合成本（距離成本 + 風險分數 × risk_weight）。演算法選路時以最小化各路段 <code>segment_final_cost</code> 的加總為目標。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- user_practice_history -->
+      <div class="table-card" id="user_practice_history">
+        <div class="card-header">
+          <span class="table-name">user_practice_history</span>
+          <span class="table-label">使用者練習歷史</span>
+        </div>
+        <div class="card-desc">
+          記錄使用者每次駕駛練習的歷程、狀態與得分。累積分數達到門檻後可觸發等級晉升，是整個成長系統的核心記錄。
+        </div>
+        <table class="attr-table">
+          <thead>
+            <tr><th>屬性名稱</th><th>資料型別</th><th>鍵值</th><th>詳細說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>practice_id</code></td><td><code>SERIAL</code></td><td><span class="key-badge pk">PK</span></td><td>練習記錄的唯一識別碼。</td></tr>
+            <tr><td><code>user_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge fk">FK</span></td><td>外鍵，關聯到 <code>app_user</code>，記錄是哪位使用者的練習記錄。</td></tr>
+            <tr><td><code>route_id</code></td><td><code>INTEGER</code></td><td><span class="key-badge fk">FK</span></td><td>外鍵，關聯到 <code>route</code>，記錄此次練習使用的路線。允許 NULL，代表非路線導向的自由練習模式。</td></tr>
+            <tr><td><code>practice_time</code></td><td><code>TIMESTAMP</code></td><td>—</td><td>練習開始的時間戳記（預設為當下時間）。可用於統計使用者的練習頻率與高峰時段。</td></tr>
+            <tr><td><code>status</code></td><td><code>TEXT</code></td><td>—</td><td>練習狀態（預設 <code>in_progress</code>）。可能的值：<code>in_progress</code>（進行中）、<code>completed</code>（成功完成）、<code>abandoned</code>（中途放棄）。只有 <code>completed</code> 狀態才應計分。</td></tr>
+            <tr><td><code>selected_difficulty</code></td><td><code>TEXT</code></td><td>—</td><td>使用者此次選擇的練習難度，例如 <code>easy</code>、<code>medium</code>、<code>hard</code>。難度越高，<code>score_earned</code> 的乘數越大，鼓勵使用者挑戰更難的路線。</td></tr>
+            <tr><td><code>score_earned</code></td><td><code>INTEGER</code></td><td>—</td><td>此次練習獲得的分數（預設 0）。完成後累加至 <code>app_user.total_score</code>，達到 <code>user_level.min_score</code> 門檻時觸發晉升邏輯。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /section-group -->
+
+  </main>
+</div>
+
+<footer>
+  駕駛路線資料庫 · 龜山區路網風險分析系統 · 資料表說明文件 v1.0
+</footer>
+
+</body>
+</html>
