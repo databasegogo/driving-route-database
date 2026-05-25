@@ -48,27 +48,29 @@ CREATE INDEX app_user_level_idx ON app_user(user_level_id);
 
 -- 3. User Route Preference (weak entity)
 CREATE TABLE user_route_preference (
-  user_id      INTEGER PRIMARY KEY REFERENCES app_user(user_id),
-  avoid_bridge BOOLEAN NOT NULL DEFAULT false,
-  avoid_tunnel BOOLEAN NOT NULL DEFAULT false,
-  updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  user_id         INTEGER PRIMARY KEY REFERENCES app_user(user_id),
+  avoid_bridge    BOOLEAN NOT NULL DEFAULT false,
+  avoid_tunnel    BOOLEAN NOT NULL DEFAULT false,
+  max_distance_m  INTEGER DEFAULT NULL,  -- NULL = 不限制距離
+  updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 4. Route Request
 CREATE TABLE route_request (
-  request_id    SERIAL PRIMARY KEY,
-  user_id       INTEGER NOT NULL REFERENCES app_user(user_id),
-  user_level_id INTEGER NOT NULL REFERENCES user_level(user_level_id),
-  start_lng     DOUBLE PRECISION NOT NULL,
-  start_lat     DOUBLE PRECISION NOT NULL,
-  end_lng       DOUBLE PRECISION NOT NULL,
-  end_lat       DOUBLE PRECISION NOT NULL,
-  start_geom    geometry(Point, 4326),
-  end_geom      geometry(Point, 4326),
-  risk_weight   INTEGER NOT NULL,
-  avoid_bridge  BOOLEAN NOT NULL DEFAULT false,
-  avoid_tunnel  BOOLEAN NOT NULL DEFAULT false,
-  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  request_id      SERIAL PRIMARY KEY,
+  user_id         INTEGER NOT NULL REFERENCES app_user(user_id),
+  user_level_id   INTEGER NOT NULL REFERENCES user_level(user_level_id),
+  start_lng       DOUBLE PRECISION NOT NULL,
+  start_lat       DOUBLE PRECISION NOT NULL,
+  end_lng         DOUBLE PRECISION NOT NULL,
+  end_lat         DOUBLE PRECISION NOT NULL,
+  start_geom      geometry(Point, 4326),
+  end_geom        geometry(Point, 4326),
+  risk_weight     INTEGER NOT NULL,
+  avoid_bridge    BOOLEAN NOT NULL DEFAULT false,
+  avoid_tunnel    BOOLEAN NOT NULL DEFAULT false,
+  max_distance_m  INTEGER DEFAULT NULL,  -- 快照當下設定，NULL = 不限制
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX route_request_user_idx   ON route_request(user_id);
