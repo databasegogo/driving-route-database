@@ -79,14 +79,15 @@ CREATE INDEX route_request_geom_e_idx ON route_request USING GIST(end_geom);
 
 -- 5. Route
 CREATE TABLE route (
-  route_id         SERIAL PRIMARY KEY,
-  request_id       INTEGER NOT NULL REFERENCES route_request(request_id),
-  route_name       TEXT,
-  total_distance_m DOUBLE PRECISION,
-  total_base_cost  DOUBLE PRECISION,
-  total_risk_score DOUBLE PRECISION,
-  total_final_cost DOUBLE PRECISION,
-  created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  route_id                SERIAL PRIMARY KEY,
+  request_id              INTEGER NOT NULL REFERENCES route_request(request_id),
+  route_name              TEXT,
+  total_distance_m        DOUBLE PRECISION,
+  total_base_cost         DOUBLE PRECISION,
+  total_risk_score        DOUBLE PRECISION,
+  total_final_cost        DOUBLE PRECISION,
+  estimated_duration_sec  INTEGER,          -- 預估行駛時間（秒）= 距離 ÷ 平均速度
+  created_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX route_request_idx ON route(request_id);
@@ -110,10 +111,12 @@ CREATE TABLE user_practice_history (
   practice_id         SERIAL PRIMARY KEY,
   user_id             INTEGER NOT NULL REFERENCES app_user(user_id),
   route_id            INTEGER REFERENCES route(route_id),
-  practice_time       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  status              TEXT NOT NULL DEFAULT 'in_progress',
-  selected_difficulty TEXT NOT NULL,
-  score_earned        INTEGER NOT NULL DEFAULT 0
+  practice_time       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 練習開始時間
+  end_time            TIMESTAMP DEFAULT NULL,                        -- 練習結束時間（NULL = 尚未結束）
+  status              TEXT NOT NULL DEFAULT 'in_progress',           -- completed / in_progress / abandoned
+  selected_difficulty TEXT NOT NULL,                                 -- BEGINNER / NORMAL / EXPERIENCED（依等級限制可選範圍）
+  score_earned        INTEGER NOT NULL DEFAULT 0,                    -- 基本分數
+  time_bonus          INTEGER NOT NULL DEFAULT 0                     -- 準時完成加分（超時則為 0）
 );
 
 CREATE INDEX practice_user_idx  ON user_practice_history(user_id);
