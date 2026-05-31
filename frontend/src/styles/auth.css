@@ -1,0 +1,144 @@
+.auth-page {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f2f5;
+  padding: 24px;
+}
+
+.auth-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 48px 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+.auth-card.wide {
+  max-width: 560px;
+}
+
+.auth-card h1 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #111;
+  margin: 0 0 8px;
+  text-align: center;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #888;
+  text-align: center;
+  margin: 0 0 28px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.field.full-width {
+  grid-column: 1 / -1;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #444;
+}
+
+.field input {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #111;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.field input:focus {
+  border-color: #4f7cff;
+  box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.12);
+}
+
+.error-msg {
+  color: #e53e3e;
+  font-size: 13px;
+  margin: 0 0 12px;
+  text-align: center;
+}
+
+.auth-btn {
+  width: 100%;
+  padding: 12px;
+  background: #4f7cff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: background 0.2s;
+}
+
+.auth-btn:hover { background: #3b68f0; }
+.auth-btn:active { background: #2f5de0; }
+
+.switch-link {
+  text-align: center;
+  font-size: 13px;
+  color: #888;
+  margin: 20px 0 0;
+}
+
+.switch-link a {
+  color: #4f7cff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.switch-link a:hover { text-decoration: underline; }
+
+.addr-section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4f7cff;
+  margin: 8px 0 10px;
+}
+
+.addr-grid-reg {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,2fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 560px) {
+  .addr-grid-reg { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+.success-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
