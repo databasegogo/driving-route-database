@@ -50,10 +50,15 @@ export default function RouteDetail() {
 
   async function handleComplete() {
     endRef.current = new Date()
+    // 計算實際練習秒數（有開始才算）
+    const actualSec = startRef.current
+      ? Math.floor((endRef.current - startRef.current) / 1000)
+      : null
     try {
       const res = await api.post('/practice/complete', {
         route_id:             route.route_id,
         selected_difficulty:  route.diffCode,
+        actual_duration_sec:  actualSec,
       })
       setResult(res.data)  // { score_earned, new_total_score, new_level }
 

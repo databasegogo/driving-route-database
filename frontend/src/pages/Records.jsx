@@ -8,26 +8,31 @@ import '../styles/records.css'
 const DIFF_STARS = { BEGINNER: 1, NORMAL: 2, EXPERIENCED: 3 }
 
 // 把後端歷史紀錄格式轉成前端顯示格式
+function fmtHHMM(isoStr) {
+  if (!isoStr) return '--'
+  const dt = new Date(isoStr)
+  return `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`
+}
+
 function fromBackend(h) {
-  const dt = new Date(h.practice_time)
-  const mm = String(dt.getMonth() + 1).padStart(2, '0')
-  const dd = String(dt.getDate()).padStart(2, '0')
-  const hh = String(dt.getHours()).padStart(2, '0')
-  const min = String(dt.getMinutes()).padStart(2, '0')
+  const dt  = new Date(h.practice_time)
+  const mm  = String(dt.getMonth() + 1).padStart(2, '0')
+  const dd  = String(dt.getDate()).padStart(2, '0')
   return {
     id:         h.practice_id,
     date:       `${mm}/${dd}`,
-    startTime:  `${hh}:${min}`,
-    endTime:    '--',           // 後端只記開始時間
+    startTime:  fmtHHMM(h.practice_time),
+    endTime:    fmtHHMM(h.end_time),       // 後端現在有 end_time
     routeName:  h.route_name,
     distance:   h.total_distance_m ? +(h.total_distance_m / 1000).toFixed(2) : '--',
     difficulty: DIFF_STARS[h.selected_difficulty] ?? 1,
     diffCode:   h.selected_difficulty,
     status:     h.status ?? 'completed',
     score:      h.score_earned,
+    timeBonus:  h.time_bonus ?? 0,
     prefs:      { bridge: false, tunnel: false },
-    coords:     null,          // 後端沒有回傳幾何，地圖功能不可用
-    favorited:  false,
+    coords:     null,
+    favorited:  h.is_favorite ?? false,    // 從後端取
   }
 }
 
@@ -95,6 +100,8 @@ export default function Records() {
     const updated = records.map(r => r.id === id ? { ...r, favorited: !r.favorited } : r)
     setRecords(updated)
     localStorage.setItem('practiceRecords', JSON.stringify(updated))
+    // 同步到後端
+    api.put(`/practice/${id}/favorite`).catch(() => {})
   }
 
   const total     = records.length

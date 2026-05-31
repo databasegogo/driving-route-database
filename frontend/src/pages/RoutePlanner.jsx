@@ -72,22 +72,11 @@ function RoutePlanner() {
         avoid_tunnel:         !tunnel,
       })
 
-      // Step 3：帶著後端路線資料進入地圖頁
-      navigate('/route-detail', {
+      // Step 3：帶著後端多條路線資料進入選擇頁
+      navigate('/route-select', {
         state: {
-          route: {
-            route_id:       res.data.route_id,
-            start,          end,
-            startCoord,     endCoord,
-            distanceM:      res.data.total_distance_m,
-            distance:       +(res.data.total_distance_m / 1000).toFixed(2),
-            time:           Math.round(res.data.total_distance_m / 1000 * 4.4),
-            difficulty,
-            diffCode:       DIFF_CODE[difficulty],
-            estimatedScore: res.data.estimated_score,
-            segments:       res.data.segments,  // GeoJSON FeatureCollection
-          },
-          prefs: { start, end, bridge, tunnel, maxDist, difficulty },
+          routes: res.data.routes,   // 陣列，最多 3 條
+          prefs:  { start, end, startCoord, endCoord, bridge, tunnel, maxDist, difficulty },
         }
       })
     } catch (err) {
