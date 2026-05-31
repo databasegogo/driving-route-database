@@ -1,4 +1,4 @@
--- 02_create_graph_tables.sql
+-- 03_create_graph_tables.sql
 -- Build graph edge table from OSM roads.
 
 DROP TABLE IF EXISTS road_edges_guishan;
@@ -30,9 +30,18 @@ SET
       ELSE length
     END;
 
+-- tolerance 0.0001 度（約 11 公尺）確保節點正確合併，圖連通
 SELECT pgr_createtopology(
   'road_edges_guishan',
-  0.00001,
+  0.0001,
   'geom',
   'edge_id'
+);
+
+-- 重建頂點表（確保 road_edges_guishan_vertices_pgr 有資料）
+SELECT pgr_createVerticesTable(
+  'road_edges_guishan',
+  'geom',
+  'source',
+  'target'
 );
