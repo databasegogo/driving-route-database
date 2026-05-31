@@ -21,6 +21,11 @@ ALTER TABLE road_edges_guishan ADD COLUMN target INTEGER;
 ALTER TABLE road_edges_guishan ADD COLUMN cost DOUBLE PRECISION;
 ALTER TABLE road_edges_guishan ADD COLUMN reverse_cost DOUBLE PRECISION;
 
+-- 空間索引（KNN 查詢必備）
+CREATE INDEX road_edges_guishan_geom_idx
+ON road_edges_guishan
+USING GIST (geom);
+
 UPDATE road_edges_guishan
 SET
   cost = length,

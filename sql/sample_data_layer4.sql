@@ -31,50 +31,52 @@ VALUES
 -- =====================
 -- 2. user_route_preference
 -- =====================
-INSERT INTO user_route_preference (user_id, avoid_bridge, avoid_tunnel)
+INSERT INTO user_route_preference (user_id, avoid_bridge, avoid_tunnel, max_distance_m)
 VALUES
-  (1, true,  true),   -- 新手：避橋避隧道
-  (2, true,  false),  -- 一般：只避橋
-  (3, false, false),  -- 熟練：不避任何
-  (4, false, false);  -- admin
+  (1, true,  true,  10000),  -- 新手：避橋避隧道，限10km
+  (2, true,  false, 20000),  -- 一般：只避橋，限20km
+  (3, false, false, NULL),   -- 熟練：不限制
+  (4, false, false, NULL);   -- admin
 
 -- =====================
 -- 3. route_request
 -- =====================
 INSERT INTO route_request
   (user_id, user_level_id, start_lng, start_lat, end_lng, end_lat,
-   start_geom, end_geom, risk_weight, avoid_bridge, avoid_tunnel)
+   start_geom, end_geom, risk_weight, avoid_bridge, avoid_tunnel, max_distance_m)
 VALUES
   (1, 1,
    121.3012, 24.9985,
    121.3350, 25.0100,
    ST_SetSRID(ST_Point(121.3012, 24.9985), 4326),
    ST_SetSRID(ST_Point(121.3350, 25.0100), 4326),
-   80, true, true),
+   80, true, true, 10000),
 
   (2, 2,
    121.3150, 25.0010,
    121.2980, 24.9920,
    ST_SetSRID(ST_Point(121.3150, 25.0010), 4326),
    ST_SetSRID(ST_Point(121.2980, 24.9920), 4326),
-   40, true, false),
+   40, true, false, 20000),
 
   (3, 3,
    121.2980, 24.9920,
    121.3500, 25.0200,
    ST_SetSRID(ST_Point(121.2980, 24.9920), 4326),
    ST_SetSRID(ST_Point(121.3500, 25.0200), 4326),
-   10, false, false);
+   10, false, false, NULL);
 
 -- =====================
 -- 4. route
+-- estimated_duration_sec = 距離 ÷ (30km/h) × 1.2
 -- =====================
 INSERT INTO route
-  (request_id, route_name, total_distance_m, total_base_cost, total_risk_score, total_final_cost)
+  (request_id, route_name, total_distance_m, total_base_cost,
+   total_risk_score, total_final_cost, estimated_duration_sec)
 VALUES
-  (1, '安全路線', 4250.5, 4250.5, 12.3,  5234.5),
-  (2, '建議路線', 3820.0, 3820.0, 18.7,  4568.0),
-  (3, '最短路線', 3100.0, 3100.0, 45.2,  3552.0);
+  (1, '安全路線', 4250.5, 4250.5, 12.3,  5234.5, 612),   -- 4250 / 8.33 * 1.2 ≈ 612s
+  (2, '建議路線', 3820.0, 3820.0, 18.7,  4568.0, 550),   -- 3820 / 8.33 * 1.2 ≈ 550s
+  (3, '最短路線', 3100.0, 3100.0, 45.2,  3552.0, 446);   -- 3100 / 8.33 * 1.2 ≈ 446s
 
 -- =====================
 -- 5. route_segment（每條路線取3個 edge 示意）
@@ -96,16 +98,17 @@ VALUES
 
 -- =====================
 -- 6. user_practice_history
+-- time_bonus = base_score * 0.5（若在 estimated_duration_sec 內完成）
 -- =====================
 INSERT INTO user_practice_history
-  (user_id, route_id, practice_time, status, selected_difficulty, score_earned)
+  (user_id, route_id, practice_time, end_time, status, selected_difficulty, score_earned, time_bonus)
 VALUES
-  (1, 1, '2026-05-20 09:30:00', 'completed',   'BEGINNER',    4),
-  (1, 1, '2026-05-21 10:00:00', 'completed',   'BEGINNER',    4),
-  (2, 2, '2026-05-19 14:00:00', 'completed',   'NORMAL',     15),
-  (2, 2, '2026-05-22 16:30:00', 'abandoned',   'NORMAL',      0),
-  (3, 3, '2026-05-18 08:00:00', 'completed',   'EXPERIENCED', 9),
-  (1, 2, '2026-05-23 11:00:00', 'in_progress', 'BEGINNER',    0);
+  (1, 1, '2026-05-20 09:30:00', '2026-05-20 09:39:00', 'completed',   'BEGINNER',    6,  2),  -- 540s < 612s，有加分
+  (1, 1, '2026-05-21 10:00:00', '2026-05-21 10:12:00', 'completed',   'BEGINNER',    4,  0),  -- 720s > 612s，無加分
+  (2, 2, '2026-05-19 14:00:00', '2026-05-19 14:08:00', 'completed',   'NORMAL',     18,  6),  -- 480s < 550s，有加分
+  (2, 2, '2026-05-22 16:30:00', NULL,                  'abandoned',   'NORMAL',      0,  0),
+  (3, 3, '2026-05-18 08:00:00', '2026-05-18 08:06:00', 'completed',   'EXPERIENCED',12,  3),  -- 360s < 446s，有加分
+  (1, 2, '2026-05-23 11:00:00', NULL,                  'in_progress', 'BEGINNER',    0,  0);
 
 -- =====================
 -- 驗證
