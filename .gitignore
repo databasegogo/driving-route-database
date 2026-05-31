@@ -1,29 +1,30 @@
-# Large raw datasets
+# ── 大型原始資料 ──────────────────────────────────────────────────
 data/raw/*.csv
 data/raw/*.zip
 
-# OSM shapefile datasets
+# OSM shapefile
 data/gis_osm_*.shp
 data/gis_osm_*.shx
 data/gis_osm_*.dbf
 data/gis_osm_*.prj
 data/gis_osm_*.cpg
 
-# Optional large export files
+# 資料庫備份
 *.dump
-*.bak# Large raw datasets
-data/raw/*.csv
-data/raw/*.zip
+*.bak
 
-# OSM shapefile datasets
-data/gis_osm_*.shp
-data/gis_osm_*.shx
-data/gis_osm_*.dbf
-data/gis_osm_*.prj
-data/gis_osm_*.cpg
+# ── Python ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.env
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
 
-# Optional large export files
-*.dump
-*.bakdata/raw/*.csv
-data/raw/*.zip
-
+# ── Node (不小心裝的) ─────────────────────────────────────────────
+node_modules/
+package-lock.json
