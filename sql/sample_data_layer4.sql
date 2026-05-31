@@ -101,14 +101,14 @@ VALUES
 -- time_bonus = base_score * 0.5（若在 estimated_duration_sec 內完成）
 -- =====================
 INSERT INTO user_practice_history
-  (user_id, route_id, practice_time, end_time, status, selected_difficulty, score_earned, time_bonus)
+  (user_id, route_id, practice_time, end_time, status, selected_difficulty, score_earned, time_bonus, is_favorite)
 VALUES
-  (1, 1, '2026-05-20 09:30:00', '2026-05-20 09:39:00', 'completed',   'BEGINNER',    6,  2),  -- 540s < 612s，有加分
-  (1, 1, '2026-05-21 10:00:00', '2026-05-21 10:12:00', 'completed',   'BEGINNER',    4,  0),  -- 720s > 612s，無加分
-  (2, 2, '2026-05-19 14:00:00', '2026-05-19 14:08:00', 'completed',   'NORMAL',     18,  6),  -- 480s < 550s，有加分
-  (2, 2, '2026-05-22 16:30:00', NULL,                  'abandoned',   'NORMAL',      0,  0),
-  (3, 3, '2026-05-18 08:00:00', '2026-05-18 08:06:00', 'completed',   'EXPERIENCED',12,  3),  -- 360s < 446s，有加分
-  (1, 2, '2026-05-23 11:00:00', NULL,                  'in_progress', 'BEGINNER',    0,  0);
+  (1, 1, '2026-05-20 09:30:00', '2026-05-20 09:39:00', 'completed',   'BEGINNER',    6,  2, true),   -- 收藏
+  (1, 1, '2026-05-21 10:00:00', '2026-05-21 10:12:00', 'completed',   'BEGINNER',    4,  0, false),
+  (2, 2, '2026-05-19 14:00:00', '2026-05-19 14:08:00', 'completed',   'NORMAL',     18,  6, true),   -- 收藏
+  (2, 2, '2026-05-22 16:30:00', NULL,                  'abandoned',   'NORMAL',      0,  0, false),
+  (3, 3, '2026-05-18 08:00:00', '2026-05-18 08:06:00', 'completed',   'EXPERIENCED',12,  3, false),
+  (1, 2, '2026-05-23 11:00:00', NULL,                  'in_progress', 'BEGINNER',    0,  0, false);
 
 -- =====================
 -- 驗證

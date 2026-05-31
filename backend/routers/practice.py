@@ -13,8 +13,8 @@ LEVEL_CODE   = {1: "BEGINNER", 2: "NORMAL", 3: "EXPERIENCED"}
 
 class PracticeRequest(BaseModel):
     route_id:             int
-    selected_difficulty:  str            # "BEGINNER" / "NORMAL" / "EXPERIENCED"
-    actual_duration_sec:  int | None = None  # 實際練習秒數（前端計時後傳入，None = 不計時）
+    selected_difficulty:  str
+    actual_duration_sec:  int | None = None  # 實際練習秒數（None = 不計時）
 
 
 @router.post("/complete")
@@ -84,7 +84,7 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
         """, (score_earned, user_id))
         new_total = cur.fetchone()[0]
 
-        # 7. 自動升等：找到分數已達門檻的最高等級
+        # 7. 自動升等
         cur.execute("""
             UPDATE app_user
             SET user_level_id = (
@@ -137,6 +137,7 @@ def get_history(current_user: dict = Depends(get_current_user)):
                 ph.selected_difficulty,
                 ph.score_earned,
                 ph.time_bonus,
+                ph.is_favorite,
                 r.total_distance_m,
                 r.route_name
             FROM user_practice_history ph
@@ -159,8 +160,9 @@ def get_history(current_user: dict = Depends(get_current_user)):
                     "selected_difficulty": row[5],
                     "score_earned":        row[6],
                     "time_bonus":          row[7],
-                    "total_distance_m":    round(row[8], 2) if row[8] else None,
-                    "route_name":          row[9],
+                    "is_favorite":         row[8],
+                    "total_distance_m":    round(row[9], 2) if row[9] else None,
+                    "route_name":          row[10],
                 }
                 for row in rows
             ]
@@ -169,6 +171,46 @@ def get_history(current_user: dict = Depends(get_current_user)):
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(500, str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+
+@router.put("/{practice_id}/favorite")
+def toggle_favorite(practice_id: int, current_user: dict = Depends(get_current_user)):
+    """切換練習紀錄的愛心收藏狀態"""
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
+        user_id = current_user["user_id"]
+
+        # 確認紀錄存在且屬於此使用者
+        cur.execute(
+            "SELECT is_favorite FROM user_practice_history WHERE practice_id = %s AND user_id = %s",
+            (practice_id, user_id)
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "PRACTICE_NOT_FOUND")
+
+        new_value = not row[0]
+
+        cur.execute("""
+            UPDATE user_practice_history
+            SET is_favorite = %s
+            WHERE practice_id = %s AND user_id = %s
+            RETURNING is_favorite
+        """, (new_value, practice_id, user_id))
+        result = cur.fetchone()[0]
+        conn.commit()
+
+        return {"practice_id": practice_id, "is_favorite": result}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
         raise HTTPException(500, str(e))
     finally:
         cur.close()

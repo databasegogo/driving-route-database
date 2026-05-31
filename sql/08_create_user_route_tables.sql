@@ -116,7 +116,8 @@ CREATE TABLE user_practice_history (
   status              TEXT NOT NULL DEFAULT 'in_progress',           -- completed / in_progress / abandoned
   selected_difficulty TEXT NOT NULL,                                 -- BEGINNER / NORMAL / EXPERIENCED（依等級限制可選範圍）
   score_earned        INTEGER NOT NULL DEFAULT 0,                    -- 基本分數
-  time_bonus          INTEGER NOT NULL DEFAULT 0                     -- 準時完成加分（超時則為 0）
+  time_bonus          INTEGER NOT NULL DEFAULT 0,                    -- 準時完成加分（超時則為 0）
+  is_favorite         BOOLEAN NOT NULL DEFAULT false                 -- 使用者愛心收藏
 );
 
 CREATE INDEX practice_user_idx  ON user_practice_history(user_id);
