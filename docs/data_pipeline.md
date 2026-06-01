@@ -1,84 +1,151 @@
 # Data Pipeline
 
-## Overview
+## 概覽
 
-本專案資料流程主要分為三層：
+```
+OSM Shapefile（roads, adminareas）
+        ↓  shp2pgsql
+Layer 1：原始資料表（roads, adminareas, accident_records）
+        ↓  SQL 02-03
+Layer 2：處理層（roads_guishan, road_edges_guishan, 事故對應）
+        ↓  SQL 04-06
+Layer 2：風險計算（edge_risk_score）
+        ↓  SQL 07
+Layer 3：正規化核心表（district, road, road_edge, accident, edge_risk_score）
+        ↓  SQL 08
+Layer 4：應用層（user_level, app_user, route, user_practice_history...）
+        ↓  SQL 09
+輔助表：main_component_nodes（確保路線連通性）
+```
 
-1. 原始空間資料匯入
-2. 道路 graph 建立
-3. 交通事故資料對應與風險計算
+---
 
-## Pipeline Steps
+## 各步驟說明
 
-### 1. Import OSM Data
+### SQL 01 — 啟用擴充
+```sql
+CREATE EXTENSION postgis;
+CREATE EXTENSION postgis_topology;
+CREATE EXTENSION pgrouting;
+```
 
-匯入 OpenStreetMap 資料：
+---
 
-- roads
-- adminareas
+### OSM 匯入 — shp2pgsql
+```bash
+shp2pgsql -I -s 4326 gis_osm_roads_free_1.shp roads | psql -d gisdb
+shp2pgsql -I -s 4326 gis_osm_adminareas_a_free_1.shp adminareas | psql -d gisdb
+```
 
--> Filter Guishan District
--> Import Accident Data
--> Match Accidents to Road Edges
--> Build Edge Risk
-### 2. Filter Guishan District
+---
 
-使用 adminareas 中的龜山區行政邊界篩選資料。
+### SQL 02 — 篩選龜山區
+```sql
+CREATE TABLE roads_guishan AS
+SELECT r.* FROM roads r
+JOIN adminareas g ON ST_Intersects(r.geom, g.geom)
+WHERE g.name = '龜山區' AND g.fclass = 'admin_level7';
+```
 
-目前龜山區使用：
+---
 
-```text
-adminareas.ogc_fid = 8066
-name = 龜山
-
-### 3. Build Road Grap
-由 roads_guishan 建立 road_edges_guishan。
-
-使用 pgRouting 建立 topology：
-
-SQL:
-
+### SQL 03 — 建立 pgRouting Topology
+```sql
 SELECT pgr_createtopology(
   'road_edges_guishan',
-  0.00001,
+  0.0001,       -- tolerance：約 11 公尺，確保節點正確合併
   'geom',
   'edge_id'
 );
 
-產生: 
-road_edges_guishan.source
-road_edges_guishan.target
-road_edge_guishan_vertices_pgr
+SELECT pgr_createVerticesTable(
+  'road_edges_guishan', 'geom', 'source', 'target'
+);
+```
 
-###4.Import Accident Data
-匯入政府公開交通事故資料：
-accident_records_a1
-accident_records_a2
+產生：
+- `road_edges_guishan_vertices_pgr`：7,727 個節點
+- `road_edges_guishan.source` / `.target`：已填入節點 id
 
-並建立geom:
-ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
+---
 
-###5.Filter Accident Data by Guishan
-使用龜山區行政邊界篩選：
-accident_records_a1_guishan
-accident_records_a2_guishan
+### SQL 04 — 匯入事故資料
+從 CSV 匯入 A1（死亡）和 A2（受傷）事故資料，建立 geom 欄位。
 
-###6.Match Accidents to Road Edges
-將事故點對應到最近的 road edge：
-nearest_edge_id
-distance_to_edge_m
+---
 
-###7.Build Edge Risk
-合併 A1 / A2 後建立：
-accident_records_all_guishan
-edge_risk_guishan
+### SQL 05 — 事故對應 Edge
+```sql
+UPDATE accident_records_a1_guishan a
+SET nearest_edge_id = (
+  SELECT e.edge_id FROM road_edges_guishan e
+  ORDER BY a.geom <-> e.geom LIMIT 1
+);
+```
 
-目前 edge risk v1 包含：
-accident_count
-severity_score
-accident_density
+---
 
-## Current Limitation
-目前 risk_score 正規化方式尚未定案。
-後續需討論事故密度、極端值處理、路口事故分配與 routing cost function。
+### SQL 06 — 計算道路風險
+```sql
+risk_score = severity_score / (edge_length_km)
+-- A1 事故 × 3 權重，A2 事故 × 2 權重
+```
 
+---
+
+### SQL 07 — 正規化 3NF 資料表
+將 Layer 2 的處理結果整理為正規化的核心資料表：
+- district, road, road_edge
+- accident_severity, accident, accident_edge_match
+- edge_risk_score
+
+---
+
+### SQL 08 — 應用層資料表
+建立使用者系統與路線規劃所需的表格：
+- user_level（含升等門檻）
+- app_user, user_route_preference
+- route_request, route, route_segment
+- user_practice_history
+
+---
+
+### SQL 09 — 路由輔助表
+```sql
+CREATE TABLE main_component_nodes AS
+SELECT node FROM pgr_connectedComponents(...)
+WHERE component = (最大的連通圖);
+```
+
+路網有多個孤立的小片段，共 7,727 個節點但最大連通圖只有 **1,082 個節點**。
+路線規劃的起終點節點都限制在這 1,082 個節點內，確保一定找得到路。
+
+---
+
+## Routing Cost 公式
+
+```
+final_cost = base_cost + risk_score × risk_weight
+
+risk_weight：
+  BEGINNER    = 80  （最重視安全）
+  NORMAL      = 40
+  EXPERIENCED = 10  （最接近一般導航）
+
+avoid_bridge / avoid_tunnel：
+  True → 該路段 cost 強制設為 999999（幾乎不會選到）
+```
+
+---
+
+## 計分公式
+
+```
+base_score  = floor(distance_km) × difficulty_weight
+time_bonus  = floor(base_score × 0.5)  -- 僅在預估時間內完成才有
+score_earned = base_score + time_bonus
+
+difficulty_weight：BEGINNER=1, NORMAL=2, EXPERIENCED=3
+
+estimated_duration_sec = distance_m ÷ (30km/h) × 1.2 緩衝
+```
