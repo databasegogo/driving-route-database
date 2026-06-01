@@ -1,7 +1,25 @@
-/* ── Shared header / page shell ─────────────────────────── */
+/* ==========================================================================
+   🌿 北歐晨曦極簡風格一體化 CSS (Nordic Dawn Consolidated UI - Total Edition)
+   ========================================================================== */
+
+:root {
+  --nordic-bg: #f4f3ee;      /* 高級大理石暖米白 */
+  --nordic-surface: #ffffff; /* 純白卡片盤 */
+  --nordic-dark: #264653;    /* 經典北歐深邃藍綠 */
+  --nordic-orange: #ff6f43;  /* 亮橘色調（高精準同步主頁面大橘色） */
+  --nordic-gray: #7e8b9b;    /* 洗鍊質感莫蘭迪灰 */
+  --nordic-border: rgba(38, 70, 83, 0.04);
+}
+
+body {
+  background-color: var(--nordic-bg);
+  color: var(--nordic-dark);
+}
+
+/* ── 🧭 頂部一體化導航列外殼（完美交付 MainLayout、維持極簡清爽） ── */
 .route-page,
 .detail-page {
-  background: #f0f2f5;
+  background: var(--nordic-bg);
   display: flex;
   flex-direction: column;
 }
@@ -10,479 +28,410 @@
 .detail-page { height: 100svh; overflow: hidden; }
 
 .route-header {
-  background: #1a3a5c;
-  color: #fff;
-  height: 56px;
-  padding: 0 20px;
+  background: var(--nordic-surface);
+  color: var(--nordic-dark);
+  height: 60px;
+  padding: 0 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
+  border-bottom: 1px solid var(--nordic-border);
 }
 
-.route-title { font-size: 16px; font-weight: 600; }
+.route-title { 
+  font-size: 1.15rem; 
+  font-weight: 800; 
+  color: var(--nordic-dark);
+  letter-spacing: -0.3px;
+}
 
 .back-btn {
-  background: none;
+  background: transparent;
   border: none;
-  color: #fff;
+  color: var(--nordic-gray);
   font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 6px;
-  transition: background 0.2s;
+  padding: 6px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.back-btn:hover { background: rgba(255,255,255,0.15); }
-
-/* ── Route Planner ──────────────────────────────────────── */
-.route-main {
-  max-width: 640px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 28px 20px 60px;
+.back-btn:hover { 
+  color: var(--nordic-orange);
+  background: rgba(255, 111, 67, 0.05);
 }
 
-.route-form {
+/* ==========================================================================
+   ⚡ 內頁雙欄中控座艙架構 (Cockpit Two-Column Layout)
+   ========================================================================== */
+
+.cockpit-layout-container {
+  max-width: 1060px;
+  margin: 30px auto 0 auto;
+  padding: 0 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-sizing: border-box;
 }
 
-.route-section {
-  background: #fff;
-  border-radius: 12px;
-  padding: 22px 24px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
+.cockpit-top-bar { display: flex; justify-content: flex-start; margin-bottom: 4px; }
 
-.section-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #4f7cff;
-  text-transform: uppercase;
-  letter-spacing: 0.9px;
-  margin: 0;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-/* endpoints */
-.endpoints {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.ep-input {
-  flex: 1;
-  padding: 11px 14px;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 15px;
-  color: #111;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.ep-input:focus {
-  border-color: #4f7cff;
-  box-shadow: 0 0 0 3px rgba(79,124,255,0.1);
-}
-
-.ep-arrow {
-  font-size: 20px;
-  color: #aaa;
-  flex-shrink: 0;
-}
-
-/* preference checkboxes */
-.pref-checks {
-  display: flex;
-  gap: 24px;
-}
-
-.pref-check {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  cursor: pointer;
-  font-size: 14px;
-  color: #333;
-  user-select: none;
-}
-.pref-check input[type="checkbox"] { display: none; }
-
-.check-box {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #d0d0d0;
-  border-radius: 5px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-}
-.pref-check input:checked + .check-box {
-  background: #4f7cff;
-  border-color: #4f7cff;
-}
-.pref-check input:checked + .check-box::after {
-  content: '✓';
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-/* distance / difficulty rows */
-.pref-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.pref-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #444;
-  width: 68px;
-  flex-shrink: 0;
-}
-
-/* pills */
-.pill-group { display: flex; gap: 8px; flex-wrap: wrap; }
-
-.pill {
-  padding: 7px 14px;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 20px;
-  background: #fff;
-  font-size: 13px;
-  color: #555;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.pill:hover { border-color: #4f7cff; color: #4f7cff; }
-.pill.active { background: #4f7cff; border-color: #4f7cff; color: #fff; font-weight: 500; }
-
-/* stars */
-.star-row { display: flex; align-items: center; gap: 2px; }
-
-.star-btn {
-  background: none;
-  border: none;
-  font-size: 26px;
-  color: #d8d8d8;
-  cursor: pointer;
-  padding: 0 2px;
-  line-height: 1;
-  transition: color 0.15s, transform 0.1s;
-}
-.star-btn:hover:not(:disabled) { transform: scale(1.2); }
-.star-btn.on     { color: #f5a623; }
-.star-btn.locked { font-size: 18px; opacity: 0.4; cursor: not-allowed; }
-.diff-hint       { font-size: 13px; color: #999; margin-left: 10px; }
-
-.level-notice {
-  font-size: 12px;
-  color: #888;
-  background: #f8f8f8;
-  border-radius: 6px;
-  padding: 7px 12px;
-  margin: 0;
-}
-
-/* generate button */
-.generate-btn {
-  padding: 14px;
-  background: #1a3a5c;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  letter-spacing: 0.3px;
-  transition: background 0.2s, opacity 0.2s;
-}
-.generate-btn:hover   { background: #2b4d75; }
-.generate-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-
-/* ── Route Select ───────────────────────────────────────── */
-.pref-summary {
-  font-size: 13px;
-  color: #666;
-  background: #fff;
-  border-radius: 8px;
-  padding: 10px 14px;
-  margin-bottom: 18px;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
-}
-
-.route-cards {
+/* 表單雙欄架構 */
+.cockpit-two-columns-form {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  grid-template-columns: 390px 1fr; /* 左側軌道端點，右側智慧控制台 */
+  gap: 24px;
+  position: relative;
+  align-items: start;
 }
 
-@media (max-width: 520px) {
-  .route-cards { grid-template-columns: 1fr; }
+@media (max-width: 840px) {
+  .cockpit-two-columns-form { grid-template-columns: 1fr; }
 }
 
-.route-card {
-  background: #fff;
-  border: 1.5px solid #e8e8e8;
-  border-radius: 12px;
-  overflow: hidden;
-  cursor: pointer;
-  text-align: left;
+/* 純白高奢卡片底盤 */
+.route-section {
+  background: var(--nordic-surface);
+  border-radius: 22px;
+  padding: 28px;
+  border: 1px solid rgba(0, 0, 0, 0.005);
+  box-shadow: 0 12px 40px rgba(38, 70, 83, 0.03);
   display: flex;
   flex-direction: column;
-  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
-  padding: 0;
-}
-.route-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-  border-color: #4f7cff;
+  gap: 20px;
+  box-sizing: border-box;
 }
 
-.rc-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 14px 8px;
+.hud-title-zone {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 4px; border-bottom: 1px solid rgba(3a, 60, 80, 0.04); padding-bottom: 14px;
 }
-.rc-label { font-size: 14px; font-weight: 600; color: #1a3a5c; }
-.rc-diff  { font-size: 13px; }
+.hud-title-zone h3 { margin: 0; font-size: 1.1rem; font-weight: 900; color: var(--nordic-dark); }
+.hud-icon-pulse { color: var(--nordic-orange); }
+.hud-icon-sage { color: #2a9d8f; }
 
-.rc-preview {
-  width: 100%;
-  border-top: 1px solid #f0f0f0;
-  border-bottom: 1px solid #f0f0f0;
+/* 📍 垂直導航軌道線條 */
+.vertical-route-rail { position: relative; padding-left: 15px; display: flex; flex-direction: column; gap: 30px; margin: 5px 0; }
+.rail-line-dashed {
+  position: absolute; left: 18px; top: 15px; bottom: 15px; width: 0px;
+  border-left: 2px dashed #cbd5e1; opacity: 0.6;
 }
+.rail-node-block { display: flex; align-items: flex-start; gap: 16px; width: 100%; }
+.rail-dot { width: 8px; height: 8px; border-radius: 50%; border: 2px solid #ffffff; margin-top: 32px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex-shrink: 0; }
+.rail-dot.dot-start { background: var(--nordic-orange); box-shadow: 0 0 6px var(--nordic-orange); }
+.rail-dot.dot-end { background: #2a9d8f; box-shadow: 0 0 6px #2a9d8f; }
 
-.rc-name {
-  padding: 8px 14px 4px;
-  font-size: 12px;
-  color: #444;
-  font-weight: 500;
-}
-.rc-stats {
-  display: flex;
-  gap: 10px;
-  padding: 5px 14px 12px;
-  font-size: 12px;
-  color: #777;
-  flex-wrap: wrap;
-}
-
-.geocode-err {
-  background: #fff3cd;
-  border: 1px solid #ffc107;
-  color: #856404;
-  border-radius: 8px;
-  padding: 10px 14px;
-  font-size: 13px;
-  margin: 0;
-}
-
-.no-routes {
-  text-align: center;
-  padding: 60px 20px;
-  color: #888;
-  font-size: 14px;
-}
-.no-routes p { margin-bottom: 20px; }
-
-/* ── Route Detail ───────────────────────────────────────── */
-.map-wrap {
-  flex: 1;
-  min-height: 0;
-}
-.leaflet-map {
-  width: 100%;
-  height: 100%;
-}
-
-/* info bar */
-.detail-info {
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  padding: 10px 16px;
-  border-top: 1px solid #eee;
-  flex-shrink: 0;
-}
-.dinfo-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-}
-.dinfo-label { font-size: 11px; color: #999; }
-.dinfo-val   { font-size: 15px; font-weight: 600; color: #111; }
-.dinfo-sep   { width: 1px; height: 32px; background: #eee; }
-
-/* control buttons */
-.detail-controls {
-  display: flex;
-  gap: 10px;
-  padding: 12px 16px 20px;
-  background: #fff;
-  border-top: 1px solid #eee;
-  flex-shrink: 0;
-}
-
-.ctrl-btn {
-  flex: 1;
-  padding: 13px 8px;
-  border: none;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s, background 0.15s;
-}
-.ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-
-.ctrl-btn.start          { background: #1a3a5c; color: #fff; }
-.ctrl-btn.start:hover:not(:disabled) { background: #2b4d75; }
-.ctrl-btn.start.is-active { background: #4a6fa5; }
-
-.ctrl-btn.pause          { background: #fff8e1; color: #856404; border: 1.5px solid #ffe082; }
-.ctrl-btn.pause:hover:not(:disabled) { background: #fff3c0; }
-
-.ctrl-btn.done           { background: #e8f5e9; color: #1b5e20; border: 1.5px solid #a5d6a7; }
-.ctrl-btn.done:hover:not(:disabled)  { background: #d0edda; }
-
-.quit-btn { margin-top: 8px; }
-
-/* ── Modals ─────────────────────────────────────────────── */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.52);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-  padding: 20px;
-}
-
-.modal-box {
-  background: #fff;
-  border-radius: 16px;
-  padding: 28px 24px;
-  width: 100%;
-  max-width: 340px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-  text-align: center;
-}
-.modal-box.wide { max-width: 400px; }
-
-.modal-box h3 { margin: 0; font-size: 18px; color: #111; }
-
-.modal-warn {
-  font-size: 13px;
-  color: #b45309;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  border-radius: 8px;
-  padding: 9px 12px;
-  margin: 0;
-}
-
-/* completion summary */
-.complete-emoji { font-size: 40px; }
-
-.summary {
-  border: 1px solid #f0f0f0;
-  border-radius: 10px;
-  overflow: hidden;
-  text-align: left;
-  margin: 4px 0;
-}
-.sum-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 9px 14px;
-  font-size: 13px;
-  border-bottom: 1px solid #f5f5f5;
-}
-.sum-row:last-child { border-bottom: none; }
-.sum-row span:first-child { color: #888; }
-.sum-row span:last-child  { font-weight: 500; color: #111; }
-
-.score-row { background: #f0f4ff; }
-.score-val { color: #4f7cff !important; font-size: 18px !important; font-weight: 700 !important; }
-
-/* ── Location autocomplete ──────────────────────────────────────── */
+/* 🤝 融合優化：防止方框超出底層白框的防線 */
 .location-wrap {
   position: relative;
   flex: 1;
-}
-.location-wrap .ep-input {
   width: 100%;
 }
-.coord-ok {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 14px;
-  pointer-events: none;
+
+.premium-input-box { 
+  flex: 1; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 6px; 
+  text-align: left;
+  width: 100%;
 }
+.premium-input-box label { font-size: 0.65rem; font-weight: 800; color: var(--nordic-gray); letter-spacing: 0.5px; }
+
+.input-with-marker {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.ep-input {
+  width: 100% !important; /* 👈 修正：強制 100% 填滿，再也不會溢出右側卡片 */
+  padding: 13px 40px 13px 16px; /* 右側留 40px 給定位成功的 📍 圖示 */
+  border-radius: 12px; 
+  border: 1px solid rgba(38, 70, 83, 0.1);
+  background: #fafaf9; 
+  color: var(--nordic-dark); 
+  font-size: 0.95rem; 
+  font-weight: 700;
+  outline: none; 
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.01); 
+  transition: all 0.25s;
+  box-sizing: border-box !important; /* 👈 核心安全防禦 */
+}
+.ep-input:focus {
+  border-color: var(--nordic-orange); 
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(255, 111, 67, 0.06);
+}
+
+/* 📍 經緯度成功捕獲的精緻內嵌小圖示 */
+.coord-ok-icon {
+  position: absolute;
+  right: 14px;
+  color: #2a9d8f;
+  pointer-events: none;
+  animation: fadeIn 0.3s ease;
+}
+
+/* 🔮 聯想搜尋推薦清單（爆改成高奢北歐風懸浮清單） */
 .suggest-list {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
-  background: #fff;
-  border: 1px solid #dde3f0;
-  border-radius: 10px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.10);
-  z-index: 200;
+  background: #ffffff;
+  border: 1px solid rgba(38, 70, 83, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(38, 70, 83, 0.08);
+  z-index: 2000;
   list-style: none;
-  padding: 4px 0;
+  padding: 6px 0;
   margin: 0;
   max-height: 220px;
   overflow-y: auto;
 }
+
 .suggest-item {
-  padding: 9px 14px;
+  padding: 10px 16px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
+  text-align: left;
+  transition: background 0.15s ease;
 }
-.suggest-item:hover { background: #f0f4ff; }
+.suggest-item:hover { 
+  background: #f4f3ee; /* 懸浮移入時，換上妳最愛的暖米灰 */
+}
 .suggest-name {
   font-size: 14px;
-  font-weight: 500;
-  color: #111;
+  font-weight: 800;
+  color: var(--nordic-dark);
 }
 .suggest-addr {
   font-size: 11px;
-  color: #999;
+  color: var(--nordic-gray);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* rc-warning */
-.rc-warning {
-  margin-top: 6px;
-  padding: 5px 10px;
-  background: #fff8e1;
-  border-left: 3px solid #ffc107;
-  border-radius: 4px;
-  font-size: 12px;
-  color: #7a5c00;
+
+/* 🎛️ 偏好智能方磚 */
+.glass-preference-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 4px; }
+.pref-tile-card {
+  background: #fafaf9; border: 1px solid rgba(38, 70, 83, 0.04); border-radius: 14px; padding: 16px 20px;
+  display: flex; align-items: center; gap: 14px; cursor: pointer; text-align: left; transition: all 0.2s;
+  position: relative;
+}
+.pref-tile-card input { position: absolute; opacity: 0; width: 0; height: 0; }
+.tile-emoji { font-size: 1.4rem; opacity: 0.5; }
+.tile-text h4 { margin: 0 0 2px 0; font-size: 0.9rem; font-weight: 800; color: var(--nordic-dark); }
+.tile-text p { margin: 0; font-size: 0.75rem; color: var(--nordic-gray); }
+
+.pref-tile-card.is-selected { 
+  background: rgba(255, 111, 67, 0.04) !important; 
+  border-color: var(--nordic-orange) !important; 
+}
+.pref-tile-card.is-selected h4 { color: var(--nordic-orange); }
+.pref-tile-card.is-selected .tile-emoji { opacity: 1; }
+
+.pref-row { display: flex; align-items: center; margin-bottom: 4px; }
+.cockpit-lbl { width: 90px; font-size: 0.95rem; font-weight: 800; color: var(--nordic-dark); text-align: left; }
+
+/* 📊 距離膠囊晶片 */
+.pill-group { display: flex; gap: 10px; flex-wrap: wrap; }
+.pill {
+  padding: 8px 18px; border: 1px solid rgba(38, 70, 83, 0.1); border-radius: 30px;
+  background: var(--nordic-surface); font-size: 13px; color: var(--nordic-gray); font-weight: 700;
+  cursor: pointer; transition: all 0.25s;
+}
+.pill:hover { border-color: var(--nordic-dark); color: var(--nordic-dark); }
+.pill.active { 
+  background: var(--nordic-dark); border-color: var(--nordic-dark); color: #fff; 
+  font-weight: 700; box-shadow: 0 4px 12px rgba(38, 70, 83, 0.15);
+}
+
+/* 星星控制組：解鎖互動 */
+.star-btn-interactive {
+  transition: transform 0.1s ease;
+}
+.star-btn-interactive:hover:not(:disabled) {
+  transform: scale(1.2);
+}
+
+.star-row { display: flex; align-items: center; gap: 4px; }
+.star-btn { background: none; border: none; font-size: 22px; color: #cbd5e1; padding: 0; }
+.star-btn.on { color: #fbbf24; }
+.star-btn.locked { font-size: 14px; opacity: 0.4; cursor: not-allowed; }
+.diff-hint { font-size: 0.85rem; font-weight: 800; color: var(--nordic-orange); background: rgba(255, 111, 67, 0.08); padding: 2px 10px; border-radius: 20px; margin-left: 12px; }
+
+/* 🚀 核心變革：右下角懸浮發光前進膠囊按鈕 */
+.floating-action-btn-wrapper {
+  position: absolute; right: 0; bottom: -24px; z-index: 10;
+}
+
+.generate-btn {
+  padding: 12px 32px !important;
+  background: var(--nordic-orange);
+  color: #fff; border: none; border-radius: 40px !important;
+  font-size: 0.95rem !important; font-weight: 800;
+  cursor: pointer; letter-spacing: 0.5px;
+  box-shadow: 0 8px 25px rgba(255, 111, 67, 0.25);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex; align-items: center; justify-content: center;
+}
+.generate-btn:hover:not(:disabled) { 
+  background: #ff7f57; transform: translateY(-3px); 
+  box-shadow: 0 12px 28px rgba(255, 111, 67, 0.35), 0 0 15px rgba(255, 111, 67, 0.15); 
+}
+.generate-btn:hover svg { transform: translateX(3px); }
+.generate-btn svg { transition: transform 0.2s ease; }
+.generate-btn:disabled { background: var(--nordic-gray) !important; opacity: 0.4; box-shadow: none !important; cursor: not-allowed; }
+
+/* ── 🗺️ 路線選擇面板 (Route Select) ──────────────────────────────── */
+.route-main {
+  max-width: 1060px;
+  margin: 30px auto 0 auto;
+  padding: 0 24px 60px 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.pref-summary {
+  font-size: 0.85rem; font-weight: 700; color: var(--nordic-dark); background: var(--nordic-surface);
+  border-radius: 50px; padding: 12px 24px; margin-bottom: 22px; border: 1px solid rgba(0, 0, 0, 0.01);
+  box-shadow: 0 8px 24px rgba(38, 70, 83, 0.02); width: fit-content;
+}
+
+.route-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; width: 100%; }
+@media (max-width: 640px) { .route-cards { grid-template-columns: 1fr; } }
+
+.route-card {
+  background: var(--nordic-surface); border: 2px solid rgba(0, 0, 0, 0.005); border-radius: 20px;
+  overflow: hidden; cursor: pointer; text-align: left; display: flex; flex-direction: column;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); padding: 24px; box-shadow: 0 10px 30px rgba(38, 70, 83, 0.025);
+  box-sizing: border-box;
+}
+.route-card:hover {
+  transform: translateY(-5px); box-shadow: 0 15px 35px rgba(38, 70, 83, 0.06), 0 0 12px rgba(255, 111, 67, 0.08); border-color: var(--nordic-orange);
+}
+
+.rc-top { display: flex; justify-content: space-between; align-items: center; padding: 0 0 14px 0; }
+.rc-label { font-size: 0.95rem; font-weight: 800; color: var(--nordic-gray); }
+
+.rc-preview { width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid rgba(0, 0, 0, 0.02); margin-bottom: 14px; }
+.rc-preview rect { fill: #f8fafc !important; }
+
+.rc-name { padding: 4px 0 14px 0; font-size: 1.1rem; color: var(--nordic-dark); font-weight: 800; }
+.rc-stats {
+  display: flex; gap: 14px; padding: 10px 16px; background: var(--nordic-bg); border-radius: 10px;
+  font-size: 0.85rem; color: var(--nordic-dark); font-weight: 700; flex-wrap: wrap; margin-top: auto;
+}
+
+.geocode-err {
+  background: #fff5f0; border: 1px solid rgba(255, 111, 67, 0.15); color: #c55325;
+  border-radius: 10px; padding: 12px 16px; font-size: 13px; margin: 0; font-weight: 700;
+}
+.no-routes { text-align: center; padding: 60px 20px; color: var(--nordic-gray); font-size: 14px; font-weight: 700; }
+.no-routes p { margin-bottom: 20px; }
+
+/* ── 🗺️ Leaflet 地圖容器核心架構 ── */
+.map-wrap {
+  flex: 1; min-height: 0; border-bottom: 1px solid var(--nordic-border);
+}
+.leaflet-map {
+  width: 100%; height: 100%;
+}
+
+.detail-info {
+  background: var(--nordic-surface); display: flex; align-items: center; justify-content: space-around; padding: 16px 20px; flex-shrink: 0;
+}
+.dinfo-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.dinfo-label { font-size: 11px; font-weight: 800; color: var(--nordic-gray); letter-spacing: 0.5px; }
+.dinfo-val   { font-size: 17px; font-weight: 900; color: var(--nordic-dark); }
+.dinfo-sep   { width: 1px; height: 32px; background: #e2e8f0; }
+
+.detail-controls {
+  display: flex; gap: 12px; padding: 16px 24px 28px; background: var(--nordic-surface); flex-shrink: 0;
+}
+
+.ctrl-btn {
+  flex: 1; padding: 14px 10px; border: 1px solid transparent; border-radius: 14px;
+  font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none !important; }
+
+.ctrl-btn.start          { background: var(--nordic-dark); color: #fff; box-shadow: 0 4px 14px rgba(38, 70, 83, 0.15); }
+.ctrl-btn.start:hover:not(:disabled) { background: #315869; transform: translateY(-2px); }
+.ctrl-btn.start.is-active { background: #427288; }
+
+.ctrl-btn.pause          { background: #fef9c3; color: #713f12; border: 1px solid #fef08a; }
+.ctrl-btn.pause:hover:not(:disabled) { background: #fef08a; transform: translateY(-2px); }
+
+.ctrl-btn.done           { background: #dcfce7; color: #14532d; border: 1px solid #bbf7d0; }
+.ctrl-btn.done:hover:not(:disabled)  { background: #bbf7d0; transform: translateY(-2px); }
+
+.quit-btn { margin-top: 10px; }
+
+/* ── 🔔 高奢 Modal 彈出視窗組件架構 ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(38, 70, 83, 0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 20px;
+}
+
+.modal-box {
+  background: var(--nordic-surface); border-radius: 24px; padding: 35px 30px; width: 100%; max-width: 360px;
+  display: flex; flex-direction: column; gap: 14px; box-shadow: 0 25px 60px rgba(38, 70, 83, 0.12); text-align: center; border: 1px solid rgba(255,255,255,0.8);
+}
+.modal-box.wide { max-width: 420px; }
+.modal-box h3 { margin: 0; font-size: 1.25rem; font-weight: 900; color: var(--nordic-dark); letter-spacing: -0.3px; }
+
+.modal-warn {
+  font-size: 13px; font-weight: 700; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: 10px; padding: 11px 14px; margin: 0;
+}
+
+.complete-emoji { font-size: 45px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.05)); }
+
+.summary {
+  border: 1px solid rgba(38, 70, 83, 0.05); border-radius: 14px; overflow: hidden; text-align: left; margin: 8px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.01);
+}
+.sum-row {
+  display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; font-size: 13px; background: var(--nordic-surface); border-bottom: 1px solid rgba(38, 70, 83, 0.03);
+}
+.sum-row:last-child { border-bottom: none; }
+.sum-row span:first-child { color: var(--nordic-gray); font-weight: 700; }
+.sum-row span:last-child  { font-weight: 800; color: var(--nordic-dark); }
+
+.score-row { background: #fff5f0 !important; }
+.score-val { 
+  color: var(--nordic-orange) !important; font-size: 20px !important; font-weight: 900 !important; text-shadow: 0 2px 10px rgba(255, 107, 53, 0.15);
+}
+
+/* ==========================================================================
+   🌿 告示橫條與微調
+   ========================================================================== */
+.level-notice.variant-gray-hud {
+  background: #f8fafc !important;                 
+  border: 1px solid #e2e8f0 !important;           
+  color: var(--nordic-dark) !important;           
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.01);
+  border-radius: 10px;
+  padding: 12px 20px;
   text-align: left;
+}
+
+.level-notice.variant-gray-hud strong {
+  color: var(--nordic-orange); 
+  font-weight: 800;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
 }

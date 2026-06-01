@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom'
+import { ArrowLeft, Milestone, Clock, Zap, Star, AlertTriangle } from 'lucide-react' // 👈 額外導入 AlertTriangle 作為高質感警告圖示
 import '../styles/route.css'
 
 const DIFF_CODE  = { 1: 'BEGINNER', 2: 'NORMAL', 3: 'EXPERIENCED' }
@@ -21,8 +22,8 @@ function extractCoords(segments) {
   return coords
 }
 
-// 座標陣列 → SVG path 字串
-function toSVG(coords, w = 160, h = 72, pad = 12) {
+// 座標陣列 → SVG path 字串 (鎖定妳最精準的 w=160, h=76)
+function toSVG(coords, w = 160, h = 76, pad = 14) {
   if (!coords.length) return null
   const lats = coords.map(c => c[0])
   const lngs = coords.map(c => c[1])
@@ -41,6 +42,7 @@ function toSVG(coords, w = 160, h = 72, pad = 12) {
   }
 }
 
+// 🌿 完美合併版路線小卡片組件
 function RouteCard({ route, label, start, end, difficulty, onSelect }) {
   const coords = extractCoords(route.segments)
   const svg    = toSVG(coords)
@@ -48,42 +50,50 @@ function RouteCard({ route, label, start, end, difficulty, onSelect }) {
   const timeMin = Math.ceil(route.estimated_duration_sec / 60)
 
   return (
-    <button className="route-card" onClick={onSelect}>
+    <div className="route-card" onClick={onSelect}>
       <div className="rc-top">
-        <span className="rc-label">路線 {label}</span>
-        <span className="rc-diff">{'⭐'.repeat(difficulty)}</span>
+        <span className="rc-label">推薦路線 {label}</span>
+        <div className="star-row">
+          {Array.from({ length: difficulty }).map((_, i) => (
+            <Star key={i} size={13} className="star-btn on" style={{ cursor: 'default' }} />
+          ))}
+        </div>
       </div>
 
       <div className="rc-preview">
         {svg ? (
-          <svg viewBox="0 0 160 72" width="100%" height="72" preserveAspectRatio="none">
-            <rect width="160" height="72" fill="#f0f4ff" />
-            <path d={svg.path} fill="none" stroke="#4f7cff" strokeWidth="3"
-              strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx={svg.start.x} cy={svg.start.y} r="5" fill="#2e7d32" stroke="#fff" strokeWidth="1.5" />
-            <circle cx={svg.end.x}   cy={svg.end.y}   r="5" fill="#c62828" stroke="#fff" strokeWidth="1.5" />
+          <svg viewBox="0 0 160 76" width="100%" height="76" preserveAspectRatio="none">
+            <rect width="160" height="76" fill="#f8fafc" />
+            <path d={svg.path} fill="none" stroke="#264653" strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+            <circle cx={svg.start.x} cy={svg.start.y} r="4" fill="#ff6b35" stroke="#fff" strokeWidth="1.2" />
+            <circle cx={svg.end.x}   cy={svg.end.y}   r="4" fill="#1d3557" stroke="#fff" strokeWidth="1.2" />
           </svg>
         ) : (
-          <div style={{ height: 72, display:'flex', alignItems:'center', justifyContent:'center',
-            background:'#f0f4ff', fontSize:12, color:'#888' }}>載入中…</div>
+          <div className="rc-map-loading">分析中…</div>
         )}
       </div>
 
       <div className="rc-name">{start} — {end}</div>
+      
       <div className="rc-stats">
-        <span>📏 {distKm} km</span>
-        <span>⏱ {timeMin} 分</span>
-        <span>🎯 +{route.estimated_score} 分</span>
+        <span><Milestone size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /><strong>{distKm}</strong> km</span>
+        <span><Clock size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /><strong>{timeMin}</strong> 分</span>
+        <span className="score-val"><Zap size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /><strong>+{route.estimated_score}</strong> 積分</span>
       </div>
+
+      {/* 🤝 縫合亮點：完美保留朋友新寫的「強制限放替代路線警告」，並套上妳的高級排版樣式 */}
       {route.constraint_relaxed && (
-        <div className="rc-warning">
-          ⚠️ 此路線含{route.has_bridge ? '橋樑' : ''}{route.has_tunnel ? '隧道' : ''}（無替代路線）
+        <div className="rc-warning" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '10px', padding: '8px 12px', background: 'rgba(231, 111, 81, 0.06)', borderRadius: '8px', color: '#e76f51', fontSize: '12px', fontWeight: '600' }}>
+          <AlertTriangle size={13} />
+          <span>此路線含 {route.has_bridge ? '橋樑 ' : ''}{route.has_tunnel ? '隧道 ' : ''}(無替代路線)</span>
         </div>
       )}
-    </button>
+    </div>
   )
 }
 
+// 🧭 主要的路線選擇主頁面
 function RouteSelect() {
   const { state } = useLocation()
   const navigate  = useNavigate()
@@ -94,24 +104,34 @@ function RouteSelect() {
   const { start, end, startCoord, endCoord, bridge, tunnel, maxDist, difficulty } = prefs
 
   return (
-    <div className="route-page">
-      <header className="route-header">
-        <button className="back-btn" onClick={() => navigate('/route')}>← 返回</button>
-        <span className="route-title">選擇今日練習路徑</span>
-        <span />
-      </header>
-
+    <>
       <main className="route-main">
+        {/* ⚡ 頂部控制列：保留妳美觀的 Cockpit 控制列 */}
+        <div className="cockpit-top-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <button className="back-btn" onClick={() => navigate('/route')}>
+            <ArrowLeft size={14} />
+            <span>重新設定條件</span>
+          </button>
+          <span className="route-title-pills" style={{ fontSize: '15px', fontWeight: '800', color: '#264653', background: '#f1f5f9', padding: '6px 16px', borderRadius: '30px', letterSpacing: '0.3px' }}>
+            🧭 選擇今日練習路徑
+          </span>
+          <span style={{ width: '120px' }} />
+        </div>
+
+        {/* 🤝 縫合亮點：完美相容朋友新寫的「不限距離」與「避橋/避隧道」文字顯示 */}
         <div className="pref-summary">
-          {start} → {end}　{maxDist ? `${maxDist} km 以內` : '不限距離'}　{'⭐'.repeat(difficulty)}
-          {bridge ? '　🌉 避橋' : ''}
-          {tunnel ? '　🚇 避隧道' : ''}
+          {start} → {end}　
+          <span style={{ color: '#264653', fontWeight: '700' }}>
+            {maxDist ? `${maxDist} km 以內` : '不限距離'}
+          </span>
+          {bridge ? '　橋樑避開 🌉' : ''}
+          {tunnel ? '　隧道避開 🚇' : ''}
         </div>
 
         {routes.length === 0 ? (
           <div className="no-routes">
             <p>目前沒有符合條件的路線，請調整設定。</p>
-            <button className="generate-btn" onClick={() => navigate('/route')}>重新設定</button>
+            <button className="generate-btn" onClick={() => navigate('/route')}>重新設定條件</button>
           </div>
         ) : (
           <div className="route-cards">
@@ -145,7 +165,7 @@ function RouteSelect() {
           </div>
         )}
       </main>
-    </div>
+    </>
   )
 }
 

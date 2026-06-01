@@ -1,230 +1,312 @@
-.profile-page {
-  min-height: 100svh;
-  background: #f0f2f5;
+/* 🌟 全新大地暖色調座艙背景 (精準吻合 #f4f3ee) */
+.profile-innovative-page {
+  min-height: 100vh;
+  background-color: #f4f3ee !important; /* 👈 完美接駁妳最愛的暖白灰底色 */
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* Header */
-.profile-header {
-  background: #1a3a5c;
-  color: #fff;
-  height: 56px;
-  padding: 0 24px;
+/* 🌿 頂部極簡導航（無大粗橫條、無多餘標題） */
+.profile-innovative-navbar {
+  height: 68px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 0 40px;
+  background: transparent; /* 完美融入大底色 */
 }
 
-.profile-title {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.back-btn {
+.innovative-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   background: none;
   border: none;
-  color: #fff;
+  color: #7e8b9b;
   font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 6px;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  padding: 8px 14px;
+  border-radius: 20px;
 }
 
-.back-btn:hover { background: rgba(255,255,255,0.15); }
+.innovative-back-btn:hover {
+  color: #ff6f43; /* 呼應橘色調 */
+  background: rgba(255, 111, 67, 0.05);
+}
 
-/* Main */
-.profile-main {
-  max-width: 680px;
+/* 主體包覆區 */
+.profile-innovative-wrapper {
+  max-width: 1040px;
   width: 100%;
-  margin: 0 auto;
-  padding: 32px 24px 60px;
+  margin: 12px auto 48px auto;
   display: flex;
   flex-direction: column;
   gap: 24px;
+  padding: 0 32px;
+  box-sizing: border-box;
 }
 
-/* Avatar */
-.avatar-section {
+/* 👑 懸浮式頭貼與核心數據榮譽卡 */
+.innovative-hero-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px 36px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02); /* 跟偏好設定一樣的輕柔微陰影 */
+}
+
+.innovative-avatar-picker-block {
   display: flex;
   align-items: center;
   gap: 20px;
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px 28px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 }
 
-.avatar {
+/* 💡 可點擊更換頭貼的極致圓形外殼 */
+.innovative-clickable-avatar {
   width: 72px;
   height: 72px;
   border-radius: 50%;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  background: #264653; /* 預設深色調 */
+}
+
+.avatar-text-fallback {
+  width: 100%;
+  height: 100%;
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 28px;
+  font-weight: 800;
+}
+
+.avatar-uploaded-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-hover-overlay {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.innovative-clickable-avatar:hover .avatar-hover-overlay {
+  opacity: 1;
+}
+
+.innovative-pilot-info h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #264653;
+  margin: 0 0 4px 0;
+  text-align: left;
+}
+
+.innovative-uid-tag {
+  font-size: 13px;
+  color: #a0aec0;
+  font-weight: 500;
+  display: block;
+  text-align: left;
+}
+
+/* 車載儀表板數據板 */
+.innovative-stats-panel {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+}
+
+.innovative-stat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.innovative-stat-label {
+  font-size: 11px;
+  color: #a0aec0;
   font-weight: 700;
-  color: #fff;
-  flex-shrink: 0;
-  letter-spacing: 0;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
 }
 
-.avatar-info h2 {
-  margin: 0 0 4px;
-  font-size: 20px;
-  font-weight: 600;
-  color: #111;
+.innovative-stat-value {
+  font-size: 16px;
+  font-weight: 800;
 }
 
-.account-label {
-  font-size: 13px;
-  color: #888;
+.font-dark-blue {
+  color: #264653;
+  font-size: 19px;
 }
 
-/* Form sections */
-.profile-form {
+.font-dark-blue small {
+  font-size: 11px;
+  color: #a0aec0;
+}
+
+/* 完美對齊主畫面的亮橘色高光 Label */
+.label-orange-highlight {
+  color: #ff6f43 !important;
+  background: rgba(255, 111, 67, 0.08) !important;
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+.label-teal-highlight {
+  color: #2a9d8f;
+  background: rgba(42, 157, 143, 0.08);
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+/* 🎛️ 創新：改為兩個對稱並排的懸浮白卡片 */
+.innovative-form-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: 100%;
+}
+
+.innovative-sections-flexbox {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* 👈 精準平分左右大雙欄，各回各的家，絕不擠爆溢出 */
+  gap: 24px;
+}
+
+/* 獨立迷你高奢白卡片 */
+.innovative-sub-white-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  box-sizing: border-box; /* 確保 padding 不會把卡片擠胖擠爆 */
+}
+
+.innovative-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #264653;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+  padding-bottom: 12px;
+}
+
+.innovative-fields-stack {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.form-section {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px 28px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  overflow: hidden;
-  min-width: 0;
+/* 微型內部格柵 */
+.innovative-2col-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
 }
 
-.section-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #4f7cff;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  margin: 0 0 4px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #f0f0f0;
+.innovative-3col-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
 }
 
-.field {
+/* 統一修復輸入框細節尺寸，完美對齊 Login 頁面比例 */
+.innovative-sub-white-card .auth-input-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  flex: 1;
+  text-align: left;
 }
 
-.field label {
+.innovative-sub-white-card label {
   font-size: 12px;
-  font-weight: 600;
-  color: #555;
-  letter-spacing: 0.3px;
+  font-weight: 700;
+  color: #7e8b9b;
 }
 
-.field input {
-  padding: 10px 12px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #111;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  background: #fff;
+.innovative-sub-white-card .auth-field {
+  height: 38px !important;
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid #e2e8f0 !important;
+  background-color: #f8fafc !important;
+  font-size: 13px !important;
+  color: #264653 !important;
+  font-weight: 600 !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
 }
 
-.field input:focus {
-  border-color: #4f7cff;
-  box-shadow: 0 0 0 3px rgba(79,124,255,0.1);
+.innovative-sub-white-card .auth-field:focus {
+  border-color: #ff6f43 !important; /* 聚焦時亮橘高光 */
+  background-color: white !important;
 }
 
-.field-row {
+/* 唯讀 */
+.disabled-field {
+  background-color: #f1f5f9 !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed;
+}
+
+/* 🚀 底部動作區：換上跟妳主畫面一體化的驚艷亮橘色調（#ff6f43） */
+.innovative-form-action-center {
   display: flex;
-  gap: 16px;
-}
-
-.addr-grid {
-  display: grid;
-  grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,2fr);
-  gap: 12px;
-}
-
-.addr-grid-sm {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0,1fr));
-  gap: 12px;
-}
-
-/* Password */
-.password-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.password-wrap input {
-  flex: 1;
-  padding-right: 44px;
-}
-
-.eye-btn {
-  position: absolute;
-  right: 10px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #999;
-  display: flex;
-  align-items: center;
-  padding: 0;
-  transition: color 0.2s;
-}
-
-.eye-btn:hover { color: #4f7cff; }
-
-.field-error {
-  font-size: 12px;
-  color: #e53e3e;
-}
-
-/* Read-only fields */
-.readonly-field {
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: #f5f6f8;
-  border: 1px solid #e8e8e8;
-  font-size: 14px;
-  color: #555;
-}
-
-/* Save button */
-.save-btn {
-  padding: 13px;
-  background: #4f7cff;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
+  justify-content: center;
   margin-top: 4px;
 }
 
-.save-btn:hover { background: #3b68f0; }
-
-.save-btn:disabled,
-.save-btn[type='submit']:focus-visible {
-  outline: none;
+.innovative-orange-submit-btn {
+  max-width: 280px;
+  width: 100%;
+  height: 44px;
+  background-color: #ff6f43; /* 👈 高精準對齊生成路徑頁面的大橘色按鈕！ */
+  color: white;
+  border-radius: 24px; /* 圓潤流線弧度 */
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(255, 111, 67, 0.25);
+  transition: all 0.2s ease;
 }
 
-@media (max-width: 600px) {
-  .addr-grid,
-  .addr-grid-sm { grid-template-columns: repeat(2, minmax(0,1fr)); }
-  .field-row { flex-direction: column; }
+.innovative-orange-submit-btn:hover {
+  background-color: #e6552b;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(255, 111, 67, 0.35);
+}
+
+/* 成功變色 */
+.btn-saved-orange {
+  background-color: #2a9d8f !important;
+  box-shadow: 0 4px 16px rgba(42, 157, 143, 0.25) !important;
 }

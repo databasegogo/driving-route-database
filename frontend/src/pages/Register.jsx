@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { UserPlus, CheckCircle, User, MapPin } from 'lucide-react'
 import api from '../api'
 import '../styles/auth.css'
 
@@ -10,7 +11,6 @@ function Register() {
     password:     '',
     birthday:     '',
     licenseDate:  '',
-    // 住址：後端尚未支援，暫存在 localStorage
     addrCity:     '',
     addrDistrict: '',
     addrRoad:     '',
@@ -39,11 +39,8 @@ function Register() {
         password:     form.password,
         birth_date:   form.birthday,
         license_date: form.licenseDate,
-        // 住址後端補好後加到這裡即可：
-        // addr_city: form.addrCity, ...
       })
 
-      // 住址先存到 localStorage，等後端支援後再改成存進 DB
       localStorage.setItem('pendingAddr', JSON.stringify({
         addrCity:     form.addrCity,
         addrDistrict: form.addrDistrict,
@@ -57,9 +54,9 @@ function Register() {
     } catch (err) {
       const detail = err.response?.data?.detail
       if (detail === 'EMAIL_ALREADY_EXISTS') {
-        setError('此 Email 已被使用')
+        setError('此 Email 已被使用 ❌')
       } else {
-        setError('註冊失敗，請稍後再試')
+        setError('註冊失敗，請稍後再試 ⚠️')
       }
     } finally {
       setLoading(false)
@@ -68,99 +65,160 @@ function Register() {
 
   if (success) {
     return (
-      <div className="auth-page">
-        <div className="auth-card">
-          <div className="success-icon">✓</div>
-          <h1>註冊成功！</h1>
-          <p className="subtitle">請重新登入以進入系統</p>
-          <button className="auth-btn" onClick={() => navigate('/login')}>
-            前往登入
-          </button>
+      <div className="auth-page-container">
+        <div className="auth-glass-card" style={{ maxWidth: '440px', padding: '48px 40px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+            <CheckCircle size={56} color="#264653" style={{ opacity: 0.9 }} />
+            <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#264653', margin: 0 }}>註冊成功！</h2>
+            <p style={{ fontSize: '14px', color: '#7e8b9b', margin: '0 0 12px 0', textAlign: 'center' }}>
+              您的虛擬座艙憑證已簽發，請重新登入以進入系統。
+            </p>
+            <button 
+              className="auth-submit-btn" 
+              onClick={() => navigate('/login')}
+              style={{ marginTop: '8px' }}
+            >
+              前往開通數位座艙
+            </button>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-card wide">
-        <h1>建立帳號</h1>
-        <p className="subtitle">填寫以下資料完成註冊</p>
-        <form onSubmit={handleSubmit}>
-          <div className="field-grid">
-            <div className="field">
-              <label htmlFor="name">姓名</label>
-              <input id="name" name="name" type="text"
-                value={form.name} onChange={handleChange}
-                placeholder="請輸入姓名" required />
+    <div className="auth-page-container">
+      {/* 🌟 頂級橫向毛玻璃數位面板 */}
+      <div className="auth-glass-card register-dashboard-layout">
+        
+        {/* 👑 1. 頂部主標題（高奢置中） */}
+        <div className="register-main-header">
+          <h2>新手路徑王</h2>
+          <p className="brand-subtitle">Smart Path Driving Platform</p>
+        </div>
+
+        {/* 🎛️ 2. 核心雙軌制控制台表單 */}
+        <form onSubmit={handleSubmit} className="register-dashboard-form">
+          
+          <div className="register-columns-container">
+            
+            {/* 👤 左舷欄位：個人資訊 */}
+            <div className="register-panel-column">
+              <div className="panel-section-title">
+                <User size={16} />
+                <span>個人資訊</span>
+                <div className="title-deco-line"></div>
+              </div>
+              
+              <div className="panel-inside-grid-2col">
+                <div className="auth-input-group">
+                  <label htmlFor="name">姓名</label>
+                  <input id="name" name="name" type="text" className="auth-field"
+                    value={form.name} onChange={handleChange} placeholder="請輸入姓名" required />
+                </div>
+
+                <div className="auth-input-group">
+                  <label htmlFor="email">Email</label>
+                  <input id="email" name="email" type="email" className="auth-field"
+                    value={form.email} onChange={handleChange} placeholder="請輸入 Email" required />
+                </div>
+              </div>
+
+              <div className="panel-inside-grid-2col">
+                <div className="auth-input-group">
+                  <label htmlFor="reg-password">密碼</label>
+                  <input id="reg-password" name="password" type="password" className="auth-field"
+                    value={form.password} onChange={handleChange} placeholder="設定密碼" required />
+                </div>
+
+                <div className="auth-input-group">
+                  <label htmlFor="birthday">生日</label>
+                  <input id="birthday" name="birthday" type="date" className="auth-field"
+                    value={form.birthday} onChange={handleChange} required />
+                </div>
+              </div>
+
+              <div className="auth-input-group">
+                <label htmlFor="licenseDate">駕照取得日期</label>
+                <input id="licenseDate" name="licenseDate" type="date" className="auth-field"
+                  value={form.licenseDate} onChange={handleChange} required />
+              </div>
             </div>
-            <div className="field">
-              <label htmlFor="email">Email</label>
-              <input id="email" name="email" type="email"
-                value={form.email} onChange={handleChange}
-                placeholder="請輸入 Email" required />
+
+            {/* 🚧 兩欄中央的高階分界線 */}
+            <div className="register-center-divider"></div>
+
+            {/* 📍 右舷欄位：通訊地址 */}
+            <div className="register-panel-column">
+              <div className="panel-section-title">
+                <MapPin size={16} />
+                <span>居住通訊地址</span>
+                <div className="title-deco-line"></div>
+              </div>
+
+              <div className="panel-inside-grid-2col">
+                <div className="auth-input-group">
+                  <label>市 / 縣</label>
+                  <input name="addrCity" type="text" className="auth-field" value={form.addrCity}
+                    onChange={handleChange} placeholder="例：台北市" />
+                </div>
+
+                <div className="auth-input-group">
+                  <label>區</label>
+                  <input name="addrDistrict" type="text" className="auth-field" value={form.addrDistrict}
+                    onChange={handleChange} placeholder="例：信義區" />
+                </div>
+              </div>
+
+              <div className="auth-input-group">
+                <label>路 / 街</label>
+                <input name="addrRoad" type="text" className="auth-field" value={form.addrRoad}
+                  onChange={handleChange} placeholder="例：忠孝東路" />
+              </div>
+
+              <div className="panel-inside-grid-3col">
+                <div className="auth-input-group">
+                  <label>段</label>
+                  <input name="addrSection" type="text" className="auth-field" value={form.addrSection}
+                    onChange={handleChange} placeholder="例：5" />
+                </div>
+
+                <div className="auth-input-group">
+                  <label>巷</label>
+                  <input name="addrLane" type="text" className="auth-field" value={form.addrLane}
+                    onChange={handleChange} placeholder="例：12" />
+                </div>
+
+                <div className="auth-input-group">
+                  <label>號</label>
+                  <input name="addrNumber" type="text" className="auth-field" value={form.addrNumber}
+                    onChange={handleChange} placeholder="例：3" />
+                </div>
+              </div>
             </div>
-            <div className="field">
-              <label htmlFor="reg-password">密碼</label>
-              <input id="reg-password" name="password" type="password"
-                value={form.password} onChange={handleChange}
-                placeholder="設定密碼" required />
-            </div>
-            <div className="field">
-              <label htmlFor="birthday">生日</label>
-              <input id="birthday" name="birthday" type="date"
-                value={form.birthday} onChange={handleChange} required />
-            </div>
-            <div className="field">
-              <label htmlFor="licenseDate">駕照取得日期</label>
-              <input id="licenseDate" name="licenseDate" type="date"
-                value={form.licenseDate} onChange={handleChange} required />
-            </div>
+
           </div>
 
-          {/* 住址（暫存本地）*/}
-          <p className="addr-section-label">住址</p>
-          <div className="addr-grid-reg">
-            <div className="field">
-              <label>市 / 縣</label>
-              <input name="addrCity" type="text" value={form.addrCity}
-                onChange={handleChange} placeholder="例：台北市" />
-            </div>
-            <div className="field">
-              <label>區</label>
-              <input name="addrDistrict" type="text" value={form.addrDistrict}
-                onChange={handleChange} placeholder="例：信義區" />
-            </div>
-            <div className="field">
-              <label>路 / 街</label>
-              <input name="addrRoad" type="text" value={form.addrRoad}
-                onChange={handleChange} placeholder="例：忠孝東路" />
-            </div>
-            <div className="field">
-              <label>段</label>
-              <input name="addrSection" type="text" value={form.addrSection}
-                onChange={handleChange} placeholder="例：5" />
-            </div>
-            <div className="field">
-              <label>巷</label>
-              <input name="addrLane" type="text" value={form.addrLane}
-                onChange={handleChange} placeholder="例：12" />
-            </div>
-            <div className="field">
-              <label>號</label>
-              <input name="addrNumber" type="text" value={form.addrNumber}
-                onChange={handleChange} placeholder="例：3" />
-            </div>
-          </div>
+          {error && (
+            <p style={{ color: '#e76f51', fontSize: '13px', fontWeight: '600', margin: '8px 0 0 0', textAlign: 'center' }}>
+              {error}
+            </p>
+          )}
 
-          {error && <p className="error-msg">{error}</p>}
-          <button type="submit" className="auth-btn" disabled={loading}>
-            {loading ? '註冊中...' : '確定註冊'}
-          </button>
+          {/* 🚀 3. 底部動作整合區 */}
+          <div className="register-dashboard-footer">
+            <button type="submit" className="auth-submit-btn" disabled={loading}>
+              <span>{loading ? '同步核心協議中...' : '註冊'}</span>
+              {!loading && <UserPlus size={15} />}
+            </button>
+            
+            <p className="auth-footer-link">
+              已有帳號？<Link to="/login">返回登入</Link>
+            </p>
+          </div>
+          
         </form>
-        <p className="switch-link">
-          已有帳號？<Link to="/login">返回登入</Link>
-        </p>
+        
       </div>
     </div>
   )

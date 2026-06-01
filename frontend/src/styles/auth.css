@@ -1,144 +1,397 @@
-.auth-page {
-  min-height: 100svh;
+/* ==========================================================================
+   🌌 【極奢進化版】橫向卡片非對稱座艙美學
+   ========================================================================== */
+
+/* 全螢幕絕對置中，溫潤暖米色底 */
+.auth-page-container {
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f0f2f5;
-  padding: 24px;
+  background-color: #f4f3ee; /* 妳指定的優雅暖米底色 */
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-.auth-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 48px 40px;
+/* 核心橫向漂浮大卡片：寬度放大，開啟網格排列 */
+.auth-glass-card {
+  background: #ffffff;
+  border-radius: 28px; /* 更加圓潤的高階大圓角 */
   width: 100%;
-  max-width: 400px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
-}
-
-.auth-card.wide {
-  max-width: 560px;
-}
-
-.auth-card h1 {
-  font-size: 22px;
-  font-weight: 600;
-  color: #111;
-  margin: 0 0 8px;
-  text-align: center;
-}
-
-.subtitle {
-  font-size: 14px;
-  color: #888;
-  text-align: center;
-  margin: 0 0 28px;
-}
-
-.field-grid {
+  max-width: 800px; /* 橫向黃金比例 */
+  box-shadow: 0 20px 50px rgba(38, 70, 83, 0.05), 0 1px 4px rgba(0, 0, 0, 0.01);
+  border: 1px solid #e2e8f0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 16px;
+  grid-template-columns: 1.1fr 0.9fr; /* 完美的非對稱黃金比例：左側視覺稍寬、右側控制緊湊 */
+  overflow: hidden; /* 確保左側如果有底色或滿版不會超出大圓角 */
 }
 
-.field {
+/* ── 🎨 左側：品牌視覺聚焦區 ── */
+.auth-left-brand-panel {
+  background: #fafafa; /* 淡淡的微灰底，與右側純白形成精緻的高級漸層感 */
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start; /* 靠左對齊，大廠最愛的洗鍊感 */
+  text-align: left;
+  border-right: 1px solid #f1f5f9;
+  position: relative;
+}
+
+.auth-left-brand-panel h2 {
+  font-size: 28px;
+  font-weight: 900;
+  color: #264653; /* 核心深藍綠 */
+  margin: 0 0 4px 0;
+  letter-spacing: 1px;
+}
+
+.auth-left-brand-panel .brand-subtitle {
+  font-size: 13px;
+  color: #7e8b9b;
+  font-weight: 500;
+  margin: 0 0 28px 0;
+  letter-spacing: 0.5px;
+}
+
+/* 擺脫生硬白色框框的全新 Logo 動態容器 */
+.auth-hero-logo-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.auth-hero-logo {
+  width: 100%;
+  max-width: 300px; /* 剛剛好的大氣比例 */
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 24px rgba(38, 70, 83, 0.04)); /* 讓車車線條隱隱散發立體感，而不是硬貼死 */
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.auth-left-brand-panel:hover .auth-hero-logo {
+  transform: scale(1.03) translateY(-2px); /* 游標飄到左側時，車車會優雅地微微浮起 */
+}
+
+
+/* ── 🎛️ 右側：智能控制登入區 ── */
+.auth-right-form-panel {
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.auth-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 22px; /* 拉開呼吸感間距 */
+  text-align: left;
+}
+
+.auth-input-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 18px;
+}
+.auth-input-group label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
-.field.full-width {
-  grid-column: 1 / -1;
-}
-
-.field label {
-  font-size: 13px;
-  font-weight: 500;
-  color: #444;
-}
-
-.field input {
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #111;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.field input:focus {
-  border-color: #4f7cff;
-  box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.12);
-}
-
-.error-msg {
-  color: #e53e3e;
-  font-size: 13px;
-  margin: 0 0 12px;
-  text-align: center;
-}
-
-.auth-btn {
+/* 奢華流線型輸入框：微亮灰底，點擊瞬間聚焦 */
+.auth-field {
   width: 100%;
-  padding: 12px;
-  background: #4f7cff;
-  color: #fff;
+  padding: 13px 18px;
+  font-size: 14px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background-color: #fafafa;
+  color: #264653;
+  transition: all 0.25s ease;
+}
+.auth-field:focus {
+  outline: none;
+  border-color: #264653; /* 聚焦時換上經典深藍綠 */
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(38, 70, 83, 0.06);
+}
+
+/* 🚀 官方標誌性的高奢深邃按鈕 */
+.auth-submit-btn {
+  width: 100%;
+  padding: 14px;
+  background: #264653; /* 對齊妳最完美的按鈕顏色 */
+  color: #ffffff;
   border: none;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: 500;
+  border-radius: 12px;
+  font-size: 14.5px;
+  font-weight: 700;
   cursor: pointer;
-  margin-top: 4px;
-  transition: background 0.2s;
-}
-
-.auth-btn:hover { background: #3b68f0; }
-.auth-btn:active { background: #2f5de0; }
-
-.switch-link {
-  text-align: center;
-  font-size: 13px;
-  color: #888;
-  margin: 20px 0 0;
-}
-
-.switch-link a {
-  color: #4f7cff;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.switch-link a:hover { text-decoration: underline; }
-
-.addr-section-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #4f7cff;
-  margin: 8px 0 10px;
-}
-
-.addr-grid-reg {
-  display: grid;
-  grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,2fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-@media (max-width: 560px) {
-  .addr-grid-reg { grid-template-columns: repeat(2, minmax(0,1fr)); }
-}
-
-.success-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: #e8f5e9;
-  color: #2e7d32;
-  font-size: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 16px;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(38, 70, 83, 0.1);
+  transition: all 0.2s ease;
+  margin-top: 6px;
+}
+.auth-submit-btn:hover {
+  background-color: #1a333f;
+  transform: translateY(-0.5px);
+}
+.auth-submit-btn:disabled {
+  background-color: #cbd5e1;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.auth-footer-link {
+  margin-top: 24px;
+  font-size: 13.5px;
+  color: #64748b;
+  text-align: center;
+}
+.auth-footer-link a {
+  color: #ff6b35; /* 畫龍點睛的暖橘色連結 */
+  text-decoration: none;
+  font-weight: 700;
+  margin-left: 4px;
+}
+.auth-footer-link a:hover {
+  text-decoration: underline;
+}
+
+/* RWD 響應式安全防線：如果使用者縮小視窗或用平板看，自動平滑切回單欄置中，排版絕對不炸開 */
+@media (max-width: 768px) {
+  .auth-glass-card {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+  }
+  .auth-left-brand-panel {
+    align-items: center;
+    text-align: center;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 32px;
+  }
+  .auth-left-brand-panel .brand-subtitle {
+    margin-bottom: 16px;
+  }
+  .auth-right-form-panel {
+    padding: 32px;
+  }
+}
+/* 讓註冊寬版卡片在橫向上有更舒適的舒展空間 */
+.register-card-wide {
+  max-width: 920px !important;
+}
+
+/* 核心響應式垂直表單容器 */
+.register-form-responsive-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px; /* 控制上下欄位的呼吸間距 */
+  width: 100%;
+}
+
+/* 完美對稱：雙欄橫排網格 */
+.register-grid-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* 完美對稱：地址段巷號三欄等寬橫排 */
+.register-grid-row-3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+/* 地址小標題的優雅分隔線設計 */
+.address-section-divider {
+  border-top: 1px dashed rgba(38, 70, 83, 0.12);
+  margin: 8px 0 2px 0;
+  padding-top: 12px;
+  text-align: left;
+}
+
+.address-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #264653;
+  letter-spacing: 0.5px;
+  opacity: 0.8;
+}
+/* 🌟 頂級橫向 Dashboard 卡片外殼 */
+.register-dashboard-layout {
+  max-width: 960px !important; /* 寬度加寬，給予左右雙欄完美舒展空間 */
+  width: 100%;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 40px 48px !important;
+  gap: 28px !important;
+}
+
+/* 👑 頂部置中主標題 */
+.register-main-header {
+  text-align: center;
+  width: 100%;
+}
+
+.register-main-header h2 {
+  font-size: 32px;
+  font-weight: 800;
+  color: #264653;
+  margin: 0 0 6px 0;
+  letter-spacing: 1.5px;
+}
+
+/* 🎛️ 表單主體 */
+.register-dashboard-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+/* 左右對稱大雙欄容器 */
+.register-columns-container {
+  display: grid;
+  grid-template-columns: 1fr 2px 1fr; /* 左欄、中線、右欄 */
+  gap: 32px;
+  align-items: start;
+}
+
+/* 單個控制面板大類 */
+.register-panel-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+/* 🌟 高級小標題與橫線裝飾（完美取代原本的驚嘆號） */
+.panel-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #264653;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.panel-section-title span {
+  white-space: nowrap;
+}
+
+.title-deco-line {
+  flex-grow: 1;
+  height: 1px;
+  background: linear-gradient(to right, rgba(38, 70, 83, 0.2), rgba(38, 70, 83, 0));
+  margin-left: 8px;
+}
+
+/* 內部精修細節：讓原本會拉太寬的輸入框變成美觀的雙欄與三欄並排 */
+.panel-inside-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.panel-inside-grid-3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+/* 🚧 中央高階分界線線條 */
+.register-center-divider {
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  border-left: 1px solid rgba(38, 70, 83, 0.08);
+}
+
+/* 🚀 底部置中送出按鈕區 */
+.register-dashboard-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  border-top: 1px solid rgba(38, 70, 83, 0.05);
+  padding-top: 20px;
+}
+
+.register-dashboard-footer .auth-submit-btn {
+  max-width: 340px;
+  width: 100%;
+}
+/* 🌟 1. 縮小控制台大卡片的總寬度（原本是 960px） */
+.register-dashboard-layout {
+  max-width: 800px !important; /* 👈 從 960 縮小到 800，讓兩欄往內靠攏，方格立刻變窄精緻 */
+  width: 100%;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 32px 40px !important; /* 👈 稍微縮小內襯間距 */
+  gap: 20px !important;
+}
+
+/* 👑 2. 讓頂部主標題的字體縮小一點點，符合緊湊感 */
+.register-main-header h2 {
+  font-size: 26px; /* 👈 從 32px 縮小，跟登入頁面的標題大小更接近 */
+  font-weight: 800;
+  color: #264653;
+  margin: 0 0 4px 0;
+  letter-spacing: 1px;
+}
+
+/* 🎛️ 3. 縮小方格與方格之間的上下左右間距（Gap） */
+.register-columns-container {
+  display: grid;
+  grid-template-columns: 1fr 2px 1fr;
+  gap: 24px; /* 👈 從 32px 縮小到 24px，讓左右兩半更緊密 */
+  align-items: start;
+}
+
+.register-panel-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* 👈 從 14px 縮小到 10px，讓輸入框上下排得更緊湊 */
+  width: 100%;
+}
+
+/* 內部分欄的間距也同步微調 */
+.panel-inside-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px; /* 👈 從 16px 縮小到 12px */
+}
+
+.panel-inside-grid-3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px; /* 👈 從 12px 縮小到 8px */
+}
+
+/* 🚀 4. 如果妳覺得輸入框（方格）本身的高度還是太高，可以在這裏統一微調註冊頁面的 field 尺寸 */
+.register-panel-column .auth-field {
+  padding: 8px 10px !important; /* 👈 稍微縮減輸入框內襯的上下高度 */
+  font-size: 13px !important;    /* 👈 讓框裡面的文字更精緻 */
+  height: 35px !important;       /* 👈 強制鎖定一個跟登入頁面差不多優雅的高度 */
+}
+
+/* 同步微調 label 的字體大小 */
+.register-panel-column .auth-input-group label {
+  font-size: 12px !important;
+  margin-bottom: 4px !important;
 }
