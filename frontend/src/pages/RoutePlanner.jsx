@@ -68,8 +68,8 @@ function RoutePlanner() {
         end_lat:              endCoord[0],
         end_lng:              endCoord[1],
         selected_difficulty:  DIFF_CODE[difficulty],
-        avoid_bridge:         !bridge,   // 有勾=允許橋，沒勾=避開橋
-        avoid_tunnel:         !tunnel,
+        avoid_bridge:         bridge,    // 有勾=避開橋
+        avoid_tunnel:         tunnel,
       })
 
       // Step 3：帶著後端多條路線資料進入選擇頁
@@ -115,8 +115,8 @@ function RoutePlanner() {
 
             <div className="pref-checks">
               {[
-                { label: '是否經過橋樑', val: bridge, set: setBridge },
-                { label: '是否經過隧道', val: tunnel, set: setTunnel },
+                { label: '避開橋樑', val: bridge, set: setBridge },
+                { label: '避開隧道', val: tunnel, set: setTunnel },
               ].map(({ label, val, set }) => (
                 <label key={label} className="pref-check">
                   <input type="checkbox" checked={val} onChange={e => set(e.target.checked)} />

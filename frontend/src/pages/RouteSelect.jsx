@@ -75,6 +75,11 @@ function RouteCard({ route, label, start, end, difficulty, onSelect }) {
         <span>⏱ {timeMin} 分</span>
         <span>🎯 +{route.estimated_score} 分</span>
       </div>
+      {route.constraint_relaxed && (
+        <div className="rc-warning">
+          ⚠️ 此路線含{route.has_bridge ? '橋樑' : ''}{route.has_tunnel ? '隧道' : ''}（無替代路線）
+        </div>
+      )}
     </button>
   )
 }
