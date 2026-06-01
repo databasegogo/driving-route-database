@@ -109,7 +109,8 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
 
         # 5. pgr_ksp：回傳 3 條最短路徑
         # 回傳欄位：[0]path_id [1]path_seq [2]edge [3]road_name
-        #           [4]distance_m [5]base_cost [6]risk_score [7]final_cost [8]geom_json
+        #           [4]distance_m [5]base_cost [6]risk_score [7]final_cost
+        #           [8]geom_json [9]bridge [10]tunnel
         ksp_sql = f"""
             SELECT
                 d.path_id,
@@ -120,7 +121,9 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                 re.cost                                         AS segment_base_cost,
                 COALESCE(ers.risk_score, 0)                     AS segment_risk_score,
                 (re.cost + COALESCE(ers.risk_score, 0) * {risk_weight}) AS segment_final_cost,
-                ST_AsGeoJSON(re.geom)                           AS geom_json
+                ST_AsGeoJSON(re.geom)                           AS geom_json,
+                r.bridge                                        AS bridge,
+                r.tunnel                                        AS tunnel
             FROM pgr_ksp(%s, %s, %s, 3, directed := false) d
             JOIN road_edge re  ON d.edge = re.edge_id
             JOIN road r        ON re.road_id = r.road_id
@@ -193,6 +196,13 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
             if max_dist and total_distance > max_dist:
                 continue
 
+            # 偵測此路線是否實際含有橋樑/隧道
+            has_bridge = any(seg[9] is not None and seg[9] != '' for seg in segments)
+            has_tunnel = any(seg[10] is not None and seg[10] != '' for seg in segments)
+            # 使用者要求避開，但路線仍含有 → 需警告
+            constraint_relaxed = (req.avoid_bridge and has_bridge) or \
+                                  (req.avoid_tunnel and has_tunnel)
+
             estimated_duration_sec = int(total_distance / avg_speed_m_per_sec * 1.2)
             estimated_score        = int(total_distance / 1000) * SCORE_WEIGHT[req.selected_difficulty]
             route_name             = f"{req.selected_difficulty} 路線 {path_id}"
@@ -242,6 +252,9 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                 "total_final_cost":       round(total_final, 2),
                 "estimated_score":        estimated_score,
                 "estimated_duration_sec": estimated_duration_sec,
+                "has_bridge":             has_bridge,
+                "has_tunnel":             has_tunnel,
+                "constraint_relaxed":     constraint_relaxed,  # 想避但無法避
                 "segments":               {"type": "FeatureCollection", "features": features}
             })
 
