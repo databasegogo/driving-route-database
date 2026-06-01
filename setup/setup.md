@@ -1,222 +1,101 @@
-# Database Setup Guide (macOS)
+# 環境建置說明（Docker / Windows）
 
-## Environment Requirements
-
-* PostgreSQL 14.x
-* PostGIS 3.2.x
-* pgRouting (optional but recommended)
-* macOS (Apple Silicon / Intel)
+本專案使用 Docker 執行 PostgreSQL + PostGIS + pgRouting，
+不需要在本機手動安裝資料庫。
 
 ---
 
-## 1. Install Homebrew
+## 必要工具
+
+| 工具 | 下載 |
+|------|------|
+| Docker Desktop | https://www.docker.com/products/docker-desktop |
+| Python 3.10+ | https://www.python.org |
+| Node.js 18+ | https://nodejs.org |
+| Git | https://git-scm.com |
+| DBeaver（建議）| https://dbeaver.io |
+
+---
+
+## 資料準備
+
+在執行任何腳本前，先準備以下檔案：
+
+```
+driving-route-database/
+├── data/
+│   ├── gis_osm_roads_free_1.shp        ← OSM 道路（+ .dbf .shx .prj）
+│   ├── gis_osm_adminareas_a_free_1.shp ← OSM 行政區（+ .dbf .shx .prj）
+│   └── raw/
+│       ├── accidents_a1.csv            ← 交通事故 A1 資料
+│       └── accidents_a2.csv            ← 交通事故 A2 資料
+```
+
+**OSM 資料下載**：https://download.geofabrik.de/asia/taiwan.html  
+**事故資料**：政府開放資料平台（交通部）
+
+---
+
+## 建置步驟
+
+### 1. 啟動 Docker 容器
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+docker-compose up -d
 ```
 
-Verify:
+### 2. 初始化路網資料庫
 
 ```bash
-brew -v
+# macOS / Linux
+bash setup/init_db.sh
+
+# Windows（WSL）
+bash setup/init_db.sh
 ```
 
----
+此腳本會執行：
+- SQL 01：啟用擴充
+- 匯入 OSM roads / adminareas
+- SQL 02：篩選龜山區
+- SQL 03：建立 pgRouting topology
 
-## 2. Install PostgreSQL 14
+### 3. 匯入事故資料與建立應用資料表
 
 ```bash
-brew install postgresql@14
+bash setup/import_accidents.sh
 ```
 
-Add to PATH:
-
-```bash
-echo 'export PATH="/opt/homebrew/opt/postgresql@14/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-Verify:
-
-```bash
-psql --version
-```
+此腳本會執行：
+- SQL 04：匯入事故 CSV
+- SQL 05：事故對應道路 edge
+- SQL 06：計算道路風險分數
+- SQL 07：建立正規化核心資料表
+- SQL 08：建立使用者與路線資料表
+- SQL 09：建立路由輔助資料表
 
 ---
 
-## 3. Install PostGIS and pgRouting
+## DBeaver 連線設定
 
-```bash
-brew install postgis
-brew install pgrouting
-```
-
----
-
-## 4. Start PostgreSQL Service
-
-```bash
-brew services start postgresql@14
-```
+| 項目 | 值 |
+|------|----|
+| Host | localhost |
+| Port | **5433** |
+| Database | gisdb |
+| Username | postgres |
+| Password | 123456 |
 
 ---
 
-## 5. Create Database
+## 常見錯誤
 
-```bash
-psql postgres
-```
+### shp2pgsql: command not found
+確認 Docker container 有正常啟動，shp2pgsql 需在 container 內執行。
 
-```sql
-CREATE DATABASE gisdb WITH ENCODING 'UTF8';
-\c gisdb
+### could not connect to server
+確認 Docker Desktop 已開啟，且 container 名稱為 `driving_route_db`。
 
-CREATE EXTENSION postgis;
-CREATE EXTENSION postgis_topology;
-CREATE EXTENSION pgrouting;
-```
-
-Verify:
-
-```sql
-SELECT version();
-SELECT PostGIS_Version();
-```
-
----
-
-## 6. Import OSM Data (SHP)
-
-### Files
-
-Place the following in the `data/` folder:
-
-* gis_osm_roads_free_1.shp
-* gis_osm_adminareas_a_free_1.shp
-
----
-
-### Check SRID
-
-```bash
-cat data/gis_osm_roads_free_1.prj
-```
-
-If it shows **WGS84**, use:
-
-```text
-SRID = 4326
-```
-
----
-
-### Import Admin Areas
-
-```bash
-shp2pgsql -I -s 4326 data/gis_osm_adminareas_a_free_1.shp adminareas | psql -d gisdb
-```
-
----
-
-### Import Roads
-
-```bash
-shp2pgsql -I -s 4326 data/gis_osm_roads_free_1.shp roads | psql -d gisdb
-```
-
----
-
-## 7. Verify Data
-
-```sql
-SELECT COUNT(*) FROM roads;
-SELECT COUNT(*) FROM adminareas;
-
-SELECT DISTINCT ST_SRID(geom) FROM roads;
-SELECT DISTINCT ST_SRID(geom) FROM adminareas;
-```
-
-Expected:
-
-* Tables exist
-* Data is not empty
-* SRID is consistent (usually 4326)
-
----
-
-## 8. Run SQL Pipeline
-
-Execute SQL files in order:
-
-```bash
-psql -d gisdb -f sql/01_create_tables.sql
-psql -d gisdb -f sql/02_filter_guishan.sql
-psql -d gisdb -f sql/03_match_accident.sql
-psql -d gisdb -f sql/04_risk.sql
-```
-
----
-
-## 9. Connect using DBeaver
-
-Install:
-DBeaver (Community Edition)
-
-Connection settings:
-
-* Host: localhost
-* Port: 5432
-* Database: gisdb
-* Username: your mac username
-* Password: (empty or configured)
-
----
-
-## 10. Notes
-
-* Do NOT import SHP using DBeaver (geometry may break)
-* Always import using `shp2pgsql`
-* Ensure SRID consistency before spatial operations
-* SQL execution order matters
-
----
-
-## 11. Common Errors
-
-### geometry type not found
-
-```sql
-CREATE EXTENSION postgis;
-```
-
-### function pgr_dijkstra does not exist
-
-```sql
-CREATE EXTENSION pgrouting;
-```
-
-### SRID mismatch
-
-Use:
-
-```sql
-SELECT ST_Transform(geom, 4326)
-```
-
----
-
-## 12. Project Workflow
-
-```text
-OSM Data (roads / adminareas)
-        ↓
-Import to PostGIS
-        ↓
-SQL Pipeline Processing
-        ↓
-Final Tables (roads_guishan, accident mapping, risk)
-        ↓
-DBeaver (query / visualization)
-```
-
----
+### ON_ERROR_STOP
+若 import_accidents.sh 中途停止，表示前一個步驟有錯誤，
+先確認 init_db.sh 有成功完成再重跑。
