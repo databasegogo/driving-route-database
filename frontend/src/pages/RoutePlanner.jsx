@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import '../styles/route.css'
@@ -11,7 +11,7 @@ const ERR_MSG = {
   NODE_NOT_FOUND:    '找不到起點或終點附近的道路，請換個地點',
   NO_PATH_FOUND:     '起終點之間找不到可行路線，請換個地點',
   DIFFICULTY_TOO_HIGH: '選擇的難度超過你目前的等級',
-  DISTANCE_EXCEEDED: '路線距離超過設定的上限',
+  ALL_ROUTES_EXCEED_DISTANCE_LIMIT: '所有路線都超過距離上限，請調高距離或換個地點',
 }
 
 function getMaxDifficulty(score) {
@@ -22,61 +22,138 @@ function getMaxDifficulty(score) {
 
 const LEVEL_LABEL = { 1: '新手駕駛', 2: '一般駕駛', 3: '熟練駕駛' }
 
-async function geocode(query) {
-  const url = new URL('https://nominatim.openstreetmap.org/search')
-  url.searchParams.set('q', query)
-  url.searchParams.set('format', 'json')
-  url.searchParams.set('limit', '3')
-  url.searchParams.set('accept-language', 'zh-TW,zh')
-  url.searchParams.set('countrycodes', 'tw')
-  const res = await fetch(url.toString(), {
-    headers: { 'User-Agent': 'driving-route-database/1.0' }
-  })
-  const data = await res.json()
-  if (!data.length) throw new Error(`找不到「${query}」的位置，請換個地點名稱試試`)
-  return [parseFloat(data[0].lat), parseFloat(data[0].lon)]
+// ── 地點搜尋輸入框（含 autocomplete）──────────────────────────────
+function LocationInput({ value, coord, onChange, onSelect, placeholder }) {
+  const [suggestions, setSuggestions] = useState([])
+  const [show, setShow]               = useState(false)
+  const timerRef = useRef(null)
+
+  function handleChange(e) {
+    const q = e.target.value
+    onChange(q, null)           // 清掉舊座標
+    setSuggestions([])
+
+    if (timerRef.current) clearTimeout(timerRef.current)
+    if (q.length < 2) return
+
+    timerRef.current = setTimeout(async () => {
+      try {
+        const url = new URL('https://nominatim.openstreetmap.org/search')
+        url.searchParams.set('q', q)
+        url.searchParams.set('format', 'json')
+        url.searchParams.set('limit', '5')
+        url.searchParams.set('accept-language', 'zh-TW,zh')
+        url.searchParams.set('countrycodes', 'tw')
+        const res  = await fetch(url.toString(), {
+          headers: { 'User-Agent': 'driving-route-database/1.0' }
+        })
+        const data = await res.json()
+        setSuggestions(data)
+        setShow(true)
+      } catch {}
+    }, 400)
+  }
+
+  function handleSelect(item) {
+    // 取 display_name 第一段作為顯示用名稱
+    const label = item.display_name.split(',')[0].trim()
+    const coord = [parseFloat(item.lat), parseFloat(item.lon)]
+    onChange(label, coord)
+    onSelect(coord)
+    setSuggestions([])
+    setShow(false)
+  }
+
+  // 顯示名稱截短：最多顯示前 3 段（避免太長）
+  function shortName(display_name) {
+    return display_name.split(',').slice(0, 3).join(',').trim()
+  }
+
+  return (
+    <div className="location-wrap">
+      <input
+        className="ep-input"
+        type="text"
+        value={value}
+        onChange={handleChange}
+        onFocus={() => suggestions.length > 0 && setShow(true)}
+        onBlur={() => setTimeout(() => setShow(false), 200)}
+        placeholder={placeholder}
+        required
+      />
+      {coord && <span className="coord-ok" title="已定位">📍</span>}
+      {show && suggestions.length > 0 && (
+        <ul className="suggest-list">
+          {suggestions.map((item, i) => (
+            <li key={i} className="suggest-item" onMouseDown={() => handleSelect(item)}>
+              <span className="suggest-name">{item.display_name.split(',')[0].trim()}</span>
+              <span className="suggest-addr">{shortName(item.display_name)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
+// ── 主頁面 ────────────────────────────────────────────────────────
 function RoutePlanner() {
-  const [start, setStart]     = useState('')
-  const [end, setEnd]         = useState('')
-  const [bridge, setBridge]   = useState(false)
-  const [tunnel, setTunnel]   = useState(false)
-  const [maxDist, setMaxDist] = useState(10)
-  const [difficulty, setDiff] = useState(1)
-  const [status, setStatus]   = useState('idle')
-  const [errMsg, setErrMsg]   = useState('')
+  const [start,      setStart]      = useState('')
+  const [startCoord, setStartCoord] = useState(null)
+  const [end,        setEnd]        = useState('')
+  const [endCoord,   setEndCoord]   = useState(null)
+  const [bridge,     setBridge]     = useState(false)
+  const [tunnel,     setTunnel]     = useState(false)
+  const [maxDist,    setMaxDist]    = useState(null)
+  const [difficulty, setDiff]       = useState(1)
+  const [status,     setStatus]     = useState('idle')
+  const [errMsg,     setErrMsg]     = useState('')
   const navigate = useNavigate()
 
-  const user        = JSON.parse(localStorage.getItem('currentUser') || '{}')
-  const maxDiff     = getMaxDifficulty(user.score ?? 0)
-  const levelLabel  = LEVEL_LABEL[maxDiff]
+  const user       = JSON.parse(localStorage.getItem('currentUser') || '{}')
+  const maxDiff    = getMaxDifficulty(user.score ?? 0)
+  const levelLabel = LEVEL_LABEL[maxDiff]
+
+  async function geocodeText(query) {
+    const url = new URL('https://nominatim.openstreetmap.org/search')
+    url.searchParams.set('q', query)
+    url.searchParams.set('format', 'json')
+    url.searchParams.set('limit', '1')
+    url.searchParams.set('accept-language', 'zh-TW,zh')
+    url.searchParams.set('countrycodes', 'tw')
+    const res  = await fetch(url.toString(), {
+      headers: { 'User-Agent': 'driving-route-database/1.0' }
+    })
+    const data = await res.json()
+    if (!data.length) throw new Error(`找不到「${query}」的位置，請換個地點名稱試試`)
+    return [parseFloat(data[0].lat), parseFloat(data[0].lon)]
+  }
 
   async function handleGenerate(e) {
     e.preventDefault()
     setStatus('loading')
     setErrMsg('')
     try {
-      // Step 1：地名 → 坐標
-      setErrMsg('')
-      const [startCoord, endCoord] = await Promise.all([geocode(start), geocode(end)])
+      // 有點選建議 → 直接用；沒有 → 重新查
+      const sCoord = startCoord ?? await geocodeText(start)
+      const eCoord = endCoord   ?? await geocodeText(end)
 
-      // Step 2：呼叫後端算路線
       const res = await api.post('/route/plan', {
-        start_lat:            startCoord[0],
-        start_lng:            startCoord[1],
-        end_lat:              endCoord[0],
-        end_lng:              endCoord[1],
-        selected_difficulty:  DIFF_CODE[difficulty],
-        avoid_bridge:         bridge,    // 有勾=避開橋
-        avoid_tunnel:         tunnel,
+        start_lat:           sCoord[0],
+        start_lng:           sCoord[1],
+        end_lat:             eCoord[0],
+        end_lng:             eCoord[1],
+        selected_difficulty: DIFF_CODE[difficulty],
+        avoid_bridge:        bridge,
+        avoid_tunnel:        tunnel,
+        max_distance_m:      maxDist ? maxDist * 1000 : null,
       })
 
-      // Step 3：帶著後端多條路線資料進入選擇頁
       navigate('/route-select', {
         state: {
-          routes: res.data.routes,   // 陣列，最多 3 條
-          prefs:  { start, end, startCoord, endCoord, bridge, tunnel, maxDist, difficulty },
+          routes: res.data.routes,
+          prefs:  { start, end, startCoord: sCoord, endCoord: eCoord,
+                    bridge, tunnel, maxDist, difficulty },
         }
       })
     } catch (err) {
@@ -100,13 +177,21 @@ function RoutePlanner() {
           <section className="route-section">
             <h3 className="section-label">設定起點與終點</h3>
             <div className="endpoints">
-              <input className="ep-input" type="text" value={start}
-                onChange={e => setStart(e.target.value)}
-                placeholder="起點（例：長庚大學）" required />
+              <LocationInput
+                value={start}
+                coord={startCoord}
+                onChange={(v, c) => { setStart(v); setStartCoord(c) }}
+                onSelect={c => setStartCoord(c)}
+                placeholder="起點（例：長庚大學）"
+              />
               <span className="ep-arrow">→</span>
-              <input className="ep-input" type="text" value={end}
-                onChange={e => setEnd(e.target.value)}
-                placeholder="終點（例：林口長庚醫院）" required />
+              <LocationInput
+                value={end}
+                coord={endCoord}
+                onChange={(v, c) => { setEnd(v); setEndCoord(c) }}
+                onSelect={c => setEndCoord(c)}
+                placeholder="終點（例：龜山區公所）"
+              />
             </div>
           </section>
 
@@ -129,10 +214,15 @@ function RoutePlanner() {
             <div className="pref-row">
               <span className="pref-label">距離上限</span>
               <div className="pill-group">
+                <button type="button"
+                  className={`pill ${maxDist === null ? 'active' : ''}`}
+                  onClick={() => setMaxDist(null)}>
+                  不限
+                </button>
                 {[5, 10, 15, 20].map(d => (
                   <button key={d} type="button"
                     className={`pill ${maxDist === d ? 'active' : ''}`}
-                    onClick={() => setMaxDist(d)}>
+                    onClick={() => setMaxDist(maxDist === d ? null : d)}>
                     {d} km
                   </button>
                 ))}
@@ -148,7 +238,7 @@ function RoutePlanner() {
                     <button key={n} type="button"
                       className={`star-btn ${difficulty >= n && !locked ? 'on' : ''} ${locked ? 'locked' : ''}`}
                       onClick={() => !locked && setDiff(n)}
-                      title={locked ? `需達到更高駕駛等級才能解鎖` : ''}
+                      title={locked ? '需達到更高駕駛等級才能解鎖' : ''}
                       disabled={locked}>
                       {locked ? '🔒' : '★'}
                     </button>

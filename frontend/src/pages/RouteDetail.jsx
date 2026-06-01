@@ -99,7 +99,7 @@ export default function RouteDetail() {
     <div className="detail-page">
       <header className="route-header">
         <button className="back-btn"
-          onClick={() => navigate('/route')}>
+          onClick={() => navigate(-1)}>
           ← 返回
         </button>
         <span className="route-title">{route.start} — {route.end}</span>

@@ -103,9 +103,9 @@ function RouteSelect() {
 
       <main className="route-main">
         <div className="pref-summary">
-          {start} → {end}　{maxDist} km 以內　{'⭐'.repeat(difficulty)}
-          {bridge ? '　🌉 含橋樑' : ''}
-          {tunnel ? '　🚇 含隧道' : ''}
+          {start} → {end}　{maxDist ? `${maxDist} km 以內` : '不限距離'}　{'⭐'.repeat(difficulty)}
+          {bridge ? '　🌉 避橋' : ''}
+          {tunnel ? '　🚇 避隧道' : ''}
         </div>
 
         {routes.length === 0 ? (

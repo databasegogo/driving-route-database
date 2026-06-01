@@ -422,3 +422,67 @@
 
 .score-row { background: #f0f4ff; }
 .score-val { color: #4f7cff !important; font-size: 18px !important; font-weight: 700 !important; }
+
+/* ── Location autocomplete ──────────────────────────────────────── */
+.location-wrap {
+  position: relative;
+  flex: 1;
+}
+.location-wrap .ep-input {
+  width: 100%;
+}
+.coord-ok {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  pointer-events: none;
+}
+.suggest-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #dde3f0;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.10);
+  z-index: 200;
+  list-style: none;
+  padding: 4px 0;
+  margin: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.suggest-item {
+  padding: 9px 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.suggest-item:hover { background: #f0f4ff; }
+.suggest-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111;
+}
+.suggest-addr {
+  font-size: 11px;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* rc-warning */
+.rc-warning {
+  margin-top: 6px;
+  padding: 5px 10px;
+  background: #fff8e1;
+  border-left: 3px solid #ffc107;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #7a5c00;
+  text-align: left;
+}
