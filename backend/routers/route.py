@@ -23,9 +23,10 @@ class RouteRequest(BaseModel):
     start_lat: float
     end_lng:   float
     end_lat:   float
-    selected_difficulty: str   # "BEGINNER" / "NORMAL" / "EXPERIENCED"
+    selected_difficulty: str          # "BEGINNER" / "NORMAL" / "EXPERIENCED"
     avoid_bridge: bool = False
     avoid_tunnel: bool = False
+    max_distance_m: int | None = None  # None = 不限距離
 
 
 # ── 工具函式 ──────────────────────────────────────────────────────
@@ -72,11 +73,12 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
 
         risk_weight = RISK_WEIGHT[req.selected_difficulty]
 
-        # 3. 查最近節點（KNN，取前 5 個候選）
+        # 3. 查最近節點（只在主連通 component 內找，確保起終點可連通）
         find_node_sql = """
-            SELECT id
-            FROM road_edges_guishan_vertices_pgr
-            ORDER BY the_geom <-> ST_SetSRID(ST_Point(%s, %s), 4326)
+            SELECT v.id
+            FROM road_edges_guishan_vertices_pgr v
+            WHERE v.id IN (SELECT node FROM main_component_nodes)
+            ORDER BY v.the_geom <-> ST_SetSRID(ST_Point(%s, %s), 4326)
             LIMIT 5
         """
         cur.execute(find_node_sql, (req.start_lng, req.start_lat))
@@ -88,6 +90,7 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         end_candidates = [r[0] for r in cur.fetchall()]
         if not end_candidates:
             raise HTTPException(422, "NODE_NOT_FOUND")
+
 
         # 4. 建立 cost 表達式
         base_cost = f"(re.cost         + COALESCE(ers.risk_score, 0) * {risk_weight})"
@@ -155,13 +158,16 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         for row in all_rows:
             paths[row[0]].append(row)
 
-        # 7. 查距離上限
-        cur.execute(
-            "SELECT max_distance_m FROM user_route_preference WHERE user_id = %s",
-            (user_id,)
-        )
-        pref     = cur.fetchone()
-        max_dist = pref[0] if pref else None
+        # 7. 距離上限：優先用本次請求帶的值，沒帶才查使用者偏好設定
+        if req.max_distance_m is not None:
+            max_dist = req.max_distance_m
+        else:
+            cur.execute(
+                "SELECT max_distance_m FROM user_route_preference WHERE user_id = %s",
+                (user_id,)
+            )
+            pref     = cur.fetchone()
+            max_dist = pref[0] if pref else None
 
         # 8. 存入 route_request
         cur.execute("""
