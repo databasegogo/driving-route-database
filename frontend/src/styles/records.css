@@ -1,0 +1,312 @@
+.rec-page {
+  min-height: 100svh;
+  background: #f0f2f5;
+  display: flex;
+  flex-direction: column;
+}
+
+.rec-main {
+  max-width: 860px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 28px 20px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── 進度條卡片 ──────────────────────────────────────────── */
+.rec-progress-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 22px 24px 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.prog-top { margin-bottom: 12px; }
+
+.prog-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a3a5c;
+}
+
+.prog-bar-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.prog-pct { font-weight: 600; color: #4f7cff; }
+
+.prog-track {
+  height: 10px;
+  background: #e8edf5;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.prog-fill {
+  height: 100%;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #4f7cff 0%, #7b61ff 100%);
+  transition: width 0.6s ease;
+}
+
+.prog-stats {
+  display: flex;
+  gap: 32px;
+  margin-top: 18px;
+}
+
+.prog-stat { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+
+.ps-num {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ps-lbl { font-size: 12px; color: #999; }
+
+.prog-stat.done .ps-num { color: #2e7d32; }
+.prog-stat.ing  .ps-num { color: #4f7cff; }
+.prog-stat.none .ps-num { color: #b0b0b0; }
+
+/* ── 卡片格 ─────────────────────────────────────────────── */
+.rec-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 600px) { .rec-grid { grid-template-columns: 1fr; } }
+
+.rec-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 16px 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ❤️ 收藏按鈕 */
+.fav-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+  transition: transform 0.2s;
+}
+.fav-btn:hover { transform: scale(1.25); }
+
+.rec-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #333;
+}
+.rec-row.align-top { align-items: flex-start; }
+
+.rc-key {
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
+  min-width: 52px;
+}
+
+.rc-route { font-size: 12px; font-weight: 500; color: #1a3a5c; }
+.rc-score { font-weight: 700; color: #4f7cff; }
+
+/* status pills */
+.status-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.st-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+}
+
+.st-off  { background: #f0f0f0; color: #bbb; }
+.st-done { background: #e8f5e9; color: #2e7d32; }
+.st-ing  { background: #e8f0ff; color: #4f7cff; }
+.st-none { background: #f5f5f5; color: #999; }
+
+.more-btn {
+  align-self: flex-end;
+  margin-top: 4px;
+  background: none;
+  border: 1px solid #4f7cff;
+  color: #4f7cff;
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.more-btn:hover { background: #f0f4ff; }
+
+.rec-empty {
+  text-align: center;
+  color: #aaa;
+  font-size: 14px;
+  padding: 60px 0;
+}
+
+/* ── 詳細 Modal ─────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.detail-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 28px 24px 20px;
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #aaa;
+  cursor: pointer;
+  line-height: 1;
+}
+.modal-close:hover { color: #333; }
+
+.modal-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1a3a5c;
+  margin: 0 0 12px;
+}
+
+.modal-rows {
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.modal-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid #f5f5f5;
+}
+.modal-row:last-child { border-bottom: none; }
+.modal-row.align-top  { align-items: flex-start; }
+
+.mr-key {
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
+  min-width: 60px;
+}
+
+.map-btn {
+  width: 100%;
+  padding: 11px;
+  background: #f0f4ff;
+  border: 1.5px solid #c0d0ff;
+  border-radius: 9px;
+  color: #4f7cff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: background 0.15s;
+}
+.map-btn:hover { background: #e0eaff; }
+
+.confirm-btn {
+  width: 100%;
+  padding: 12px;
+  background: #1a3a5c;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.confirm-btn:hover { background: #2b4d75; }
+
+/* ── 地圖 Modal ─────────────────────────────────────────── */
+.map-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 640px;
+  max-height: 88svh;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+.map-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 1001;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+.map-close:hover { background: #f5f5f5; }
+
+.map-modal-title {
+  padding: 14px 48px 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a3a5c;
+  border-bottom: 1px solid #eee;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.rec-map {
+  flex: 1;
+  min-height: 360px;
+}
