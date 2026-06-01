@@ -38,12 +38,16 @@ function LocationInput({ value, coord, onChange, onSelect, placeholder }) {
 
     timerRef.current = setTimeout(async () => {
       try {
+        // 龜山區邊界框：lng_min, lat_max, lng_max, lat_min
+        const GUISHAN_BBOX = '121.27,25.07,121.43,24.97'
         const url = new URL('https://nominatim.openstreetmap.org/search')
         url.searchParams.set('q', q)
         url.searchParams.set('format', 'json')
         url.searchParams.set('limit', '5')
         url.searchParams.set('accept-language', 'zh-TW,zh')
         url.searchParams.set('countrycodes', 'tw')
+        url.searchParams.set('viewbox', GUISHAN_BBOX)
+        url.searchParams.set('bounded', '1')   // 只回傳邊界框內的結果
         const res  = await fetch(url.toString(), {
           headers: { 'User-Agent': 'driving-route-database/1.0' }
         })
@@ -115,17 +119,20 @@ function RoutePlanner() {
   const levelLabel = LEVEL_LABEL[maxDiff]
 
   async function geocodeText(query) {
+    const GUISHAN_BBOX = '121.27,25.07,121.43,24.97'
     const url = new URL('https://nominatim.openstreetmap.org/search')
     url.searchParams.set('q', query)
     url.searchParams.set('format', 'json')
     url.searchParams.set('limit', '1')
     url.searchParams.set('accept-language', 'zh-TW,zh')
     url.searchParams.set('countrycodes', 'tw')
+    url.searchParams.set('viewbox', GUISHAN_BBOX)
+    url.searchParams.set('bounded', '1')
     const res  = await fetch(url.toString(), {
       headers: { 'User-Agent': 'driving-route-database/1.0' }
     })
     const data = await res.json()
-    if (!data.length) throw new Error(`找不到「${query}」的位置，請換個地點名稱試試`)
+    if (!data.length) throw new Error(`在龜山區找不到「${query}」，請輸入龜山區內的地點`)
     return [parseFloat(data[0].lat), parseFloat(data[0].lon)]
   }
 
