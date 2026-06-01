@@ -62,41 +62,32 @@ docker ps
 
 ---
 
-### Step 3：匯入 OSM 原始資料
+### Step 3：準備原始資料
 
-需要兩份 Shapefile（不在 git 裡，需自行下載）：
+下載並放置以下檔案（詳見 `data/README.md`）：
 
-**roads**（OSM 道路）和 **adminareas**（行政區）
-
-```bash
-# 匯入 roads
-shp2pgsql -I -s 4326 data/raw/gis_osm_roads_free_1.shp roads | \
-  psql -h localhost -p 5433 -U postgres -d gisdb
-
-# 匯入 adminareas
-shp2pgsql -I -s 4326 data/raw/gis_osm_places_free_1.shp adminareas | \
-  psql -h localhost -p 5433 -U postgres -d gisdb
+```
+data/
+├── gis_osm_roads_free_1.shp        ← 從 Geofabrik 下載
+├── gis_osm_adminareas_a_free_1.shp ← 從 Geofabrik 下載
+└── raw/
+    ├── accidents_a1.csv            ← 從政府開放資料下載
+    └── accidents_a2.csv
 ```
 
 ---
 
-### Step 4：依序執行 SQL 腳本
+### Step 4：執行建置腳本
 
-在 DBeaver 或 psql 依序執行 `sql/` 資料夾內的腳本：
+```bash
+# 匯入 OSM 道路資料 + 執行 SQL 01~03
+bash setup/init_db.sh
 
-| 檔案 | 說明 |
-|------|------|
-| `01_create_extensions.sql` | 啟用 PostGIS、pgRouting 擴充 |
-| `02_filter_guishan.sql` | 篩選龜山區道路 |
-| `03_create_graph_tables.sql` | 建立路網拓撲圖（pgRouting topology） |
-| `04_import_accidents.sql` | 匯入 A1/A2 交通事故資料 |
-| `05_match_accident_to_edge.sql` | 將事故點對應到最近道路 edge |
-| `06_edge_risk_v1.sql` | 計算道路風險分數 |
-| `07_create_3nf_tables.sql` | 建立正規化核心資料表（3NF） |
-| `08_create_user_route_tables.sql` | 建立使用者、路線、練習紀錄資料表 |
-| `09_routing_helpers.sql` | 建立主連通元件節點表（路線規劃必要） |
+# 匯入事故資料 + 執行 SQL 04~09
+bash setup/import_accidents.sh
+```
 
-> ⚠️ 執行 `04` 前須先將事故 CSV 放入 Docker 容器的 `/data/raw/` 路徑
+> 詳細說明見 `setup/setup.md`
 
 ---
 
