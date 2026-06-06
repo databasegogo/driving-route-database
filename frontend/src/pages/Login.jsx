@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { LogIn } from 'lucide-react'
 import api from '../api'
-import logoImg from '../assets/567.jpg' // 👈 ✅ 完美鎖定妳目前專案裡最正確的 567.jpg 圖片檔案
+import logoImg from '../assets/567.jpg'
 import '../styles/auth.css'
 
 function Login() {
@@ -20,6 +20,14 @@ function Login() {
     try {
       const res = await api.post('/auth/login', { email, password })
       localStorage.setItem('token', res.data.token)
+
+      // 如果是管理者，跳到管理者後台
+      if (res.data.role === 'admin') {
+        localStorage.setItem('api_token', res.data.token)
+        localStorage.setItem('api_url', 'http://localhost:8000')
+        window.location.href = '/admin/index.html'
+        return
+      }
 
       const pendingAddr = JSON.parse(localStorage.getItem('pendingAddr') || '{}')
       localStorage.removeItem('pendingAddr')
@@ -49,13 +57,11 @@ function Login() {
     <div className="auth-page-container">
       <div className="auth-glass-card">
         
-        {/* 🌿 【左側：非對稱視覺品牌面板】 */}
         <div className="auth-left-brand-panel">
           <h2>新手路徑王</h2>
           <p className="brand-subtitle">Smart Path Driving Platform</p>
           
           <div className="auth-hero-logo-wrapper">
-            {/* 💡 精修細節：讓 567.jpg 這張完美去背的車車與星星自然舒展，不再被多餘的白色硬框限制 */}
             <img 
               src={logoImg} 
               alt="新手路徑王核心識別" 
@@ -64,13 +70,12 @@ function Login() {
                 width: '100%',
                 maxOuterWidth: '260px',
                 height: 'auto',
-                borderRadius: '0px' // 拔除硬邦邦的圓角外框，讓小車線條跟背景完美融為一體
+                borderRadius: '0px'
               }}
             />
           </div>
         </div>
 
-        {/* 🎛️ 【右側：洗鍊智能控制表單】 */}
         <div className="auth-right-form-panel">
           <form onSubmit={handleSubmit} className="auth-form-grid">
             

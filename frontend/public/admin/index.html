@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>新手路徑王 — 管理者後台</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+/* ── 變數 ── */
+:root {
+  --navy:       #0f1b2d;
+  --navy-mid:   #162236;
+  --navy-light: #1e3352;
+  --panel:      #192840;
+  --border:     #243a55;
+  --accent:     #3b82f6;
+  --accent2:    #06b6d4;
+  --green:      #22c55e;
+  --yellow:     #f59e0b;
+  --red:        #ef4444;
+  --text:       #e2e8f0;
+  --text-muted: #64748b;
+  --text-dim:   #94a3b8;
+  --sidebar-w:  240px;
+  --font-mono:  'Share Tech Mono', monospace;
+  --font-main:  'Noto Sans TC', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--navy); color: var(--text); font-family: var(--font-main); font-size: 14px; }
+
+/* ── 捲軸 ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--navy-mid); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── 佈局 ── */
+.layout { display: flex; height: 100vh; overflow: hidden; }
+
+/* ── Sidebar ── */
+.sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: var(--navy-mid);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  transition: width .25s ease;
+  z-index: 100;
+  overflow: hidden;
+}
+.sidebar.collapsed { width: 64px; min-width: 64px; }
+.sidebar-logo {
+  padding: 20px 18px 16px;
+  display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid var(--border);
+  min-height: 64px;
+}
+.logo-icon {
+  width: 32px; height: 32px; min-width: 32px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.logo-text { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; color: var(--text); }
+.logo-sub  { font-size: 10px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; }
+.sidebar.collapsed .logo-text,
+.sidebar.collapsed .logo-sub { display: none; }
+
+.nav-group { padding: 12px 8px; }
+.nav-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; padding: 4px 10px 8px; white-space: nowrap; overflow: hidden; }
+.sidebar.collapsed .nav-label { opacity: 0; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: 8px; cursor: pointer;
+  color: var(--text-dim); font-size: 13px; font-weight: 500;
+  transition: background .15s, color .15s;
+  white-space: nowrap; overflow: hidden;
+  position: relative;
+}
+.nav-item:hover { background: var(--navy-light); color: var(--text); }
+.nav-item.active { background: rgba(59,130,246,.15); color: var(--accent); }
+.nav-item.active::before {
+  content: ''; position: absolute; left: 0; top: 25%; height: 50%; width: 3px;
+  background: var(--accent); border-radius: 0 3px 3px 0;
+}
+.nav-icon { font-size: 16px; min-width: 20px; text-align: center; }
+.nav-text { white-space: nowrap; overflow: hidden; }
+.sidebar.collapsed .nav-text,
+.sidebar.collapsed .nav-label { display: none; }
+.badge {
+  margin-left: auto; background: var(--red); color: #fff;
+  border-radius: 10px; padding: 1px 7px; font-size: 10px; font-weight: 700;
+}
+.sidebar.collapsed .badge { display: none; }
+
+.sidebar-footer {
+  margin-top: auto; padding: 12px 8px;
+  border-top: 1px solid var(--border);
+}
+.toggle-btn {
+  width: 100%; padding: 8px 10px; border-radius: 8px;
+  background: none; border: 1px solid var(--border);
+  color: var(--text-dim); cursor: pointer; font-size: 13px;
+  display: flex; align-items: center; gap: 8px;
+  transition: background .15s, color .15s;
+}
+.toggle-btn:hover { background: var(--navy-light); color: var(--text); }
+.sidebar.collapsed .toggle-btn-text { display: none; }
+
+/* ── 主內容 ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── 頂列 ── */
+.topbar {
+  height: 64px; min-height: 64px;
+  background: var(--navy-mid); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; gap: 16px;
+}
+.topbar-title { font-size: 16px; font-weight: 700; }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.topbar-pill {
+  background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.3);
+  color: var(--accent); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+}
+.topbar-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.api-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-muted);
+}
+.dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ── 頁面容器 ── */
+.page-wrap { flex: 1; overflow-y: auto; padding: 24px; }
+
+/* ── section 切換 ── */
+.section { display: none; }
+.section.active { display: block; }
+
+/* ── KPI 卡片 ── */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.kpi-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  padding: 18px 20px; position: relative; overflow: hidden;
+  transition: border-color .2s, transform .15s;
+}
+.kpi-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.kpi-card::after {
+  content: ''; position: absolute; top: 0; right: 0;
+  width: 60px; height: 60px; border-radius: 0 12px 0 60px;
+  background: rgba(59,130,246,.06);
+}
+.kpi-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.kpi-val { font-size: 28px; font-weight: 700; font-family: var(--font-mono); line-height: 1; }
+.kpi-val.green { color: var(--green); }
+.kpi-val.blue  { color: var(--accent); }
+.kpi-val.yellow{ color: var(--yellow); }
+.kpi-val.cyan  { color: var(--accent2); }
+.kpi-sub { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+.kpi-trend { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; margin-top: 4px; }
+.kpi-trend.up { color: var(--green); }
+.kpi-trend.down { color: var(--red); }
+
+/* ── 雙欄 ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+@media(max-width: 900px) { .two-col { grid-template-columns: 1fr; } .three-col { grid-template-columns: 1fr; } }
+
+/* ── 卡片 ── */
+.card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+}
+.card-head {
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.card-body { padding: 16px 20px; }
+
+/* ── 簡易長條圖 ── */
+.bar-list { display: flex; flex-direction: column; gap: 10px; }
+.bar-item { display: flex; flex-direction: column; gap: 4px; }
+.bar-meta { display: flex; justify-content: space-between; font-size: 12px; }
+.bar-label { color: var(--text-dim); }
+.bar-val { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+.bar-track { background: var(--navy-light); border-radius: 4px; height: 6px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 1s cubic-bezier(.4,0,.2,1); }
+.bar-fill.blue   { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+.bar-fill.green  { background: linear-gradient(90deg, #16a34a, var(--green)); }
+.bar-fill.yellow { background: linear-gradient(90deg, #d97706, var(--yellow)); }
+.bar-fill.red    { background: linear-gradient(90deg, #dc2626, var(--red)); }
+
+/* ── 表格 ── */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  padding: 10px 14px; text-align: left;
+  color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+tbody tr { transition: background .12s; }
+tbody tr:hover { background: rgba(255,255,255,.03); }
+tbody td { padding: 11px 14px; border-bottom: 1px solid rgba(36,58,85,.5); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: none; }
+
+/* ── 標籤 ── */
+.tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
+}
+.tag.beginner { background: rgba(34,197,94,.12); color: var(--green); border: 1px solid rgba(34,197,94,.25); }
+.tag.normal   { background: rgba(59,130,246,.12); color: var(--accent); border: 1px solid rgba(59,130,246,.25); }
+.tag.experienced { background: rgba(245,158,11,.12); color: var(--yellow); border: 1px solid rgba(245,158,11,.25); }
+.tag.completed  { background: rgba(34,197,94,.12); color: var(--green); }
+.tag.in_progress{ background: rgba(59,130,246,.12); color: var(--accent); }
+.tag.abandoned  { background: rgba(239,68,68,.12); color: var(--red); }
+.tag.admin { background: rgba(6,182,212,.12); color: var(--accent2); border: 1px solid rgba(6,182,212,.25); }
+.tag.user  { background: rgba(100,116,139,.12); color: var(--text-muted); border: 1px solid rgba(100,116,139,.25); }
+
+/* ── 按鈕 ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; border: none; transition: all .15s; font-family: var(--font-main);
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #2563eb; }
+.btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--navy-light); color: var(--text); }
+.btn-danger { background: transparent; color: var(--red); border: 1px solid rgba(239,68,68,.3); }
+.btn-danger:hover { background: rgba(239,68,68,.1); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* ── 搜尋列 ── */
+.search-bar {
+  display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap;
+}
+.search-input {
+  flex: 1; min-width: 200px; max-width: 320px;
+  background: var(--navy-light); border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px; padding: 8px 14px;
+  font-size: 13px; font-family: var(--font-main);
+  outline: none; transition: border-color .15s;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--text-muted); }
+select.select-filter {
+  background: var(--navy-light); border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px; padding: 8px 12px;
+  font-size: 13px; font-family: var(--font-main); outline: none; cursor: pointer;
+}
+select.select-filter:focus { border-color: var(--accent); }
+select.select-filter option { background: var(--navy-mid); }
+
+/* ── 分頁 ── */
+.pagination { display: flex; align-items: center; gap: 6px; margin-top: 16px; }
+.pag-btn {
+  width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  background: var(--navy-light); border: 1px solid var(--border); color: var(--text-dim);
+  cursor: pointer; font-size: 13px; transition: all .12s;
+}
+.pag-btn:hover { border-color: var(--accent); color: var(--accent); }
+.pag-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ── 圓餅視覺 ── */
+.donut-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.donut { position: relative; }
+.donut svg { transform: rotate(-90deg); }
+.donut-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--font-mono); }
+.donut-pct { font-size: 22px; font-weight: 700; }
+.donut-sub { font-size: 10px; color: var(--text-muted); }
+.legend { display: flex; flex-direction: column; gap: 8px; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── 活動時間軸 ── */
+.timeline { display: flex; flex-direction: column; gap: 0; }
+.tl-item { display: flex; gap: 12px; padding-bottom: 16px; position: relative; }
+.tl-item:last-child { padding-bottom: 0; }
+.tl-line { display: flex; flex-direction: column; align-items: center; }
+.tl-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 4px; }
+.tl-dot.green  { background: var(--green); }
+.tl-dot.yellow { background: var(--yellow); }
+.tl-dot.red    { background: var(--red); }
+.tl-connector { flex: 1; width: 1px; background: var(--border); margin: 4px 0 0; }
+.tl-item:last-child .tl-connector { display: none; }
+.tl-content { flex: 1; }
+.tl-msg { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+.tl-msg strong { color: var(--text); }
+.tl-time { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── 等級進度卡 ── */
+.level-card { background: var(--navy-light); border-radius: 10px; padding: 14px; display: flex; align-items: center; gap: 14px; }
+.level-icon { font-size: 28px; }
+.level-info { flex: 1; }
+.level-name { font-size: 13px; font-weight: 700; }
+.level-sub  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.progress-bar { background: var(--navy-mid); border-radius: 4px; height: 5px; margin-top: 8px; }
+.progress-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 1s ease; }
+.level-pct { font-family: var(--font-mono); font-size: 12px; color: var(--accent); margin-top: 4px; }
+
+/* ── 統計數字列 ── */
+.stat-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.stat-box { flex: 1; min-width: 100px; background: var(--navy-light); border-radius: 8px; padding: 12px; text-align: center; }
+.stat-box .val { font-size: 20px; font-weight: 700; font-family: var(--font-mono); }
+.stat-box .lbl { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+/* ── 模態 ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+  padding: 28px; width: 90%; max-width: 480px;
+  transform: translateY(20px); transition: transform .2s;
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+.form-group { margin-bottom: 14px; }
+.form-label { font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 5px; display: block; }
+.form-input {
+  width: 100%; background: var(--navy-light); border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px; padding: 9px 14px;
+  font-size: 13px; font-family: var(--font-main); outline: none;
+  transition: border-color .15s;
+}
+.form-input:focus { border-color: var(--accent); }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+/* ── 空狀態 ── */
+.empty { text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
+.empty-icon { font-size: 32px; margin-bottom: 8px; }
+
+/* ── 等級選擇器 ── */
+.level-selector { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.level-opt {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px; border-radius: 10px; cursor: pointer;
+  border: 2px solid var(--border); background: var(--navy-light);
+  transition: all .18s; position: relative; overflow: hidden;
+}
+.level-opt:hover { border-color: var(--accent); background: rgba(59,130,246,.08); }
+.level-opt.selected { border-color: var(--accent); background: rgba(59,130,246,.13); }
+.level-opt.selected::after {
+  content: '✓'; position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  color: var(--accent); font-weight: 700; font-size: 16px;
+}
+.level-opt-icon { font-size: 22px; }
+.level-opt-info { flex: 1; }
+.level-opt-name { font-size: 13px; font-weight: 700; }
+.level-opt-range { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.level-opt-weight { font-size: 11px; font-family: var(--font-mono); margin-top: 2px; }
+.level-opt.l-beginner.selected    { border-color: var(--green);  background: rgba(34,197,94,.1); }
+.level-opt.l-beginner.selected::after { color: var(--green); }
+.level-opt.l-normal.selected      { border-color: var(--accent); background: rgba(59,130,246,.1); }
+.level-opt.l-experienced.selected { border-color: var(--yellow); background: rgba(245,158,11,.1); }
+.level-opt.l-experienced.selected::after { color: var(--yellow); }
+
+/* ── 使用者資訊卡（Modal 頂部） ── */
+.user-info-strip {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--navy-light); border-radius: 10px; padding: 12px 16px;
+  margin-bottom: 18px; border: 1px solid var(--border);
+}
+.user-avatar-sm {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+}
+.user-strip-info { flex: 1; }
+.user-strip-name { font-size: 14px; font-weight: 700; }
+.user-strip-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.score-chip {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+  background: rgba(245,158,11,.12); color: var(--yellow);
+  border: 1px solid rgba(245,158,11,.25); border-radius: 8px; padding: 4px 10px;
+}
+
+/* ── 警告文字 ── */
+.warn-box {
+  background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.25);
+  border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #fcd34d;
+  margin-top: 12px; display: flex; gap: 8px; align-items: flex-start;
+}
+.warn-box.info {
+  background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.25); color: var(--accent2);
+}
+
+/* ── 分隔線 ── */
+hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 999;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 18px; font-size: 13px; display: flex; align-items: center; gap: 8px;
+  transform: translateY(60px); opacity: 0; transition: all .3s;
+  max-width: 300px;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.success { border-color: rgba(34,197,94,.4); }
+#toast.error   { border-color: rgba(239,68,68,.4); }
+
+/* ── 設定頁 ── */
+.setting-section { margin-bottom: 24px; }
+.setting-title { font-size: 13px; font-weight: 700; color: var(--text-dim); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.setting-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(36,58,85,.4); gap: 16px; }
+.setting-row:last-child { border-bottom: none; }
+.setting-info .s-name { font-size: 13px; font-weight: 600; }
+.setting-info .s-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.toggle-switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  position: absolute; inset: 0; background: var(--navy-light); border-radius: 12px;
+  cursor: pointer; transition: background .2s;
+  border: 1px solid var(--border);
+}
+.toggle-track::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; background: var(--text-muted); border-radius: 50%;
+  transition: transform .2s, background .2s;
+}
+.toggle-switch input:checked + .toggle-track { background: rgba(59,130,246,.25); border-color: var(--accent); }
+.toggle-switch input:checked + .toggle-track::after { transform: translateX(18px); background: var(--accent); }
+
+/* ── 響應式 ── */
+@media(max-width:600px){
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .page-wrap { padding: 12px; }
+  .topbar { padding: 0 12px; }
+  .topbar-title { font-size: 14px; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🚗</div>
+      <div>
+        <div class="logo-text">新手路徑王</div>
+        <div class="logo-sub">管理者後台</div>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">主選單</div>
+      <div class="nav-item active" onclick="goto('dashboard',this)">
+        <span class="nav-icon">📊</span><span class="nav-text">總覽儀表板</span>
+      </div>
+      <div class="nav-item" onclick="goto('users',this)">
+        <span class="nav-icon">👥</span><span class="nav-text">使用者管理</span>
+      </div>
+      <div class="nav-item" onclick="goto('routes',this)">
+        <span class="nav-icon">🗺️</span><span class="nav-text">路線紀錄</span>
+      </div>
+      <div class="nav-item" onclick="goto('practice',this)">
+        <span class="nav-icon">📋</span><span class="nav-text">練習歷程</span>
+        <span class="badge" id="badge-practice">3</span>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">系統</div>
+      <div class="nav-item" onclick="goto('levels',this)">
+        <span class="nav-icon">⭐</span><span class="nav-text">等級設定</span>
+      </div>
+      <div class="nav-item" onclick="goto('settings',this)">
+        <span class="nav-icon">⚙️</span><span class="nav-text">系統設定</span>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="toggle-btn" onclick="toggleSidebar()">
+        <span>◀</span>
+        <span class="toggle-btn-text">收合側欄</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <div class="main">
+    <!-- 頂列 -->
+    <header class="topbar">
+      <div class="topbar-title" id="topbar-title">總覽儀表板</div>
+      <div class="topbar-right">
+        <div class="api-status">
+          <div class="dot" id="api-dot"></div>
+          <span id="api-label">後端連線中</span>
+        </div>
+        <div class="topbar-pill">Admin</div>
+        <div class="topbar-avatar" title="管理員">A</div>
+      </div>
+    </header>
+
+    <!-- 主頁面 -->
+    <div class="page-wrap">
+
+      <!-- ══ 1. 總覽儀表板 ══ -->
+      <div class="section active" id="sec-dashboard">
+        <div class="kpi-grid" id="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">總使用者數</div>
+            <div class="kpi-val blue" id="kpi-users">—</div>
+            <div class="kpi-sub">已註冊帳號</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">總練習次數</div>
+            <div class="kpi-val green" id="kpi-practices">—</div>
+            <div class="kpi-sub">累計完成練習</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">總路線數</div>
+            <div class="kpi-val cyan" id="kpi-routes">—</div>
+            <div class="kpi-sub">已生成路線</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">平均分數</div>
+            <div class="kpi-val yellow" id="kpi-avg-score">—</div>
+            <div class="kpi-sub">使用者平均累積</div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <!-- 等級分佈 -->
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">⭐ 駕駛等級分佈</div>
+            </div>
+            <div class="card-body">
+              <div class="donut-wrap">
+                <div class="donut" style="width:100px;height:100px">
+                  <svg width="100" height="100" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="var(--navy-light)" stroke-width="14"/>
+                    <circle id="d-beginner" cx="50" cy="50" r="38" fill="none" stroke="var(--green)" stroke-width="14"
+                            stroke-dasharray="0 239" stroke-linecap="round"/>
+                    <circle id="d-normal"   cx="50" cy="50" r="38" fill="none" stroke="var(--accent)" stroke-width="14"
+                            stroke-dasharray="0 239" stroke-linecap="round" stroke-dashoffset="0"/>
+                    <circle id="d-experienced" cx="50" cy="50" r="38" fill="none" stroke="var(--yellow)" stroke-width="14"
+                            stroke-dasharray="0 239" stroke-linecap="round" stroke-dashoffset="0"/>
+                  </svg>
+                  <div class="donut-label">
+                    <div class="donut-pct" id="donut-total">—</div>
+                    <div class="donut-sub">人</div>
+                  </div>
+                </div>
+                <div class="legend" id="level-legend">
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> 新手駕駛 <span id="cnt-beginner" style="margin-left:auto;font-family:var(--font-mono)">—</span></div>
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> 一般駕駛 <span id="cnt-normal"   style="margin-left:auto;font-family:var(--font-mono)">—</span></div>
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div> 熟練駕駛 <span id="cnt-experienced" style="margin-left:auto;font-family:var(--font-mono)">—</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 最新活動 -->
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">🕐 最新練習活動</div>
+              <button class="btn btn-ghost btn-sm" onclick="loadRecentActivity()">重新整理</button>
+            </div>
+            <div class="card-body">
+              <div class="timeline" id="timeline">
+                <div class="empty"><div class="empty-icon">📭</div>載入中…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 難度分佈 -->
+        <div class="card" style="margin-bottom:24px">
+          <div class="card-head">
+            <div class="card-title">📈 練習難度分佈</div>
+          </div>
+          <div class="card-body">
+            <div class="bar-list" id="diff-bars">
+              <div class="bar-item">
+                <div class="bar-meta"><span class="bar-label">⭐ 新手（BEGINNER）</span><span class="bar-val" id="bar-b-val">—</span></div>
+                <div class="bar-track"><div class="bar-fill blue" id="bar-b" style="width:0%"></div></div>
+              </div>
+              <div class="bar-item">
+                <div class="bar-meta"><span class="bar-label">⭐⭐ 一般（NORMAL）</span><span class="bar-val" id="bar-n-val">—</span></div>
+                <div class="bar-track"><div class="bar-fill green" id="bar-n" style="width:0%"></div></div>
+              </div>
+              <div class="bar-item">
+                <div class="bar-meta"><span class="bar-label">⭐⭐⭐ 熟練（EXPERIENCED）</span><span class="bar-val" id="bar-e-val">—</span></div>
+                <div class="bar-track"><div class="bar-fill yellow" id="bar-e" style="width:0%"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ 2. 使用者管理 ══ -->
+      <div class="section" id="sec-users">
+        <div class="search-bar">
+          <input class="search-input" id="user-search" type="text" placeholder="搜尋使用者名稱或 Email…" oninput="filterUsers()"/>
+          <select class="select-filter" id="user-level-filter" onchange="filterUsers()">
+            <option value="">所有等級</option>
+            <option value="BEGINNER">新手駕駛</option>
+            <option value="NORMAL">一般駕駛</option>
+            <option value="EXPERIENCED">熟練駕駛</option>
+          </select>
+          <select class="select-filter" id="user-role-filter" onchange="filterUsers()">
+            <option value="">所有角色</option>
+            <option value="user">一般使用者</option>
+            <option value="admin">管理員</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="openAddUser()">＋ 新增使用者</button>
+        </div>
+        <div class="card">
+          <div class="card-body" style="padding:0">
+            <div class="tbl-wrap">
+              <table id="user-table">
+                <thead>
+                  <tr>
+                    <th>ID</th><th>使用者名稱</th><th>Email</th>
+                    <th>駕駛等級</th><th>累積分數</th><th>角色</th>
+                    <th>取得駕照日</th><th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="user-tbody">
+                  <tr><td colspan="8" class="empty">載入中…</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+              <span id="user-count-label" style="font-size:12px;color:var(--text-muted)">共 0 筆</span>
+              <div class="pagination" id="user-pagination"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ 3. 路線紀錄 ══ -->
+      <div class="section" id="sec-routes">
+        <div class="search-bar">
+          <input class="search-input" id="route-search" type="text" placeholder="搜尋路線名稱…" oninput="filterRoutes()"/>
+        </div>
+        <div class="card">
+          <div class="card-body" style="padding:0">
+            <div class="tbl-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>路線ID</th><th>路線名稱</th><th>總距離(m)</th>
+                    <th>總風險分數</th><th>總最終成本</th><th>建立時間</th>
+                  </tr>
+                </thead>
+                <tbody id="route-tbody">
+                  <tr><td colspan="6" class="empty">載入中…</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div style="padding:12px 16px">
+              <span id="route-count-label" style="font-size:12px;color:var(--text-muted)">共 0 筆</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ 4. 練習歷程 ══ -->
+      <div class="section" id="sec-practice">
+        <div class="search-bar">
+          <select class="select-filter" id="prac-status-filter" onchange="filterPractice()">
+            <option value="">所有狀態</option>
+            <option value="completed">已完成</option>
+            <option value="in_progress">練習中</option>
+            <option value="abandoned">已放棄</option>
+          </select>
+          <select class="select-filter" id="prac-diff-filter" onchange="filterPractice()">
+            <option value="">所有難度</option>
+            <option value="BEGINNER">新手</option>
+            <option value="NORMAL">一般</option>
+            <option value="EXPERIENCED">熟練</option>
+          </select>
+        </div>
+        <div class="card">
+          <div class="card-body" style="padding:0">
+            <div class="tbl-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>練習ID</th><th>使用者ID</th><th>路線名稱</th>
+                    <th>難度</th><th>狀態</th><th>獲得分數</th>
+                    <th>距離(m)</th><th>練習時間</th>
+                  </tr>
+                </thead>
+                <tbody id="prac-tbody">
+                  <tr><td colspan="8" class="empty">載入中…</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div style="padding:12px 16px">
+              <span id="prac-count-label" style="font-size:12px;color:var(--text-muted)">共 0 筆</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ 5. 等級設定 ══ -->
+      <div class="section" id="sec-levels">
+        <div style="display:flex;flex-direction:column;gap:20px" id="level-cards-wrap">
+
+          <!-- 新手駕駛 -->
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">⭐ 新手駕駛（BEGINNER）</div>
+              <span class="tag beginner" id="lv-b-badge">— 人</span>
+            </div>
+            <div class="card-body">
+              <div class="stat-row" style="margin-bottom:16px">
+                <div class="stat-box"><div class="val" style="color:var(--green)" id="lv-b-users">—</div><div class="lbl">目前人數</div></div>
+                <div class="stat-box"><div class="val" style="color:var(--accent)">80</div><div class="lbl">風險權重</div></div>
+                <div class="stat-box"><div class="val">0</div><div class="lbl">最低分數</div></div>
+                <div class="stat-box"><div class="val">499</div><div class="lbl">最高分數</div></div>
+              </div>
+              <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px">不熟悉路況，系統大幅調高風險路段成本，優先規劃低風險安全路線。</p>
+              <div class="tbl-wrap">
+                <table>
+                  <thead><tr><th>ID</th><th>使用者名稱</th><th>Email</th><th>累積分數</th><th>駕照日期</th><th>調整等級</th></tr></thead>
+                  <tbody id="lvtbl-BEGINNER"><tr><td colspan="6" class="empty" style="padding:16px">載入中…</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 一般駕駛 -->
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">⭐⭐ 一般駕駛（NORMAL）</div>
+              <span class="tag normal" id="lv-n-badge">— 人</span>
+            </div>
+            <div class="card-body">
+              <div class="stat-row" style="margin-bottom:16px">
+                <div class="stat-box"><div class="val" style="color:var(--green)" id="lv-n-users">—</div><div class="lbl">目前人數</div></div>
+                <div class="stat-box"><div class="val" style="color:var(--accent)">40</div><div class="lbl">風險權重</div></div>
+                <div class="stat-box"><div class="val">500</div><div class="lbl">最低分數</div></div>
+                <div class="stat-box"><div class="val">1999</div><div class="lbl">最高分數</div></div>
+              </div>
+              <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px">中等風險權重，平衡路線長度與安全性，兼顧效率與風險。</p>
+              <div class="tbl-wrap">
+                <table>
+                  <thead><tr><th>ID</th><th>使用者名稱</th><th>Email</th><th>累積分數</th><th>駕照日期</th><th>調整等級</th></tr></thead>
+                  <tbody id="lvtbl-NORMAL"><tr><td colspan="6" class="empty" style="padding:16px">載入中…</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 熟練駕駛 -->
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">⭐⭐⭐ 熟練駕駛（EXPERIENCED）</div>
+              <span class="tag experienced" id="lv-e-badge">— 人</span>
+            </div>
+            <div class="card-body">
+              <div class="stat-row" style="margin-bottom:16px">
+                <div class="stat-box"><div class="val" style="color:var(--green)" id="lv-e-users">—</div><div class="lbl">目前人數</div></div>
+                <div class="stat-box"><div class="val" style="color:var(--accent)">10</div><div class="lbl">風險權重</div></div>
+                <div class="stat-box"><div class="val">2000</div><div class="lbl">最低分數</div></div>
+                <div class="stat-box"><div class="val">∞</div><div class="lbl">最高分數</div></div>
+              </div>
+              <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px">低風險權重，接近純距離導航，以最短路徑為主要目標。</p>
+              <div class="tbl-wrap">
+                <table>
+                  <thead><tr><th>ID</th><th>使用者名稱</th><th>Email</th><th>累積分數</th><th>駕照日期</th><th>調整等級</th></tr></thead>
+                  <tbody id="lvtbl-EXPERIENCED"><tr><td colspan="6" class="empty" style="padding:16px">載入中…</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══ 6. 系統設定 ══ -->
+      <div class="section" id="sec-settings">
+        <div class="two-col">
+          <div class="card">
+            <div class="card-head"><div class="card-title">🔌 API 連線設定</div></div>
+            <div class="card-body">
+              <div class="form-group">
+                <label class="form-label">後端 API 位址</label>
+                <input class="form-input" id="api-url-input" value="http://localhost:8000" placeholder="http://localhost:8000"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">管理員 Token（Bearer）</label>
+                <input class="form-input" id="admin-token-input" type="password" placeholder="貼上 JWT Token"/>
+              </div>
+              <button class="btn btn-primary" onclick="saveApiSettings()">💾 儲存並測試連線</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div class="card-title">🛡️ 系統功能開關</div></div>
+            <div class="card-body">
+              <div class="setting-section">
+                <div class="setting-row">
+                  <div class="setting-info">
+                    <div class="s-name">開放新使用者註冊</div>
+                    <div class="s-desc">關閉後將無法建立新帳號</div>
+                  </div>
+                  <label class="toggle-switch"><input type="checkbox" checked/><span class="toggle-track"></span></label>
+                </div>
+                <div class="setting-row">
+                  <div class="setting-info">
+                    <div class="s-name">路線規劃功能</div>
+                    <div class="s-desc">關閉後使用者無法生成新路線</div>
+                  </div>
+                  <label class="toggle-switch"><input type="checkbox" checked/><span class="toggle-track"></span></label>
+                </div>
+                <div class="setting-row">
+                  <div class="setting-info">
+                    <div class="s-name">自動升等系統</div>
+                    <div class="s-desc">完成練習後自動更新駕駛等級</div>
+                  </div>
+                  <label class="toggle-switch"><input type="checkbox" checked/><span class="toggle-track"></span></label>
+                </div>
+                <div class="setting-row">
+                  <div class="setting-info">
+                    <div class="s-name">維護模式</div>
+                    <div class="s-desc">啟用後前台顯示維護提示</div>
+                  </div>
+                  <label class="toggle-switch"><input type="checkbox"/><span class="toggle-track"></span></label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-wrap -->
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- ── 新增使用者 Modal ── -->
+<div class="modal-overlay" id="modal-add-user">
+  <div class="modal">
+    <div class="modal-title">👤 新增使用者</div>
+    <div class="form-group">
+      <label class="form-label">使用者名稱</label>
+      <input class="form-input" id="new-username" placeholder="王小明"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input class="form-input" id="new-email" type="email" placeholder="user@example.com"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">密碼</label>
+      <input class="form-input" id="new-password" type="password" placeholder="至少 8 位"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">生日</label>
+      <input class="form-input" id="new-birth" type="date"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">駕照取得日</label>
+      <input class="form-input" id="new-license" type="date"/>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-user')">取消</button>
+      <button class="btn btn-primary" onclick="submitAddUser()">建立帳號</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 調整等級 Modal ── -->
+<div class="modal-overlay" id="modal-edit-level">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">✏️ 調整駕駛等級</div>
+
+    <!-- 使用者資訊條 -->
+    <div class="user-info-strip">
+      <div class="user-avatar-sm" id="el-avatar">W</div>
+      <div class="user-strip-info">
+        <div class="user-strip-name" id="el-username">—</div>
+        <div class="user-strip-meta" id="el-meta">—</div>
+      </div>
+      <div class="score-chip">⭐ <span id="el-score">0</span> 分</div>
+    </div>
+
+    <!-- 等級選擇 -->
+    <div class="form-label" style="margin-bottom:10px">選擇新等級</div>
+    <div class="level-selector">
+      <div class="level-opt l-beginner" id="lopt-BEGINNER" onclick="selectLevel('BEGINNER')">
+        <div class="level-opt-icon">🟢</div>
+        <div class="level-opt-info">
+          <div class="level-opt-name">⭐ 新手駕駛（BEGINNER）</div>
+          <div class="level-opt-range">分數範圍：0 – 499</div>
+          <div class="level-opt-weight" style="color:var(--green)">風險權重 × 80　→ 優先低風險路線</div>
+        </div>
+      </div>
+      <div class="level-opt l-normal" id="lopt-NORMAL" onclick="selectLevel('NORMAL')">
+        <div class="level-opt-icon">🔵</div>
+        <div class="level-opt-info">
+          <div class="level-opt-name">⭐⭐ 一般駕駛（NORMAL）</div>
+          <div class="level-opt-range">分數範圍：500 – 1999</div>
+          <div class="level-opt-weight" style="color:var(--accent)">風險權重 × 40　→ 平衡路線</div>
+        </div>
+      </div>
+      <div class="level-opt l-experienced" id="lopt-EXPERIENCED" onclick="selectLevel('EXPERIENCED')">
+        <div class="level-opt-icon">🟡</div>
+        <div class="level-opt-info">
+          <div class="level-opt-name">⭐⭐⭐ 熟練駕駛（EXPERIENCED）</div>
+          <div class="level-opt-range">分數範圍：2000 以上</div>
+          <div class="level-opt-weight" style="color:var(--yellow)">風險權重 × 10　→ 最短路線優先</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 警告提示 -->
+    <div class="warn-box" id="el-warn" style="display:none">
+      ⚠️ <span id="el-warn-text"></span>
+    </div>
+    <div class="warn-box info" style="margin-top:10px">
+      ℹ️ 手動調整等級不會變更使用者的累積分數，但會立即影響其可選擇的路線難度。
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-level')">取消</button>
+      <button class="btn btn-primary" id="el-confirm-btn" onclick="confirmEditLevel()">確認調整</button>
+    </div>
+  </div>
+</div>
+<div id="toast">
+  <span id="toast-icon">✅</span>
+  <span id="toast-msg">操作成功</span>
+</div>
+
+<script>
+/* ════════════════════════════════
+   全域設定
+════════════════════════════════ */
+let API_BASE  = localStorage.getItem('api_base')  || 'http://localhost:8000';
+let API_TOKEN = localStorage.getItem('api_token') || '';
+
+// 預設把 input 填入已儲存值
+document.getElementById('api-url-input').value   = API_BASE;
+document.getElementById('admin-token-input').value = API_TOKEN;
+
+const TITLES = {
+  dashboard: '總覽儀表板',
+  users:     '使用者管理',
+  routes:    '路線紀錄',
+  practice:  '練習歷程',
+  levels:    '等級設定',
+  settings:  '系統設定',
+};
+
+/* ════════════════════════════════
+   導覽切換
+════════════════════════════════ */
+function goto(name, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('topbar-title').textContent = TITLES[name];
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'users')     loadUsers();
+  if (name === 'routes')    loadRoutes();
+  if (name === 'practice')  loadPractice();
+  if (name === 'levels')    loadLevels();
+}
+
+/* ════════════════════════════════
+   Sidebar toggle
+════════════════════════════════ */
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+}
+
+/* ════════════════════════════════
+   API Helper
+════════════════════════════════ */
+async function api(path, method = 'GET', body = null) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (API_TOKEN) headers['Authorization'] = `Bearer ${API_TOKEN}`;
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API_BASE + path, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+/* ════════════════════════════════
+   Toast
+════════════════════════════════ */
+function toast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  document.getElementById('toast-icon').textContent = type === 'success' ? '✅' : '❌';
+  t.className = 'show ' + type;
+  setTimeout(() => t.className = '', 3000);
+}
+
+/* ════════════════════════════════
+   Modal
+════════════════════════════════ */
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openAddUser()  { openModal('modal-add-user'); }
+
+/* ════════════════════════════════
+   ── 資料狀態 ──
+   用現有 API 拼湊，不需要後端新增任何東西
+   - /user/me          → 取得目前登入者（admin）自己的資料
+   - /practice/history → 取得 admin 自己的練習紀錄（通常為空）
+   - /auth/register    → 新增使用者
+   ⚠️ 因為後端沒有「取得所有使用者」的 API，
+      使用者管理、路線紀錄頁會顯示提示，
+      但儀表板和等級設定會顯示目前登入者的資料。
+════════════════════════════════ */
+let allUsers    = [];
+let allRoutes   = [];
+let allPractice = [];
+let currentAdmin = null;  // 目前登入的管理員資料
+
+/* ── 載入中 / 錯誤 輔助 ── */
+function setLoading(tbodyId, colspan) {
+  const el = document.getElementById(tbodyId);
+  if (el) el.innerHTML = `<tr><td colspan="${colspan}" class="empty"><div class="empty-icon">⏳</div>載入中…</td></tr>`;
+}
+function setError(tbodyId, colspan, msg) {
+  const el = document.getElementById(tbodyId);
+  if (el) el.innerHTML = `<tr><td colspan="${colspan}" class="empty" style="color:var(--red)"><div class="empty-icon">⚠️</div>${msg}</td></tr>`;
+}
+function setNoAdminApi(tbodyId, colspan) {
+  const el = document.getElementById(tbodyId);
+  if (el) el.innerHTML = `<tr><td colspan="${colspan}" class="empty" style="color:var(--text-muted)">
+    <div class="empty-icon">🔒</div>
+    此功能需要後端新增 Admin API 才能顯示所有使用者資料<br>
+    <span style="font-size:11px">目前只能顯示您自己（admin）的資料</span>
+  </td></tr>`;
+}
+
+/* ════════════════════════════════
+   儀表板載入
+   用 /user/me 取自己 + /practice/history 取自己的練習
+════════════════════════════════ */
+async function loadDashboard() {
+  ['kpi-users','kpi-practices','kpi-routes','kpi-avg-score'].forEach(id => {
+    document.getElementById(id).textContent = '…';
+  });
+  document.getElementById('timeline').innerHTML = '<div class="empty"><div class="empty-icon">⏳</div>載入中…</div>';
+
+  if (!API_TOKEN) {
+    ['kpi-users','kpi-practices','kpi-routes','kpi-avg-score'].forEach(id => {
+      document.getElementById(id).textContent = '—';
+    });
+    document.getElementById('timeline').innerHTML =
+      '<div class="empty" style="color:var(--yellow)"><div class="empty-icon">🔑</div>請先到「系統設定」輸入 Token 並連線</div>';
+    return;
+  }
+
+  try {
+    // 用現有 API 取得自己的資料
+    const [meData, histData] = await Promise.all([
+      api('/user/me').catch(() => null),
+      api('/practice/history').catch(() => null),
+    ]);
+
+    if (meData) {
+      currentAdmin = meData;
+      // 把自己包成 allUsers（只有一筆，就是 admin 自己）
+      allUsers = [{ 
+        user_id:      meData.user_id,
+        username:     meData.username,
+        email:        meData.email,
+        level_code:   meData.level_code,
+        total_score:  meData.total_score,
+        role:         meData.role,
+        license_date: meData.license_date,
+        user_level_id: meData.level_code === 'BEGINNER' ? 1 : meData.level_code === 'NORMAL' ? 2 : 3,
+      }];
+    }
+
+    if (histData) {
+      allPractice = histData.history || [];
+    }
+
+    renderDashboard();
+  } catch (e) {
+    ['kpi-users','kpi-practices','kpi-routes','kpi-avg-score'].forEach(id => {
+      document.getElementById(id).textContent = '—';
+    });
+    document.getElementById('timeline').innerHTML =
+      '<div class="empty" style="color:var(--red)"><div class="empty-icon">⚠️</div>無法取得資料，請確認後端連線與 Token</div>';
+  }
+}
+
+function renderDashboard() {
+  const users    = allUsers;
+  const practice = allPractice;
+
+  // KPI：使用者數顯示「需要 Admin API」，其他用現有資料
+  document.getElementById('kpi-users').innerHTML     = `<span style="font-size:13px;color:var(--text-muted)">需擴充</span>`;
+  document.getElementById('kpi-practices').textContent = practice.filter(p => p.status === 'completed').length;
+  document.getElementById('kpi-routes').innerHTML    = `<span style="font-size:13px;color:var(--text-muted)">需擴充</span>`;
+  document.getElementById('kpi-avg-score').textContent = currentAdmin ? currentAdmin.total_score : '—';
+
+  // 等級分佈：只有自己一筆
+  const cnt = { BEGINNER:0, NORMAL:0, EXPERIENCED:0 };
+  users.forEach(u => { const k = u.level_code || 'BEGINNER'; if(cnt[k]!==undefined) cnt[k]++; });
+  document.getElementById('cnt-beginner').textContent    = cnt.BEGINNER;
+  document.getElementById('cnt-normal').textContent      = cnt.NORMAL;
+  document.getElementById('cnt-experienced').textContent = cnt.EXPERIENCED;
+  document.getElementById('donut-total').textContent     = users.length;
+
+  const total = users.length || 1;
+  const circ  = 2 * Math.PI * 38;
+  const bDash = (cnt.BEGINNER    / total) * circ;
+  const nDash = (cnt.NORMAL      / total) * circ;
+  const eDash = (cnt.EXPERIENCED / total) * circ;
+
+  setTimeout(() => {
+    const db = document.getElementById('d-beginner');
+    const dn = document.getElementById('d-normal');
+    const de = document.getElementById('d-experienced');
+    db.style.transition = dn.style.transition = de.style.transition = 'stroke-dasharray .8s ease';
+    db.setAttribute('stroke-dasharray', `${bDash} ${circ - bDash}`);
+    dn.setAttribute('stroke-dasharray', `${nDash} ${circ - nDash}`);
+    dn.setAttribute('stroke-dashoffset', -bDash);
+    de.setAttribute('stroke-dasharray', `${eDash} ${circ - eDash}`);
+    de.setAttribute('stroke-dashoffset', -(bDash + nDash));
+  }, 100);
+
+  // 難度長條（用自己的練習紀錄）
+  const diffCnt = { BEGINNER:0, NORMAL:0, EXPERIENCED:0 };
+  practice.forEach(p => { const k = p.selected_difficulty; if(diffCnt[k]!==undefined) diffCnt[k]++; });
+  const maxD = Math.max(...Object.values(diffCnt), 1);
+  document.getElementById('bar-b-val').textContent = diffCnt.BEGINNER;
+  document.getElementById('bar-n-val').textContent = diffCnt.NORMAL;
+  document.getElementById('bar-e-val').textContent = diffCnt.EXPERIENCED;
+  setTimeout(() => {
+    document.getElementById('bar-b').style.width = (diffCnt.BEGINNER    / maxD * 100) + '%';
+    document.getElementById('bar-n').style.width = (diffCnt.NORMAL      / maxD * 100) + '%';
+    document.getElementById('bar-e').style.width = (diffCnt.EXPERIENCED / maxD * 100) + '%';
+  }, 200);
+
+  document.getElementById('badge-practice').textContent =
+    practice.filter(p => p.status === 'in_progress').length;
+
+  loadRecentActivity();
+}
+
+function loadRecentActivity() {
+  const tl = document.getElementById('timeline');
+  const recent = [...allPractice].sort((a,b) => new Date(b.practice_time) - new Date(a.practice_time)).slice(0, 6);
+  if (!recent.length) {
+    tl.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>尚無練習活動（目前只顯示 admin 自己的紀錄）</div>';
+    return;
+  }
+  const statusMap = { completed:'green', in_progress:'blue', abandoned:'red' };
+  const statusLbl = { completed:'完成', in_progress:'練習中', abandoned:'放棄' };
+  const diffLbl   = { BEGINNER:'新手', NORMAL:'一般', EXPERIENCED:'熟練' };
+  tl.innerHTML = recent.map(p => {
+    const uname = currentAdmin ? currentAdmin.username : `使用者 #${p.user_id}`;
+    const dot   = statusMap[p.status] || 'blue';
+    const dt    = new Date(p.practice_time).toLocaleString('zh-TW', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+    return `<div class="tl-item">
+      <div class="tl-line"><div class="tl-dot ${dot}"></div><div class="tl-connector"></div></div>
+      <div class="tl-content">
+        <div class="tl-msg"><strong>${uname}</strong> 以 <strong>${diffLbl[p.selected_difficulty]||p.selected_difficulty}</strong> 難度練習「${p.route_name||'路線 #'+p.route_id}」— ${statusLbl[p.status]||p.status}${p.score_earned > 0 ? ` (+${p.score_earned}分)` : ''}</div>
+        <div class="tl-time">${dt}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ════════════════════════════════
+   使用者管理
+   後端無 /admin/users，顯示說明 + 只顯示自己
+════════════════════════════════ */
+let userPage = 1;
+const PAGE_SIZE = 10;
+let filteredUsers = [];
+
+function filterUsers() {
+  const q     = document.getElementById('user-search').value.toLowerCase();
+  const level = document.getElementById('user-level-filter').value;
+  const role  = document.getElementById('user-role-filter').value;
+  filteredUsers = allUsers.filter(u =>
+    (!q     || (u.username||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q)) &&
+    (!level || u.level_code === level) &&
+    (!role  || u.role === role)
+  );
+  userPage = 1;
+  renderUsersTable();
+}
+
+async function loadUsers() {
+  // 若 /user/me 還沒打過，先打一次
+  if (!currentAdmin && API_TOKEN) {
+    try {
+      const me = await api('/user/me');
+      currentAdmin = me;
+      allUsers = [{ 
+        user_id: me.user_id, username: me.username, email: me.email,
+        level_code: me.level_code, total_score: me.total_score,
+        role: me.role, license_date: me.license_date,
+        user_level_id: me.level_code === 'BEGINNER' ? 1 : me.level_code === 'NORMAL' ? 2 : 3,
+      }];
+    } catch {}
+  }
+  filteredUsers = [...allUsers];
+  renderUsersTable();
+
+  // 在表格上方加一條提示
+  const wrap = document.getElementById('user-tbody').closest('.card');
+  if (wrap && !wrap.querySelector('.api-notice')) {
+    const notice = document.createElement('div');
+    notice.className = 'api-notice';
+    notice.style.cssText = 'padding:10px 20px;background:rgba(245,158,11,.08);border-bottom:1px solid rgba(245,158,11,.2);font-size:12px;color:#fcd34d;display:flex;gap:8px;align-items:center';
+    notice.innerHTML = '⚠️ 目前只顯示登入帳號自己的資料。若要看到所有使用者，需後端新增 <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px">GET /admin/users</code>';
+    wrap.querySelector('.card-body').prepend(notice);
+  }
+}
+
+function renderUsersTable() {
+  const tbody = document.getElementById('user-tbody');
+  const total = filteredUsers.length;
+  const start = (userPage - 1) * PAGE_SIZE;
+  const slice = filteredUsers.slice(start, start + PAGE_SIZE);
+
+  document.getElementById('user-count-label').textContent = `共 ${total} 筆`;
+
+  if (!slice.length) {
+    tbody.innerHTML = !API_TOKEN
+      ? '<tr><td colspan="8" class="empty" style="color:var(--yellow)"><div class="empty-icon">🔑</div>請先設定 Token</td></tr>'
+      : '<tr><td colspan="8" class="empty">查無符合結果</td></tr>';
+    document.getElementById('user-pagination').innerHTML = '';
+    return;
+  }
+
+  const levelName = { BEGINNER:'新手駕駛', NORMAL:'一般駕駛', EXPERIENCED:'熟練駕駛' };
+  tbody.innerHTML = slice.map(u => `
+    <tr>
+      <td style="font-family:var(--font-mono);color:var(--text-muted)">#${u.user_id}</td>
+      <td><strong>${u.username}</strong></td>
+      <td style="color:var(--text-muted)">${u.email}</td>
+      <td><span class="tag ${(u.level_code||'beginner').toLowerCase()}">${levelName[u.level_code]||u.level_code}</span></td>
+      <td style="font-family:var(--font-mono)">${u.total_score ?? 0}</td>
+      <td><span class="tag ${u.role}">${u.role === 'admin' ? '管理員' : '使用者'}</span></td>
+      <td style="color:var(--text-muted)">${u.license_date || '—'}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="goToLevelEdit(${u.user_id})">詳情</button>
+        ${u.role !== 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.user_id})">刪除</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+
+  const pages = Math.ceil(total / PAGE_SIZE);
+  const pag   = document.getElementById('user-pagination');
+  if (pages <= 1) { pag.innerHTML = ''; return; }
+  pag.innerHTML = '';
+  for (let i = 1; i <= pages; i++) {
+    const b = document.createElement('div');
+    b.className = 'pag-btn' + (i === userPage ? ' active' : '');
+    b.textContent = i;
+    b.onclick = () => { userPage = i; renderUsersTable(); };
+    pag.appendChild(b);
+  }
+}
+
+/* ════════════════════════════════
+   調整等級功能（用 /admin/users/:id/level）
+════════════════════════════════ */
+const LEVEL_ID_MAP    = { BEGINNER:1, NORMAL:2, EXPERIENCED:3 };
+const LEVEL_MIN_SCORE = { BEGINNER:0, NORMAL:500, EXPERIENCED:2000 };
+let editingUserId    = null;
+let selectedNewLevel = null;
+
+function openEditLevel(userId) {
+  const u = allUsers.find(u => u.user_id === userId);
+  if (!u) return;
+  editingUserId    = userId;
+  selectedNewLevel = u.level_code || 'BEGINNER';
+
+  document.getElementById('el-avatar').textContent   = (u.username||'?').charAt(0).toUpperCase();
+  document.getElementById('el-username').textContent = u.username;
+  document.getElementById('el-meta').textContent     = `${u.email}　｜　#${u.user_id}`;
+  document.getElementById('el-score').textContent    = u.total_score ?? 0;
+
+  ['BEGINNER','NORMAL','EXPERIENCED'].forEach(l =>
+    document.getElementById('lopt-' + l).classList.toggle('selected', l === selectedNewLevel)
+  );
+  document.getElementById('el-warn').style.display = 'none';
+  openModal('modal-edit-level');
+}
+
+function selectLevel(level) {
+  selectedNewLevel = level;
+  ['BEGINNER','NORMAL','EXPERIENCED'].forEach(l =>
+    document.getElementById('lopt-' + l).classList.toggle('selected', l === level)
+  );
+  const u = allUsers.find(u => u.user_id === editingUserId);
+  const warn = document.getElementById('el-warn');
+  if (!u) return;
+  const minScore  = LEVEL_MIN_SCORE[level];
+  const levelName = { BEGINNER:'新手駕駛', NORMAL:'一般駕駛', EXPERIENCED:'熟練駕駛' };
+  if ((u.total_score ?? 0) < minScore) {
+    document.getElementById('el-warn-text').textContent =
+      `此使用者目前分數 ${u.total_score ?? 0} 分，低於「${levelName[level]}」所需的 ${minScore} 分門檻。手動調整仍可執行，但下次完成練習後系統自動升等可能會覆蓋此設定。`;
+    warn.style.display = 'flex';
+  } else {
+    warn.style.display = 'none';
+  }
+}
+
+async function confirmEditLevel() {
+  if (!editingUserId || !selectedNewLevel) return;
+  const u = allUsers.find(u => u.user_id === editingUserId);
+  if (!u) return;
+  if (u.level_code === selectedNewLevel) { toast('等級未變更', 'error'); return; }
+
+  const levelName = { BEGINNER:'新手駕駛', NORMAL:'一般駕駛', EXPERIENCED:'熟練駕駛' };
+  const btn = document.getElementById('el-confirm-btn');
+  btn.disabled = true; btn.textContent = '處理中…';
+
+  try {
+    const res = await api(`/admin/users/${editingUserId}/level`, 'PATCH', {
+      user_level_id: LEVEL_ID_MAP[selectedNewLevel]
+    });
+    const scoreMsg = res.score_changed
+      ? `（分數已調整為 ${res.total_score} 分）`
+      : `（原始分數 ${u.total_score ?? 0} 分保留）`;
+    toast(`✅ 已將 ${u.username} 的等級調整為「${levelName[selectedNewLevel]}」${scoreMsg}`);
+    if (res.score_changed) u.total_score = res.total_score;
+  } catch {
+    toast('後端尚未提供 Admin API，無法儲存到資料庫', 'error');
+    btn.disabled = false; btn.textContent = '確認調整';
+    return;
+  }
+
+  u.level_code    = selectedNewLevel;
+  u.user_level_id = LEVEL_ID_MAP[selectedNewLevel];
+  filteredUsers = filteredUsers.map(fu =>
+    fu.user_id === editingUserId ? { ...fu, level_code: selectedNewLevel, user_level_id: LEVEL_ID_MAP[selectedNewLevel], total_score: u.total_score } : fu
+  );
+
+  closeModal('modal-edit-level');
+  renderUsersTable();
+  renderLevels();
+  btn.disabled = false; btn.textContent = '確認調整';
+}
+
+function deleteUser(id) {
+  if (!confirm('確定要刪除此使用者嗎？')) return;
+  allUsers       = allUsers.filter(u => u.user_id !== id);
+  filteredUsers  = filteredUsers.filter(u => u.user_id !== id);
+  renderUsersTable();
+  toast(`已刪除使用者 #${id}`);
+}
+
+async function submitAddUser() {
+  const body = {
+    username:     document.getElementById('new-username').value,
+    email:        document.getElementById('new-email').value,
+    password:     document.getElementById('new-password').value,
+    birth_date:   document.getElementById('new-birth').value,
+    license_date: document.getElementById('new-license').value,
+  };
+  if (!body.username || !body.email || !body.password) { toast('請填寫必要欄位', 'error'); return; }
+  try {
+    await api('/auth/register', 'POST', body);
+    toast('使用者建立成功');
+    closeModal('modal-add-user');
+    loadUsers();
+  } catch (e) {
+    toast('建立失敗：' + e.message, 'error');
+  }
+}
+
+/* ════════════════════════════════
+   路線紀錄
+   後端無 /admin/routes，顯示說明
+════════════════════════════════ */
+async function loadRoutes() {
+  setNoAdminApi('route-tbody', 6);
+  document.getElementById('route-count-label').textContent = '需要後端擴充';
+
+  // 嘗試呼叫（若後端之後補上就自動生效）
+  try {
+    const data = await api('/admin/routes');
+    allRoutes = Array.isArray(data) ? data : (data?.routes || []);
+    renderRoutesTable(allRoutes);
+  } catch { /* 維持提示訊息 */ }
+}
+function filterRoutes() {
+  const q = document.getElementById('route-search').value.toLowerCase();
+  renderRoutesTable(allRoutes.filter(r => !q || (r.route_name||'').toLowerCase().includes(q)));
+}
+function renderRoutesTable(list) {
+  document.getElementById('route-count-label').textContent = `共 ${list.length} 筆`;
+  document.getElementById('route-tbody').innerHTML = list.length
+    ? list.map(r => `<tr>
+        <td style="font-family:var(--font-mono);color:var(--text-muted)">#${r.route_id}</td>
+        <td><strong>${r.route_name}</strong></td>
+        <td style="font-family:var(--font-mono)">${(r.total_distance_m||0).toFixed(1)}</td>
+        <td style="font-family:var(--font-mono);color:var(--yellow)">${(r.total_risk_score||0).toFixed(1)}</td>
+        <td style="font-family:var(--font-mono)">${(r.total_final_cost||0).toFixed(1)}</td>
+        <td style="color:var(--text-muted)">${r.created_at ? new Date(r.created_at).toLocaleString('zh-TW') : '—'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" class="empty">查無路線資料</td></tr>';
+}
+
+/* ════════════════════════════════
+   練習歷程
+   用 /practice/history 取自己的（admin）
+════════════════════════════════ */
+async function loadPractice() {
+  setLoading('prac-tbody', 8);
+  try {
+    const data = await api('/practice/history');
+    allPractice = data?.history || [];
+    renderPracticeTable(allPractice);
+    document.getElementById('badge-practice').textContent =
+      allPractice.filter(p => p.status === 'in_progress').length;
+
+    // 提示只有自己的資料
+    const wrap = document.getElementById('prac-tbody').closest('.card');
+    if (wrap && !wrap.querySelector('.api-notice')) {
+      const notice = document.createElement('div');
+      notice.className = 'api-notice';
+      notice.style.cssText = 'padding:10px 20px;background:rgba(245,158,11,.08);border-bottom:1px solid rgba(245,158,11,.2);font-size:12px;color:#fcd34d;display:flex;gap:8px;align-items:center';
+      notice.innerHTML = '⚠️ 目前只顯示登入帳號自己的練習紀錄。若要看到所有使用者，需後端新增 <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px">GET /admin/practice</code>';
+      wrap.querySelector('.card-body').prepend(notice);
+    }
+  } catch {
+    setError('prac-tbody', 8, '無法載入練習歷程，請確認 Token');
+  }
+}
+function filterPractice() {
+  const s = document.getElementById('prac-status-filter').value;
+  const d = document.getElementById('prac-diff-filter').value;
+  renderPracticeTable(allPractice.filter(p => (!s || p.status === s) && (!d || p.selected_difficulty === d)));
+}
+function renderPracticeTable(list) {
+  document.getElementById('prac-count-label').textContent = `共 ${list.length} 筆`;
+  const diffTag  = { BEGINNER:'beginner', NORMAL:'normal', EXPERIENCED:'experienced' };
+  const statusCh = { completed:'已完成', in_progress:'練習中', abandoned:'已放棄' };
+  document.getElementById('prac-tbody').innerHTML = list.length
+    ? list.map(p => `<tr>
+        <td style="font-family:var(--font-mono);color:var(--text-muted)">#${p.practice_id}</td>
+        <td style="font-family:var(--font-mono);color:var(--text-muted)">#${p.user_id}</td>
+        <td>${p.route_name || ('路線 #' + p.route_id)}</td>
+        <td><span class="tag ${diffTag[p.selected_difficulty]||''}">${p.selected_difficulty}</span></td>
+        <td><span class="tag ${p.status}">${statusCh[p.status]||p.status}</span></td>
+        <td style="font-family:var(--font-mono);color:var(--yellow)">${p.score_earned ?? 0}</td>
+        <td style="font-family:var(--font-mono)">${p.total_distance_m != null ? Number(p.total_distance_m).toFixed(0) : '—'}</td>
+        <td style="color:var(--text-muted)">${p.practice_time ? new Date(p.practice_time).toLocaleString('zh-TW') : '—'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="8" class="empty">查無練習紀錄</td></tr>';
+}
+
+/* ════════════════════════════════
+   等級設定（用 allUsers 快取算）
+════════════════════════════════ */
+async function loadLevels() {
+  if (!currentAdmin && API_TOKEN) {
+    try {
+      const me = await api('/user/me');
+      currentAdmin = me;
+      allUsers = [{ 
+        user_id: me.user_id, username: me.username, email: me.email,
+        level_code: me.level_code, total_score: me.total_score,
+        role: me.role, license_date: me.license_date,
+        user_level_id: me.level_code === 'BEGINNER' ? 1 : me.level_code === 'NORMAL' ? 2 : 3,
+      }];
+    } catch {}
+  }
+  renderLevels();
+}
+
+function renderLevels() {
+  const cnt = { BEGINNER:0, NORMAL:0, EXPERIENCED:0 };
+  allUsers.forEach(u => { const k = u.level_code; if(cnt[k]!==undefined) cnt[k]++; });
+
+  document.getElementById('lv-b-users').textContent  = cnt.BEGINNER;
+  document.getElementById('lv-n-users').textContent  = cnt.NORMAL;
+  document.getElementById('lv-e-users').textContent  = cnt.EXPERIENCED;
+  document.getElementById('lv-b-badge').textContent  = cnt.BEGINNER    + ' 人';
+  document.getElementById('lv-n-badge').textContent  = cnt.NORMAL      + ' 人';
+  document.getElementById('lv-e-badge').textContent  = cnt.EXPERIENCED + ' 人';
+
+  ['BEGINNER','NORMAL','EXPERIENCED'].forEach(level => {
+    const tbody = document.getElementById('lvtbl-' + level);
+    const users = allUsers.filter(u => u.level_code === level && u.role !== 'admin');
+    if (!users.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty" style="padding:16px;color:var(--text-muted)">
+        此等級目前無使用者（目前只顯示登入帳號的資料）
+      </td></tr>`;
+      return;
+    }
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td style="font-family:var(--font-mono);color:var(--text-muted)">#${u.user_id}</td>
+        <td><strong>${u.username}</strong></td>
+        <td style="color:var(--text-muted)">${u.email}</td>
+        <td style="font-family:var(--font-mono)">${u.total_score ?? 0}</td>
+        <td style="color:var(--text-muted)">${u.license_date || '—'}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="openEditLevel(${u.user_id})">✏️ 調整等級</button></td>
+      </tr>
+    `).join('');
+  });
+}
+
+function goToLevelEdit(userId) {
+  const levelNavItem = document.querySelectorAll('.nav-item')[4];
+  goto('levels', levelNavItem);
+  setTimeout(() => openEditLevel(userId), 150);
+}
+
+/* ════════════════════════════════
+   設定儲存 & 連線測試
+════════════════════════════════ */
+async function saveApiSettings() {
+  API_BASE  = document.getElementById('api-url-input').value.trim().replace(/\/$/, '');
+  API_TOKEN = document.getElementById('admin-token-input').value.trim();
+  localStorage.setItem('api_base',  API_BASE);
+  localStorage.setItem('api_token', API_TOKEN);
+  try {
+    await api('/');
+    document.getElementById('api-dot').style.background   = 'var(--green)';
+    document.getElementById('api-label').textContent      = '已連線';
+    toast('後端連線成功！');
+    // 重置快取，重新載入
+    currentAdmin = null; allUsers = []; allPractice = []; allRoutes = [];
+    loadDashboard();
+  } catch {
+    document.getElementById('api-dot').style.background   = 'var(--red)';
+    document.getElementById('api-label').textContent      = '連線失敗';
+    toast('無法連線後端，請確認位址與 Token', 'error');
+  }
+}
+
+/* ════════════════════════════════
+   初始化
+════════════════════════════════ */
+loadDashboard();
+
+
+/* ── 載入中 / 錯誤 輔助 ── */
+function setLoading(tbodyId, colspan) {
+  const el = document.getElementById(tbodyId);
+  if (el) el.innerHTML = `<tr><td colspan="${colspan}" class="empty"><div class="empty-icon">⏳</div>載入中…</td></tr>`;
+}
+function setError(tbodyId, colspan, msg) {
+  const el = document.getElementById(tbodyId);
+  if (el) el.innerHTML = `<tr><td colspan="${colspan}" class="empty" style="color:var(--red)"><div class="empty-icon">⚠️</div>${msg}</td></tr>`;
+}
+
+/* ════════════════════════════════
+   儀表板載入（呼叫多支 API）
+════════════════════════════════ */
+async function loadDashboard() {
+  // 重置 KPI 為載入中
+  ['kpi-users','kpi-practices','kpi-routes','kpi-avg-score'].forEach(id => {
+    document.getElementById(id).textContent = '…';
+  });
+  document.getElementById('timeline').innerHTML = '<div class="empty"><div class="empty-icon">⏳</div>載入中…</div>';
+
+  try {
+    // 同時取三份資料
+    const [usersData, practiceData, routesData] = await Promise.all([
+      api('/admin/users').catch(() => null),
+      api('/admin/practice').catch(() => null),
+      api('/admin/routes').catch(() => null),
+    ]);
+
+    allUsers    = Array.isArray(usersData)    ? usersData    :
+                 (usersData?.users            ? usersData.users    : []);
+    allPractice = Array.isArray(practiceData) ? practiceData :
+                 (practiceData?.history       ? practiceData.history : []);
+    allRoutes   = Array.isArray(routesData)   ? routesData   :
+                 (routesData?.routes          ? routesData.routes   : []);
+
+    renderDashboard();
+  } catch (e) {
+    ['kpi-users','kpi-practices','kpi-routes','kpi-avg-score'].forEach(id => {
+      document.getElementById(id).textContent = '—';
+    });
+    document.getElementById('timeline').innerHTML =
+      '<div class="empty" style="color:var(--red)"><div class="empty-icon">⚠️</div>無法取得資料，請確認後端連線與 Token</div>';
+  }
+}
+
+function renderDashboard() {
+  const users    = allUsers;
+  const practice = allPractice;
+  const routes   = allRoutes;
+
+  document.getElementById('kpi-users').textContent      = users.length;
+  document.getElementById('kpi-practices').textContent  = practice.filter(p => p.status === 'completed').length;
+  document.getElementById('kpi-routes').textContent     = routes.length;
+  const totalScore = users.reduce((s,u) => s + (u.total_score || 0), 0);
+  document.getElementById('kpi-avg-score').textContent  = users.length ? Math.round(totalScore / users.length) : 0;
+
+  // 等級分佈
+  const cnt = { BEGINNER:0, NORMAL:0, EXPERIENCED:0 };
+  users.forEach(u => { const k = u.level_code || 'BEGINNER'; if(cnt[k]!==undefined) cnt[k]++; });
+  document.getElementById('cnt-beginner').textContent    = cnt.BEGINNER;
+  document.getElementById('cnt-normal').textContent      = cnt.NORMAL;
+  document.getElementById('cnt-experienced').textContent = cnt.EXPERIENCED;
+  document.getElementById('donut-total').textContent     = users.length;
+
+  const total = users.length || 1;
+  const circ  = 2 * Math.PI * 38;
+  const bDash = (cnt.BEGINNER    / total) * circ;
+  const nDash = (cnt.NORMAL      / total) * circ;
+  const eDash = (cnt.EXPERIENCED / total) * circ;
+
+  setTimeout(() => {
+    const db = document.getElementById('d-beginner');
+    const dn = document.getElementById('d-normal');
+    const de = document.getElementById('d-experienced');
+    db.style.transition = dn.style.transition = de.style.transition = 'stroke-dasharray .8s ease';
+    db.setAttribute('stroke-dasharray', `${bDash} ${circ - bDash}`);
+    dn.setAttribute('stroke-dasharray', `${nDash} ${circ - nDash}`);
+    dn.setAttribute('stroke-dashoffset', -bDash);
+    de.setAttribute('stroke-dasharray', `${eDash} ${circ - eDash}`);
+    de.setAttribute('stroke-dashoffset', -(bDash + nDash));
+  }, 100);
+
+  // 難度長條
+  const diffCnt = { BEGINNER:0, NORMAL:0, EXPERIENCED:0 };
+  practice.forEach(p => { const k = p.selected_difficulty; if(diffCnt[k]!==undefined) diffCnt[k]++; });
+  const maxD = Math.max(...Object.values(diffCnt), 1);
+  document.getElementById('bar-b-val').textContent = diffCnt.BEGINNER;
+  document.getElementById('bar-n-val').textContent = diffCnt.NORMAL;
+  document.getElementById('bar-e-val').textContent = diffCnt.EXPERIENCED;
+  setTimeout(() => {
+    document.getElementById('bar-b').style.width = (diffCnt.BEGINNER    / maxD * 100) + '%';
+    document.getElementById('bar-n').style.width = (diffCnt.NORMAL      / maxD * 100) + '%';
+    document.getElementById('bar-e').style.width = (diffCnt.EXPERIENCED / maxD * 100) + '%';
+  }, 200);
+
+  // 更新 badge
+  document.getElementById('badge-practice').textContent =
+    practice.filter(p => p.status === 'in_progress').length;
+
+  loadRecentActivity();
+}
+
+function loadRecentActivity() {
+  const tl = document.getElementById('timeline');
+  const recent = [...allPractice].sort((a,b) => new Date(b.practice_time) - new Date(a.practice_time)).slice(0, 6);
+  if (!recent.length) { tl.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>尚無練習活動</div>'; return; }
+
+  const statusMap = { completed:'green', in_progress:'blue', abandoned:'red' };
+  const statusLbl = { completed:'完成', in_progress:'練習中', abandoned:'放棄' };
+  const diffLbl   = { BEGINNER:'新手', NORMAL:'一般', EXPERIENCED:'熟練' };
+
+  tl.innerHTML = recent.map(p => {
+    const user  = allUsers.find(u => u.user_id === p.user_id);
+    const uname = user ? user.username : `使用者 #${p.user_id}`;
+    const dot   = statusMap[p.status] || 'blue';
+    const dt    = new Date(p.practice_time).toLocaleString('zh-TW', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+    return `<div class="tl-item">
+      <div class="tl-line"><div class="tl-dot ${dot}"></div><div class="tl-connector"></div></div>
+      <div class="tl-content">
+        <div class="tl-msg"><strong>${uname}</strong> 以 <strong>${diffLbl[p.selected_difficulty]||p.selected_difficulty}</strong> 難度練習「${p.route_name||'路線 #'+p.route_id}」— ${statusLbl[p.status]||p.status}${p.score_earned > 0 ? ` (+${p.score_earned}分)` : ''}</div>
+        <div class="tl-time">${dt}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ════════════════════════════════
+   使用者管理（從後端取）
+════════════════════════════════ */
+userPage = 1;
+PAGE_SIZE_INIT = 10; // removed duplicate
+filteredUsers = [];
+
+function filterUsers() {
+  const q     = document.getElementById('user-search').value.toLowerCase();
+  const level = document.getElementById('user-level-filter').value;
+  const role  = document.getElementById('user-role-filter').value;
+  filteredUsers = allUsers.filter(u =>
+    (!q     || (u.username||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q)) &&
+    (!level || u.level_code === level) &&
+    (!role  || u.role === role)
+  );
+  userPage = 1;
+  renderUsersTable();
+}
+
+async function loadUsers() {
+  setLoading('user-tbody', 8);
+  try {
+    const data = await api('/admin/users');
+    allUsers = Array.isArray(data) ? data : (data?.users || []);
+    filteredUsers = [...allUsers];
+    renderUsersTable();
+  } catch {
+    setError('user-tbody', 8, '無法載入使用者資料，請確認後端連線');
+  }
+}
+
+function renderUsersTable() {
+  const tbody = document.getElementById('user-tbody');
+  const total = filteredUsers.length;
+  const start = (userPage - 1) * PAGE_SIZE;
+  const slice = filteredUsers.slice(start, start + PAGE_SIZE);
+
+  document.getElementById('user-count-label').textContent = `共 ${total} 筆`;
+
+  if (!slice.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">查無符合結果</td></tr>';
+    document.getElementById('user-pagination').innerHTML = '';
+    return;
+  }
+
+  const levelName = { BEGINNER:'新手駕駛', NORMAL:'一般駕駛', EXPERIENCED:'熟練駕駛' };
+  tbody.innerHTML = slice.map(u => `
+    <tr>
+      <td style="font-family:var(--font-mono);color:var(--text-muted)">#${u.user_id}</td>
+      <td><strong>${u.username}</strong></td>
+      <td style="color:var(--text-muted)">${u.email}</td>
+      <td><span class="tag ${(u.level_code||'beginner').toLowerCase()}">${levelName[u.level_code]||u.level_code}</span></td>
+      <td style="font-family:var(--font-mono)">${u.total_score ?? 0}</td>
+      <td><span class="tag ${u.role}">${u.role === 'admin' ? '管理員' : '使用者'}</span></td>
+      <td style="color:var(--text-muted)">${u.license_date || '—'}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="goToLevelEdit(${u.user_id})">詳情</button>
+        ${u.role !== 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.user_id})">刪除</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+
+  const pages = Math.ceil(total / PAGE_SIZE);
+  const pag   = document.getElementById('user-pagination');
+  if (pages <= 1) { pag.innerHTML = ''; return; }
+  pag.innerHTML = '';
+  for (let i = 1; i <= pages; i++) {
+    const b = document.createElement('div');
+    b.className = 'pag-btn' + (i === userPage ? ' active' : '');
+    b.textContent = i;
+    b.onclick = () => { userPage = i; renderUsersTable(); };
+    pag.appendChild(b);
+  }
+}
+
+/* ════════════════════════════════
+   調整等級功能
+════════════════════════════════ */
+// const LEVEL_ID_MAP    = { BEGINNER:1, NORMAL:2, EXPERIENCED:3 };
+// const LEVEL_MIN_SCORE = { BEGINNER:0, NORMAL:500, EXPERIENCED:2000 };
+editingUserId    = null;
+selectedNewLevel = null;
+
+function openEditLevel(userId) {
+  const u = allUsers.find(u => u.user_id === userId);
+  if (!u) return;
+  editingUserId    = userId;
+  selectedNewLevel = u.level_code || 'BEGINNER';
+
+  document.getElementById('el-avatar').textContent   = (u.username||'?').charAt(0).toUpperCase();
+  document.getElementById('el-username').textContent = u.username;
+  document.getElementById('el-meta').textContent     = `${u.email}　｜　#${u.user_id}`;
+  document.getElementById('el-score').textContent    = u.total_score ?? 0;
+
+  ['BEGINNER','NORMAL','EXPERIENCED'].forEach(l =>
+    document.getElementById('lopt-' + l).classList.toggle('selected', l === selectedNewLevel)
+  );
+  document.getElementById('el-warn').style.display = 'none';
+  openModal('modal-edit-level');
+}
+
+function selectLevel(level) {
+  selectedNewLevel = level;
+  ['BEGINNER','NORMAL','EXPERIENCED'].forEach(l =>
+    document.getElementById('lopt-' + l).classList.toggle('selected', l === level)
+  );
+  const u = allUsers.find(u => u.user_id === editingUserId);
+  const warn = document.getElementById('el-warn');
+  if (!u) return;
+  const minScore  = LEVEL_MIN_SCORE[level];
+  const levelName = { BEGINNER:'新手駕駛', NORMAL:'一般駕駛', EXPERIENCED:'熟練駕駛' };
+  if ((u.total_score ?? 0) < minScore) {
+    document.getElementById('el-warn-text').textContent =
+      `此使用者目前分數 ${u.total_score ?? 0} 分，低於「${levelName[level]}」所需的 ${minScore} 分門檻。手動調整仍可執行，但下次完成練習後系統自動升等可能會覆蓋此設定。`;
+    warn.style.display = 'flex';
+  } else {
+    warn.style.display = 'none';
+  }
+}
+
+async function confirmEditLevel() {
+  if (!editingUserId || !selectedNewLevel) return;
+  const u = allUsers.find(u => u.user_id === editingUserId);
+  if (!u) return;
+  if (u.level_code === selectedNewLevel) { toast('等級未變更', 'error'); return; }
+
+  const levelName = { BEGINNER:'新手駕駛', NORMAL:'一般駕駛', EXPERIENCED:'熟練駕駛' };
+  const btn = document.getElementById('el-confirm-btn');
+  btn.disabled = true; btn.textContent = '處理中…';
+
+  try {
+    const res = await api(`/admin/users/${editingUserId}/level`, 'PATCH', {
+      user_level_id: LEVEL_ID_MAP[selectedNewLevel]
+    });
+    const scoreMsg = res.score_changed
+      ? `（分數已調整為 ${res.total_score} 分）`
+      : `（原始分數 ${u.total_score ?? 0} 分保留）`;
+    toast(`✅ 已將 ${u.username} 的等級調整為「${levelName[selectedNewLevel]}」${scoreMsg}`);
+    if (res.score_changed) u.total_score = res.total_score;
+  } catch {
+    toast('後端尚未提供此 API，請參考說明文件新增 endpoint', 'error');
+    btn.disabled = false; btn.textContent = '確認調整';
+    return;
+  }
+
+  // 更新本地快取
+  u.level_code    = selectedNewLevel;
+  u.user_level_id = LEVEL_ID_MAP[selectedNewLevel];
+  filteredUsers = filteredUsers.map(fu =>
+    fu.user_id === editingUserId ? { ...fu, level_code: selectedNewLevel, user_level_id: LEVEL_ID_MAP[selectedNewLevel], total_score: u.total_score } : fu
+  );
+
+  closeModal('modal-edit-level');
+  renderUsersTable();
+  loadLevels();
+  btn.disabled = false; btn.textContent = '確認調整';
+}
+
+function deleteUser(id) {
+  if (!confirm('確定要刪除此使用者嗎？')) return;
+  allUsers       = allUsers.filter(u => u.user_id !== id);
+  filteredUsers  = filteredUsers.filter(u => u.user_id !== id);
+  renderUsersTable();
+  toast(`已刪除使用者 #${id}`);
+}
+
+async function submitAddUser() {
+  const body = {
+    username:     document.getElementById('new-username').value,
+    email:        document.getElementById('new-email').value,
+    password:     document.getElementById('new-password').value,
+    birth_date:   document.getElementById('new-birth').value,
+    license_date: document.getElementById('new-license').value,
+  };
+  if (!body.username || !body.email || !body.password) { toast('請填寫必要欄位', 'error'); return; }
+  try {
+    await api('/auth/register', 'POST', body);
+    toast('使用者建立成功');
+    closeModal('modal-add-user');
+    loadUsers();
+  } catch (e) {
+    toast('建立失敗：' + e.message, 'error');
+  }
+}
+
+/* ════════════════════════════════
+   路線紀錄（從後端取）
+════════════════════════════════ */
+async function loadRoutes() {
+  setLoading('route-tbody', 6);
+  try {
+    const data = await api('/admin/routes');
+    allRoutes = Array.isArray(data) ? data : (data?.routes || []);
+    renderRoutesTable(allRoutes);
+  } catch {
+    setError('route-tbody', 6, '無法載入路線資料');
+  }
+}
+function filterRoutes() {
+  const q = document.getElementById('route-search').value.toLowerCase();
+  renderRoutesTable(allRoutes.filter(r => !q || (r.route_name||'').toLowerCase().includes(q)));
+}
+function renderRoutesTable(list) {
+  document.getElementById('route-count-label').textContent = `共 ${list.length} 筆`;
+  document.getElementById('route-tbody').innerHTML = list.length
+    ? list.map(r => `<tr>
+        <td style="font-family:var(--font-mono);color:var(--text-muted)">#${r.route_id}</td>
+        <td><strong>${r.route_name}</strong></td>
+        <td style="font-family:var(--font-mono)">${(r.total_distance_m||0).toFixed(1)}</td>
+        <td style="font-family:var(--font-mono);color:var(--yellow)">${(r.total_risk_score||0).toFixed(1)}</td>
+        <td style="font-family:var(--font-mono)">${(r.total_final_cost||0).toFixed(1)}</td>
+        <td style="color:var(--text-muted)">${r.created_at ? new Date(r.created_at).toLocaleString('zh-TW') : '—'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" class="empty">查無路線資料</td></tr>';
+}
+
+/* ════════════════════════════════
+   練習歷程（從後端取）
+════════════════════════════════ */
+async function loadPractice() {
+  setLoading('prac-tbody', 8);
+  try {
+    const data = await api('/admin/practice');
+    allPractice = Array.isArray(data) ? data : (data?.history || []);
+    renderPracticeTable(allPractice);
+    document.getElementById('badge-practice').textContent =
+      allPractice.filter(p => p.status === 'in_progress').length;
+  } catch {
+    setError('prac-tbody', 8, '無法載入練習歷程資料');
+  }
+}
+function filterPractice() {
+  const s = document.getElementById('prac-status-filter').value;
+  const d = document.getElementById('prac-diff-filter').value;
+  renderPracticeTable(allPractice.filter(p => (!s || p.status === s) && (!d || p.selected_difficulty === d)));
+}
+function renderPracticeTable(list) {
+  document.getElementById('prac-count-label').textContent = `共 ${list.length} 筆`;
+  const diffTag  = { BEGINNER:'beginner', NORMAL:'normal', EXPERIENCED:'experienced' };
+  const statusCh = { completed:'已完成', in_progress:'練習中', abandoned:'已放棄' };
+  document.getElementById('prac-tbody').innerHTML = list.length
+    ? list.map(p => `<tr>
+        <td style="font-family:var(--font-mono);color:var(--text-muted)">#${p.practice_id}</td>
+        <td style="font-family:var(--font-mono);color:var(--text-muted)">#${p.user_id}</td>
+        <td>${p.route_name || ('路線 #' + p.route_id)}</td>
+        <td><span class="tag ${diffTag[p.selected_difficulty]||''}">${p.selected_difficulty}</span></td>
+        <td><span class="tag ${p.status}">${statusCh[p.status]||p.status}</span></td>
+        <td style="font-family:var(--font-mono);color:var(--yellow)">${p.score_earned ?? 0}</td>
+        <td style="font-family:var(--font-mono)">${p.total_distance_m != null ? Number(p.total_distance_m).toFixed(0) : '—'}</td>
+        <td style="color:var(--text-muted)">${p.practice_time ? new Date(p.practice_time).toLocaleString('zh-TW') : '—'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="8" class="empty">查無練習紀錄</td></tr>';
+}
+
+/* ════════════════════════════════
+   等級設定（從快取 allUsers 算）
+════════════════════════════════ */
+async function loadLevels() {
+  // 若 allUsers 還是空的，先去取一次
+  if (!allUsers.length) {
+    try {
+      const data = await api('/admin/users');
+      allUsers = Array.isArray(data) ? data : (data?.users || []);
+    } catch {}
+  }
+  renderLevels();
+}
+
+function renderLevels() {
+  const cnt = { BEGINNER:0, NORMAL:0, EXPERIENCED:0 };
+  allUsers.forEach(u => { const k = u.level_code; if(cnt[k]!==undefined) cnt[k]++; });
+
+  document.getElementById('lv-b-users').textContent  = cnt.BEGINNER;
+  document.getElementById('lv-n-users').textContent  = cnt.NORMAL;
+  document.getElementById('lv-e-users').textContent  = cnt.EXPERIENCED;
+  document.getElementById('lv-b-badge').textContent  = cnt.BEGINNER    + ' 人';
+  document.getElementById('lv-n-badge').textContent  = cnt.NORMAL      + ' 人';
+  document.getElementById('lv-e-badge').textContent  = cnt.EXPERIENCED + ' 人';
+
+  ['BEGINNER','NORMAL','EXPERIENCED'].forEach(level => {
+    const tbody = document.getElementById('lvtbl-' + level);
+    const users = allUsers.filter(u => u.level_code === level && u.role !== 'admin');
+    if (!users.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty" style="padding:16px">此等級目前無使用者</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td style="font-family:var(--font-mono);color:var(--text-muted)">#${u.user_id}</td>
+        <td><strong>${u.username}</strong></td>
+        <td style="color:var(--text-muted)">${u.email}</td>
+        <td style="font-family:var(--font-mono)">${u.total_score ?? 0}</td>
+        <td style="color:var(--text-muted)">${u.license_date || '—'}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="openEditLevel(${u.user_id})">✏️ 調整等級</button></td>
+      </tr>
+    `).join('');
+  });
+}
+
+function goToLevelEdit(userId) {
+  const levelNavItem = document.querySelectorAll('.nav-item')[4];
+  goto('levels', levelNavItem);
+  setTimeout(() => openEditLevel(userId), 150);
+}
+
+/* ════════════════════════════════
+   設定儲存 & 連線測試
+════════════════════════════════ */
+async function saveApiSettings() {
+  API_BASE  = document.getElementById('api-url-input').value.trim().replace(/\/$/, '');
+  API_TOKEN = document.getElementById('admin-token-input').value.trim();
+  localStorage.setItem('api_base',  API_BASE);
+  localStorage.setItem('api_token', API_TOKEN);
+  try {
+    await api('/');
+    document.getElementById('api-dot').style.background   = 'var(--green)';
+    document.getElementById('api-label').textContent      = '已連線';
+    toast('後端連線成功！');
+    loadDashboard();
+  } catch {
+    document.getElementById('api-dot').style.background   = 'var(--red)';
+    document.getElementById('api-label').textContent      = '連線失敗';
+    toast('無法連線後端，請確認位址與 Token', 'error');
+  }
+}
+
+/* ════════════════════════════════
+   初始化
+════════════════════════════════ */
+loadDashboard();
+
+</script>
+</body>
+</html>

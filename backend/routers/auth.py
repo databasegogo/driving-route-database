@@ -36,12 +36,10 @@ def register(req: RegisterRequest):
     conn = get_db()
     cur = conn.cursor()
     try:
-        # 檢查 email 是否已被註冊
         cur.execute("SELECT user_id FROM app_user WHERE email = %s", (req.email,))
         if cur.fetchone():
             raise HTTPException(status_code=400, detail="EMAIL_ALREADY_EXISTS")
 
-        # 新增使用者
         cur.execute("""
             INSERT INTO app_user
               (username, email, password_hash, birth_date, license_date,
@@ -85,18 +83,17 @@ def login(req: LoginRequest):
     cur = conn.cursor()
     try:
         cur.execute("""
-            SELECT user_id, username, password_hash, user_level_id
+            SELECT user_id, username, password_hash, user_level_id, role
             FROM app_user
             WHERE email = %s
         """, (req.email,))
 
         row = cur.fetchone()
 
-        # email 不存在 或 密碼錯誤 → 同一個錯誤訊息（避免洩漏資訊）
         if not row or row[2] != hash_password(req.password):
             raise HTTPException(status_code=401, detail="INVALID_CREDENTIALS")
 
-        user_id, username, _, user_level_id = row
+        user_id, username, _, user_level_id, role = row
         token = create_access_token(user_id, username)
 
         return {
@@ -104,7 +101,8 @@ def login(req: LoginRequest):
             "token": token,
             "user_id": user_id,
             "username": username,
-            "user_level_id": user_level_id
+            "user_level_id": user_level_id,
+            "role": role
         }
 
     except HTTPException:
