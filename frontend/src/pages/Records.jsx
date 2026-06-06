@@ -18,21 +18,25 @@ function fromBackend(h) {
   const dt  = new Date(h.practice_time)
   const mm  = String(dt.getMonth() + 1).padStart(2, '0')
   const dd  = String(dt.getDate()).padStart(2, '0')
+  // 終止練習優先顯示為 'terminated'，其餘依後端 status
+  const displayStatus = h.terminated_early ? 'terminated' : (h.status ?? 'completed')
   return {
-    id:         h.practice_id,
-    date:       `${mm}/${dd}`,
-    startTime:  fmtHHMM(h.practice_time),
-    endTime:    fmtHHMM(h.end_time),       // 後端現在有 end_time
-    routeName:  h.route_name,
-    distance:   h.total_distance_m ? +(h.total_distance_m / 1000).toFixed(2) : '--',
-    difficulty: DIFF_STARS[h.selected_difficulty] ?? 1,
-    diffCode:   h.selected_difficulty,
-    status:     h.status ?? 'completed',
-    score:      h.score_earned,
-    timeBonus:  h.time_bonus ?? 0,
-    prefs:      { bridge: false, tunnel: false },
-    coords:     null,
-    favorited:  h.is_favorite ?? false,    // 從後端取
+    id:              h.practice_id,
+    date:            `${mm}/${dd}`,
+    startTime:       fmtHHMM(h.practice_time),
+    endTime:         fmtHHMM(h.end_time),
+    routeName:       h.route_name,
+    distance:        h.total_distance_m ? +(h.total_distance_m / 1000).toFixed(2) : '--',
+    difficulty:      DIFF_STARS[h.selected_difficulty] ?? 1,
+    diffCode:        h.selected_difficulty,
+    status:          displayStatus,
+    score:           h.score_earned,
+    timeBonus:       h.time_bonus ?? 0,
+    prefs:           { bridge: false, tunnel: false },
+    coords:          null,
+    favorited:       h.is_favorite      ?? false,
+    gpsVerified:     h.gps_verified     ?? false,
+    terminatedEarly: h.terminated_early ?? false,
   }
 }
 
@@ -46,10 +50,11 @@ function FitBounds({ coords }) {
 }
 
 const STATUS_META = {
-  completed:    { label: '完成',   cls: 'st-done' },
-  'in-progress':{ label: '練習中', cls: 'st-ing'  },
-  in_progress:  { label: '練習中', cls: 'st-ing'  },  // 後端格式
-  incomplete:   { label: '未完成', cls: 'st-none' },
+  completed:    { label: '完成',   cls: 'st-done'       },
+  'in-progress':{ label: '練習中', cls: 'st-ing'        },
+  in_progress:  { label: '練習中', cls: 'st-ing'        },
+  incomplete:   { label: '未完成', cls: 'st-none'       },
+  terminated:   { label: '終止',   cls: 'st-terminated' },
 }
 
 function StatusBadge({ status }) {
@@ -104,11 +109,12 @@ export default function Records() {
     api.put(`/practice/${id}/favorite`).catch(() => {})
   }
 
-  const total     = records.length
-  const completed = records.filter(r => r.status === 'completed').length
-  const inProgress= records.filter(r => r.status === 'in-progress').length
-  const incomplete= records.filter(r => r.status === 'incomplete').length
-  const pct       = total ? Math.round((completed / total) * 100) : 0
+  const total      = records.length
+  const completed  = records.filter(r => r.status === 'completed').length
+  const terminated = records.filter(r => r.status === 'terminated').length
+  const inProgress = records.filter(r => r.status === 'in-progress' || r.status === 'in_progress').length
+  const incomplete = records.filter(r => r.status === 'incomplete').length
+  const pct        = total ? Math.round((completed / total) * 100) : 0
 
   return (
     <div className="rec-page">
@@ -136,6 +142,10 @@ export default function Records() {
             <div className="prog-stat done">
               <span className="ps-num">{completed}</span>
               <span className="ps-lbl">完成</span>
+            </div>
+            <div className="prog-stat terminated">
+              <span className="ps-num">{terminated}</span>
+              <span className="ps-lbl">終止</span>
             </div>
             <div className="prog-stat ing">
               <span className="ps-num">{inProgress}</span>
@@ -221,6 +231,18 @@ export default function Records() {
                 <span className="mr-key">本次得分</span>
                 <span className="rc-score">+{selected.score} 分</span>
               </div>
+              {selected.gpsVerified && (
+                <div className="modal-row">
+                  <span className="mr-key" />
+                  <span className="rec-gps-badge">✅ GPS 驗證到達終點</span>
+                </div>
+              )}
+              {selected.terminatedEarly && (
+                <div className="modal-row">
+                  <span className="mr-key" />
+                  <span className="rec-terminated-note">🏁 提前終止・折扣計分 × 0.8</span>
+                </div>
+              )}
             </div>
 
             {selected.coords?.length > 0 && (

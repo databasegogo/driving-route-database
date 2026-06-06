@@ -71,9 +71,10 @@
 
 .ps-lbl { font-size: 12px; color: #999; }
 
-.prog-stat.done .ps-num { color: #2e7d32; }
-.prog-stat.ing  .ps-num { color: #4f7cff; }
-.prog-stat.none .ps-num { color: #b0b0b0; }
+.prog-stat.done       .ps-num { color: #2e7d32; }
+.prog-stat.terminated .ps-num { color: #e65100; }
+.prog-stat.ing        .ps-num { color: #4f7cff; }
+.prog-stat.none       .ps-num { color: #b0b0b0; }
 
 /* ── 卡片格 ─────────────────────────────────────────────── */
 .rec-grid {
@@ -138,10 +139,11 @@
   border-radius: 20px;
 }
 
-.st-off  { background: #f0f0f0; color: #bbb; }
-.st-done { background: #e8f5e9; color: #2e7d32; }
-.st-ing  { background: #e8f0ff; color: #4f7cff; }
-.st-none { background: #f5f5f5; color: #999; }
+.st-off        { background: #f0f0f0; color: #bbb; }
+.st-done       { background: #e8f5e9; color: #2e7d32; }
+.st-ing        { background: #e8f0ff; color: #4f7cff; }
+.st-none       { background: #f5f5f5; color: #999; }
+.st-terminated { background: #fff3e0; color: #e65100; }
 
 .more-btn {
   align-self: flex-end;
@@ -262,6 +264,32 @@
   transition: background 0.15s;
 }
 .confirm-btn:hover { background: #2b4d75; }
+
+.rec-gps-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+
+.rec-terminated-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff3e0;
+  border: 1px solid #ffe0b2;
+  color: #e65100;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 20px;
+  padding: 3px 10px;
+}
 
 /* ── 地圖 Modal ─────────────────────────────────────────── */
 .map-modal {

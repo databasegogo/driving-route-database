@@ -184,7 +184,9 @@ def get_history(current_user: dict = Depends(get_current_user)):
                 ph.time_bonus,
                 ph.is_favorite,
                 r.total_distance_m,
-                r.route_name
+                r.route_name,
+                ph.terminated_early,
+                ph.gps_verified
             FROM user_practice_history ph
             JOIN route r ON ph.route_id = r.route_id
             WHERE ph.user_id = %s
@@ -208,6 +210,8 @@ def get_history(current_user: dict = Depends(get_current_user)):
                     "is_favorite":         row[8],
                     "total_distance_m":    round(row[9], 2) if row[9] else None,
                     "route_name":          row[10],
+                    "terminated_early":    row[11],
+                    "gps_verified":        row[12],
                 }
                 for row in rows
             ]
