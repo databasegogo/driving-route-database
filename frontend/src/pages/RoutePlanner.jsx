@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Compass, Sliders, Star, Shield, ArrowRight, MapPin, AlertCircle } from 'lucide-react' // 👈 額外導入 MapPin 與 AlertCircle 提升推薦清單質感
+import { ArrowLeft, Compass, Sliders, Star, Shield, ArrowRight, MapPin, AlertCircle, Map } from 'lucide-react'
+import { MapContainer, TileLayer, useMapEvents } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
 import api from '../api'
 import '../styles/route.css'
 
@@ -22,6 +24,20 @@ function getMaxDifficulty(score) {
 }
 
 const LEVEL_LABEL = { 1: '新手駕駛', 2: '一般駕駛', 3: '熟練駕駛' }
+
+const ALL_RECOMMENDATIONS = [
+  { name: '中央警察大學', icon: '👮' },
+  { name: '林口長庚醫院', icon: '🏥' },
+  { name: '銘傳設計大樓', icon: '🎨' },
+  { name: '大崗國中',     icon: '🏫' },
+  { name: '龜山區公所',   icon: '🏛️' },
+  { name: '桃園長庚醫院', icon: '🏥' },
+]
+
+function pickFour(arr) {
+  const shuffled = [...arr].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, 4)
+}
 
 // ── 🤝 縫合組件：融合朋友的 Autocomplete 功能與妳的 Premium 輸入框外殼 ──
 function LocationInput({ value, coord, onChange, onSelect, placeholder, labelText }) {
@@ -100,6 +116,78 @@ function LocationInput({ value, coord, onChange, onSelect, placeholder, labelTex
   )
 }
 
+// ── 🗺️ 地圖點選器（點地圖 → 回傳座標）────────────────────────────────────
+function MapClicker({ onPick }) {
+  useMapEvents({
+    click(e) { onPick([e.latlng.lat, e.latlng.lng]) }
+  })
+  return null
+}
+
+function MapPickerModal({ target, onConfirm, onClose }) {
+  const [picked, setPicked] = useState(null)
+  const [name,   setName]   = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handlePick(coord) {
+    setPicked(coord)
+    setLoading(true)
+    setName('定位中...')
+    try {
+      const url = new URL('https://nominatim.openstreetmap.org/reverse')
+      url.searchParams.set('lat', coord[0])
+      url.searchParams.set('lon', coord[1])
+      url.searchParams.set('format', 'json')
+      url.searchParams.set('accept-language', 'zh-TW,zh')
+      const res  = await fetch(url.toString(), { headers: { 'User-Agent': 'driving-route-database/1.0' } })
+      const data = await res.json()
+      setName(data.display_name?.split(',')[0]?.trim() || `${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}`)
+    } catch {
+      setName(`${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="map-picker-overlay" onClick={onClose}>
+      <div className="map-picker-modal" onClick={e => e.stopPropagation()}>
+        <div className="map-picker-header">
+          <span>📍 選擇{target === 'start' ? '起點' : '終點'}位置</span>
+          <button className="map-picker-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="map-picker-hint">
+          {picked ? `已選：${loading ? '定位中...' : name}` : '點擊地圖上的任意位置來選取'}
+        </div>
+        <div className="map-picker-map">
+          <MapContainer center={[25.04, 121.37]} zoom={13} style={{ width: '100%', height: '380px' }} zoomControl>
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="© OpenStreetMap contributors"
+            />
+            <MapClicker onPick={handlePick} />
+            {picked && (
+              <div style={{ position: 'absolute', zIndex: 1000,
+                top: '50%', left: '50%', transform: 'translate(-50%, -100%)',
+                pointerEvents: 'none', fontSize: '24px' }}>📍</div>
+            )}
+          </MapContainer>
+        </div>
+        <div className="map-picker-footer">
+          <button className="map-picker-cancel" onClick={onClose}>取消</button>
+          <button
+            className="map-picker-confirm"
+            disabled={!picked || loading}
+            onClick={() => { onConfirm(name, picked); onClose() }}
+          >
+            確認選點
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── 🧭 主控制台頁面 ────────────────────────────────────────────────────────
 function RoutePlanner() {
   const [start,      setStart]      = useState('')
@@ -112,6 +200,8 @@ function RoutePlanner() {
   const [difficulty, setDiff]       = useState(1)
   const [status,     setStatus]     = useState('idle')
   const [errMsg,     setErrMsg]     = useState('')
+  const [recs,       setRecs]       = useState(() => pickFour(ALL_RECOMMENDATIONS))
+  const [mapPicker,  setMapPicker]  = useState(null) // null | 'start' | 'end'
   const navigate = useNavigate()
 
   // 讀取本地目前的用戶資料
@@ -194,30 +284,66 @@ function RoutePlanner() {
               <div className="vertical-route-rail">
                 <div className="rail-line-dashed" />
                 
-                {/* 起點輸入組件（完美嵌入聯想詞功能） */}
+                {/* 起點輸入組件 */}
                 <div className="rail-node-block">
                   <div className="rail-dot dot-start" />
-                  <LocationInput
-                    value={start}
-                    coord={startCoord}
-                    onChange={(v, c) => { setStart(v); setStartCoord(c) }}
-                    onSelect={c => setStartCoord(c)}
-                    placeholder="設定出發起點（例：長庚大學）"
-                    labelText="START POINT"
-                  />
+                  <div className="input-with-map-btn">
+                    <LocationInput
+                      value={start}
+                      coord={startCoord}
+                      onChange={(v, c) => { setStart(v); setStartCoord(c) }}
+                      onSelect={c => setStartCoord(c)}
+                      placeholder="設定出發起點（例：長庚大學）"
+                      labelText="START POINT"
+                    />
+                    <button type="button" className="map-pin-btn" onClick={() => setMapPicker('start')} title="在地圖上選取起點">
+                      <Map size={15} />
+                    </button>
+                  </div>
                 </div>
 
-                {/* 終點輸入組件（完美嵌入聯想詞功能） */}
+                {/* 終點輸入組件 */}
                 <div className="rail-node-block">
                   <div className="rail-dot dot-end" />
-                  <LocationInput
-                    value={end}
-                    coord={endCoord}
-                    onChange={(v, c) => { setEnd(v); setEndCoord(c) }}
-                    onSelect={c => setEndCoord(c)}
-                    placeholder="設定練習終點（例：林口長庚醫院）"
-                    labelText="DESTINATION"
-                  />
+                  <div className="input-with-map-btn">
+                    <LocationInput
+                      value={end}
+                      coord={endCoord}
+                      onChange={(v, c) => { setEnd(v); setEndCoord(c) }}
+                      onSelect={c => setEndCoord(c)}
+                      placeholder="設定練習終點（例：林口長庚醫院）"
+                      labelText="DESTINATION"
+                    />
+                    <button type="button" className="map-pin-btn" onClick={() => setMapPicker('end')} title="在地圖上選取終點">
+                      <Map size={15} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 終點推薦 */}
+              <div className="rec-dest-zone">
+                <div className="rec-dest-label">
+                  <MapPin size={12} />
+                  <span>推薦終點</span>
+                  <button
+                    type="button"
+                    className="rec-refresh-btn"
+                    onClick={() => setRecs(pickFour(ALL_RECOMMENDATIONS))}
+                    title="換一批"
+                  >↺</button>
+                </div>
+                <div className="rec-dest-chips">
+                  {recs.map(r => (
+                    <button
+                      key={r.name}
+                      type="button"
+                      className={`rec-chip ${end === r.name ? 'active' : ''}`}
+                      onClick={() => { setEnd(r.name); setEndCoord(null) }}
+                    >
+                      {r.icon} {r.name}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -347,6 +473,17 @@ function RoutePlanner() {
           </div>
         </form>
       </main>
+
+      {mapPicker && (
+        <MapPickerModal
+          target={mapPicker}
+          onConfirm={(name, coord) => {
+            if (mapPicker === 'start') { setStart(name); setStartCoord(coord) }
+            else                       { setEnd(name);   setEndCoord(coord)   }
+          }}
+          onClose={() => setMapPicker(null)}
+        />
+      )}
     </>
   )
 }

@@ -1,5 +1,6 @@
+import { useState, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Milestone, Clock, Zap, Star, AlertTriangle } from 'lucide-react' // 👈 額外導入 AlertTriangle 作為高質感警告圖示
+import { ArrowLeft, Milestone, Clock, Zap, Star, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
 import '../styles/route.css'
 
 const DIFF_CODE  = { 1: 'BEGINNER', 2: 'NORMAL', 3: 'EXPERIENCED' }
@@ -97,6 +98,22 @@ function RouteCard({ route, label, start, end, difficulty, onSelect }) {
 function RouteSelect() {
   const { state } = useLocation()
   const navigate  = useNavigate()
+  const [active, setActive]     = useState(0)
+  const touchStartX             = useRef(null)
+
+  function handleTouchStart(e) {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  function handleTouchEnd(e) {
+    if (touchStartX.current === null) return
+    const diff = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(diff) > 40) {
+      if (diff > 0) setActive(i => Math.min(routes?.length - 1 ?? 0, i + 1))
+      else          setActive(i => Math.max(0, i - 1))
+    }
+    touchStartX.current = null
+  }
 
   if (!state?.routes) { navigate('/route'); return null }
 
@@ -134,34 +151,113 @@ function RouteSelect() {
             <button className="generate-btn" onClick={() => navigate('/route')}>重新設定條件</button>
           </div>
         ) : (
-          <div className="route-cards">
-            {routes.map((r, idx) => (
-              <RouteCard
-                key={r.route_id}
-                route={r}
-                label={String.fromCharCode(65 + idx)}  // A, B, C
-                start={start}
-                end={end}
-                difficulty={difficulty}
-                onSelect={() => navigate('/route-detail', {
-                  state: {
-                    route: {
-                      route_id:       r.route_id,
-                      start,          end,
-                      startCoord,     endCoord,
-                      distanceM:      r.total_distance_m,
-                      distance:       +(r.total_distance_m / 1000).toFixed(2),
-                      time:           Math.ceil(r.estimated_duration_sec / 60),
-                      difficulty,
-                      diffCode:       DIFF_CODE[difficulty],
-                      estimatedScore: r.estimated_score,
-                      segments:       r.segments,
-                    },
-                    prefs,
-                  }
-                })}
-              />
-            ))}
+          <div className="route-slider-wrap">
+            {/* 左右箭頭 */}
+            <button className="carousel-arrow left"
+              onClick={() => setActive(i => Math.max(0, i - 1))}
+              disabled={active === 0}>
+              <ChevronLeft size={22} />
+            </button>
+            <button className="carousel-arrow right"
+              onClick={() => setActive(i => Math.min(routes.length - 1, i + 1))}
+              disabled={active === routes.length - 1}>
+              <ChevronRight size={22} />
+            </button>
+
+            <div className="route-slider"
+              style={{ transform: `translateX(calc(-${active * 100}% - ${active * 20}px))` }}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}>
+              {routes.map((r, idx) => {
+                const coords  = extractCoords(r.segments)
+                const svg     = toSVG(coords, 320, 180, 20)
+                const distKm  = +(r.total_distance_m / 1000).toFixed(2)
+                const timeMin = Math.ceil(r.estimated_duration_sec / 60)
+                const label   = String.fromCharCode(65 + idx)
+
+                return (
+                  <div key={r.route_id}
+                    className={`route-slide-card ${idx === active ? 'is-active' : 'is-side'}`}
+                    onClick={() => idx !== active && setActive(idx)}>
+                    {/* 上半：路線預覽地圖 */}
+                    <div className="slide-map-preview">
+                      <div className="slide-label-badge">路線 {label}</div>
+                      {svg ? (
+                        <svg viewBox="0 0 320 180" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+                          <rect width="320" height="180" fill="#eef2f7" />
+                          {/* 格線裝飾 */}
+                          {[40,80,120,160].map(y => <line key={y} x1="0" y1={y} x2="320" y2={y} stroke="#dde3ec" strokeWidth="0.5" />)}
+                          {[80,160,240].map(x => <line key={x} x1={x} y1="0" x2={x} y2="180" stroke="#dde3ec" strokeWidth="0.5" />)}
+                          <path d={svg.path} fill="none" stroke="#264653" strokeWidth="3.5"
+                            strokeLinecap="round" strokeLinejoin="round" />
+                          <circle cx={svg.start.x} cy={svg.start.y} r="7" fill="#ff6b35" stroke="#fff" strokeWidth="2" />
+                          <circle cx={svg.end.x}   cy={svg.end.y}   r="7" fill="#1d3557" stroke="#fff" strokeWidth="2" />
+                          <text x={svg.start.x + 10} y={svg.start.y + 4} fontSize="10" fill="#ff6b35" fontWeight="700">起</text>
+                          <text x={svg.end.x + 10}   y={svg.end.y + 4}   fontSize="10" fill="#1d3557" fontWeight="700">終</text>
+                        </svg>
+                      ) : (
+                        <div className="slide-map-loading">載入中…</div>
+                      )}
+                    </div>
+
+                    {/* 下半：資訊 */}
+                    <div className="slide-info">
+                      <div className="slide-route-name">{start} → {end}</div>
+                      <div className="slide-stars">
+                        {Array.from({ length: difficulty }).map((_, i) => (
+                          <Star key={i} size={14} style={{ fill: '#fbbf24', stroke: '#fbbf24' }} />
+                        ))}
+                        <span className="slide-diff-label">{DIFF_LABEL[difficulty]}駕駛</span>
+                      </div>
+                      <div className="slide-stats">
+                        <div className="slide-stat">
+                          <Milestone size={16} />
+                          <span>{distKm} km</span>
+                        </div>
+                        <div className="slide-stat">
+                          <Clock size={16} />
+                          <span>{timeMin} 分鐘</span>
+                        </div>
+                        <div className="slide-stat score">
+                          <Zap size={16} />
+                          <span>+{r.estimated_score} 分</span>
+                        </div>
+                      </div>
+                      {r.constraint_relaxed && (
+                        <div className="slide-warning">
+                          <AlertTriangle size={13} />
+                          <span>含 {r.has_bridge ? '橋樑 ' : ''}{r.has_tunnel ? '隧道' : ''}（無替代）</span>
+                        </div>
+                      )}
+                      <button className="slide-select-btn" onClick={() => navigate('/route-detail', {
+                        state: {
+                          route: {
+                            route_id: r.route_id, start, end,
+                            startCoord, endCoord,
+                            distanceM: r.total_distance_m,
+                            distance:  +(r.total_distance_m / 1000).toFixed(2),
+                            time:      Math.ceil(r.estimated_duration_sec / 60),
+                            difficulty, diffCode: DIFF_CODE[difficulty],
+                            estimatedScore: r.estimated_score,
+                            segments: r.segments,
+                          },
+                          prefs,
+                        }
+                      })}>
+                        選擇此路線 →
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            {/* 圓點指示器 */}
+            <div className="carousel-dots">
+              {routes.map((_, i) => (
+                <button key={i} className={`carousel-dot ${i === active ? 'active' : ''}`}
+                  onClick={() => setActive(i)} />
+              ))}
+            </div>
           </div>
         )}
       </main>
