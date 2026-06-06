@@ -158,7 +158,9 @@ pgRouting 自動產生的節點表（7,727 個節點）。
 | user_level_id | PK |
 | level_code | BEGINNER / NORMAL / EXPERIENCED |
 | risk_weight | 路線風險權重（80 / 40 / 10） |
-| min_score | 升等所需最低分數（0 / 500 / 2000） |
+| min_score | 升等所需最低分數（0 / **150** / **300**）|
+
+> v1.3.0 起閾值由 0/500/2000 調整為 **0/150/300**，與前端 `getMaxDifficulty(total_score)` 對齊。
 
 ### app_user
 | 欄位 | 說明 |
@@ -228,3 +230,5 @@ pgRouting 自動產生的節點表（7,727 個節點）。
 | score_earned | 獲得分數（基本分 + time_bonus） |
 | time_bonus | 在預估時間內完成的加分（基本分 × 50%） |
 | is_favorite | 愛心收藏 |
+| gps_verified | GPS 偵測到達終點（true = 全額計分，不受當日限制）|
+| terminated_early | 使用者提前終止練習（折扣計分 × 0.8）|

@@ -162,6 +162,22 @@ npm run dev
 
 ---
 
+## 頁面路由
+
+| 路徑 | 頁面 | 說明 |
+|------|------|------|
+| `/` | Landing | 首頁（未登入歡迎頁）|
+| `/login` | Login | 登入 |
+| `/register` | Register | 註冊 |
+| `/dashboard` | Dashboard | 主控台（等級路徑動畫、近期紀錄）|
+| `/route` | RoutePlanner | 路線規劃（地圖選點、GPS 定位、推薦終點）|
+| `/route-select` | RouteSelect | 選擇路線（最多 3 條）|
+| `/route-detail` | RouteDetail | 練習導航（GPS 追蹤、終止練習）|
+| `/records` | Records | 練習紀錄（時間軸、篩選、地圖）|
+| `/profile` | Profile | 個人檔案（頭貼、密碼修改）|
+
+---
+
 ## API 端點總覽
 
 | 方法 | 路徑 | 驗證 | 說明 |
@@ -169,10 +185,11 @@ npm run dev
 | POST | `/auth/register` | ❌ | 註冊新帳號 |
 | POST | `/auth/login` | ❌ | 登入取得 JWT |
 | GET  | `/user/me` | ✅ | 取得個人資料與等級 |
+| PUT  | `/user/profile` | ✅ | 更新個人資料與密碼 |
 | PUT  | `/user/preference` | ✅ | 更新路線偏好設定 |
 | POST | `/route/plan` | ✅ | 規劃練習路線（最多 3 條） |
 | GET  | `/route/{id}` | ✅ | 取得路線詳情 |
-| POST | `/practice/complete` | ✅ | 完成練習、計算得分 |
+| POST | `/practice/complete` | ✅ | 完成/終止練習、計算得分 |
 | GET  | `/practice/history` | ✅ | 查看練習紀錄 |
 | PUT  | `/practice/{id}/favorite` | ✅ | 切換愛心收藏 |
 | GET  | `/district/boundary` | ❌ | 取得龜山區行政邊界 GeoJSON |
@@ -181,11 +198,11 @@ npm run dev
 
 ## 難度與等級對照
 
-| 等級 | 最低分數 | 可選難度 | Risk Weight |
-|------|---------|---------|-------------|
+| 等級 | 最低分數（total_score）| 可選難度 | Risk Weight |
+|------|----------------------|---------|-------------|
 | 新手駕駛（BEGINNER） | 0 | ⭐ | 80 |
-| 一般駕駛（NORMAL） | 500 | ⭐⭐ | 40 |
-| 熟練駕駛（EXPERIENCED） | 2000 | ⭐⭐⭐ | 10 |
+| 一般駕駛（NORMAL） | 150 | ⭐⭐ | 40 |
+| 熟練駕駛（EXPERIENCED） | 300 | ⭐⭐⭐ | 10 |
 
 ---
 
