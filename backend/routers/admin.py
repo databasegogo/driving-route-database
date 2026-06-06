@@ -140,7 +140,7 @@ def get_all_practice(current_user: dict = Depends(get_current_user)):
 
 
 # ── PATCH /admin/users/{user_id}/level　手動調整等級 ─────────────
-LEVEL_MIN_SCORE = {1: 0, 2: 500, 3: 2000}  # BEGINNER, NORMAL, EXPERIENCED
+LEVEL_MIN_SCORE = {1: 0, 2: 150, 3: 300}  # BEGINNER, NORMAL, EXPERIENCED
 
 class AdminLevelUpdate(BaseModel):
     user_level_id: int   # 1=BEGINNER  2=NORMAL  3=EXPERIENCED
