@@ -516,7 +516,7 @@ body {
   padding: 8px 20px; font-size: 12px; color: #888;
   background: #fafaf8; border-bottom: 1px solid #f0ede8;
 }
-.map-picker-map { height: 380px; flex-shrink: 0; position: relative; }
+.map-picker-map { flex: 1; min-height: 200px; position: relative; }
 .map-picker-footer {
   display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid #f0ede8;
 }
