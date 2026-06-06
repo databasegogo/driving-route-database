@@ -145,6 +145,7 @@ terminated_early BOOLEAN NOT NULL DEFAULT false   -- 使用者主動提前終止
 - 修正距離上限預設為強制 10km（改為預設「不限」）
 - 修正路線預覽 SVG 路徑扭曲（改為每 segment 獨立 path）
 - 後端路由統一改用 `C:/Users/Sam/driving-route-database/backend/`（移除桌面備份版本）
+- **修正橋樑/隧道迴避判斷錯誤**：OSM 的 `bridge`/`tunnel` 欄位值為 `'T'`/`'F'`，原條件 `IS NOT NULL AND <> ''` 會同時匹配 `'F'`，導致勾選迴避時所有路段 cost 變成 999999 無法規劃路線，以及每條路線都被誤標為含橋樑/隧道警告；修正為 `= 'T'`
 
 ---
 
