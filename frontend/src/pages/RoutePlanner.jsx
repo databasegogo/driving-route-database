@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Compass, Sliders, Star, Shield, ArrowRight, MapPin, AlertCircle, Map } from 'lucide-react'
-import { MapContainer, TileLayer, useMapEvents } from 'react-leaflet'
+import { ArrowLeft, Compass, Sliders, Star, Shield, ArrowRight, MapPin, AlertCircle, Map, Navigation } from 'lucide-react'
+import { MapContainer, TileLayer, useMapEvents, GeoJSON, CircleMarker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api'
 import '../styles/route.css'
@@ -17,9 +17,13 @@ const ERR_MSG = {
   ALL_ROUTES_EXCEED_DISTANCE_LIMIT: '所有路線都超過距離上限，請調高距離或換個地點',
 }
 
-function getMaxDifficulty(score) {
-  if (score >= 2000) return 3
-  if (score >= 500)  return 2
+// level_code 由 Dashboard(/user/me) 寫入；level_id 由 Login/Register 寫入
+// 兩者都判斷，確保剛登入也能正確解鎖難度
+function getMaxDifficulty(user) {
+  const code = user?.level_code
+  const id   = user?.level_id ?? user?.user_level_id
+  if (code === 'EXPERIENCED' || id === 3) return 3
+  if (code === 'NORMAL'      || id === 2) return 2
   return 1
 }
 
@@ -127,13 +131,51 @@ function MapClicker({ onPick }) {
   return null
 }
 
-function MapPickerModal({ target, onConfirm, onClose }) {
-  const [picked, setPicked] = useState(null)
-  const [name,   setName]   = useState('')
-  const [loading, setLoading] = useState(false)
+// Ray-casting：判斷點是否在單一環內
+function pointInRing(lat, lng, ring) {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]   // GeoJSON 是 [lng, lat]
+    const [xj, yj] = ring[j]
+    const intersect = ((yi > lat) !== (yj > lat)) &&
+      (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)
+    if (intersect) inside = !inside
+  }
+  return inside
+}
+
+// 支援 Polygon 和 MultiPolygon
+function pointInPolygon(lat, lng, geojson) {
+  if (!geojson) return false
+  const { type, coordinates } = geojson.geometry
+  if (type === 'Polygon') {
+    return pointInRing(lat, lng, coordinates[0])
+  } else if (type === 'MultiPolygon') {
+    // 只要在任一子多邊形的外環內即算在範圍內
+    return coordinates.some(polygon => pointInRing(lat, lng, polygon[0]))
+  }
+  return false
+}
+
+function MapPickerModal({ target, otherCoord, onConfirm, onClose }) {
+  const [picked,   setPicked]   = useState(null)
+  const [name,     setName]     = useState('')
+  const [loading,  setLoading]  = useState(false)
+  const [boundary, setBoundary] = useState(null)   // GeoJSON Feature from DB
+
+  // 載入龜山區真實邊界
+  useEffect(() => {
+    api.get('/district/boundary')
+      .then(res => setBoundary(res.data))
+      .catch(() => setBoundary(null))   // 失敗時退回無邊界（仍可使用）
+  }, [])
+
+  const isInside = picked ? pointInPolygon(picked[0], picked[1], boundary) : false
 
   async function handlePick(coord) {
     setPicked(coord)
+    const inside = pointInPolygon(coord[0], coord[1], boundary)
+    if (!inside) { setName(''); return }
     setLoading(true)
     setName('定位中...')
     try {
@@ -142,9 +184,16 @@ function MapPickerModal({ target, onConfirm, onClose }) {
       url.searchParams.set('lon', coord[1])
       url.searchParams.set('format', 'json')
       url.searchParams.set('accept-language', 'zh-TW,zh')
+      url.searchParams.set('addressdetails', '1')
       const res  = await fetch(url.toString(), { headers: { 'User-Agent': 'driving-route-database/1.0' } })
       const data = await res.json()
-      setName(data.display_name?.split(',')[0]?.trim() || `${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}`)
+      // 優先順序：地標名稱 > 路名 > 鄰里 > 座標
+      const addr = data.address || {}
+      const label = data.name ||
+        addr.road || addr.pedestrian || addr.footway || addr.path ||
+        addr.suburb || addr.village ||
+        `${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}`
+      setName(label)
     } catch {
       setName(`${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}`)
     } finally {
@@ -153,26 +202,69 @@ function MapPickerModal({ target, onConfirm, onClose }) {
   }
 
   return (
-    <div className="map-picker-overlay" onClick={onClose}>
-      <div className="map-picker-modal" onClick={e => e.stopPropagation()}>
+    <div className="map-picker-overlay">
+      <div className="map-picker-modal">
         <div className="map-picker-header">
           <span>📍 選擇{target === 'start' ? '起點' : '終點'}位置</span>
           <button className="map-picker-close" onClick={onClose}>✕</button>
         </div>
         <div className="map-picker-hint">
-          {picked ? `已選：${loading ? '定位中...' : name}` : '點擊地圖上的任意位置來選取'}
+          {!picked && !otherCoord && '點擊橘色區域內的龜山區範圍來選取位置'}
+          {!picked &&  otherCoord && target === 'end'   && '📌 綠點為已選起點，請在地圖上點選終點位置'}
+          {!picked &&  otherCoord && target === 'start' && '📌 紅點為已選終點，請在地圖上點選起點位置'}
+          {picked && !isInside && '⚠️ 所選位置超出龜山區範圍，請重新點選'}
+          {picked && isInside && (loading ? '⏳ 定位中...' : `✅ 已選：${name}`)}
         </div>
         <div className="map-picker-map">
-          <MapContainer center={[25.04, 121.37]} zoom={13} style={{ width: '100%', height: '380px' }} zoomControl>
+          <MapContainer
+            center={[25.02, 121.35]}
+            zoom={13}
+            maxBounds={[[24.88, 121.18], [25.16, 121.52]]}
+            maxBoundsViscosity={0.8}
+            minZoom={11}
+            style={{ width: '100%', height: 'min(420px, 55vh)' }}
+            zoomControl
+          >
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution="© OpenStreetMap contributors"
             />
+            {/* 龜山區真實多邊形邊界（橘色半透明） */}
+            {boundary && (
+              <GeoJSON
+                key="guishan"
+                data={boundary}
+                style={{ color: '#ff6b35', weight: 2.5, dashArray: '8,5', fillOpacity: 0.06 }}
+              />
+            )}
             <MapClicker onPick={handlePick} />
+
+            {/* 對方已選座標：選終點時顯示起點（綠），選起點時顯示終點（紅） */}
+            {otherCoord && (
+              <CircleMarker
+                center={otherCoord}
+                radius={9}
+                pathOptions={{
+                  fillColor:   target === 'end' ? '#2e7d32' : '#c62828',
+                  color:       '#fff',
+                  weight:      2.5,
+                  fillOpacity: 1,
+                }}
+              />
+            )}
+
+            {/* 本次點選的位置 */}
             {picked && (
-              <div style={{ position: 'absolute', zIndex: 1000,
-                top: '50%', left: '50%', transform: 'translate(-50%, -100%)',
-                pointerEvents: 'none', fontSize: '24px' }}>📍</div>
+              <CircleMarker
+                center={picked}
+                radius={9}
+                pathOptions={{
+                  color:       isInside ? '#264653' : '#e74c3c',
+                  fillColor:   isInside ? '#ff6b35' : '#e74c3c',
+                  fillOpacity: 0.9,
+                  weight: 2,
+                }}
+              />
             )}
           </MapContainer>
         </div>
@@ -180,7 +272,7 @@ function MapPickerModal({ target, onConfirm, onClose }) {
           <button className="map-picker-cancel" onClick={onClose}>取消</button>
           <button
             className="map-picker-confirm"
-            disabled={!picked || loading}
+            disabled={!picked || !isInside || loading}
             onClick={() => { onConfirm(name, picked); onClose() }}
           >
             確認選點
@@ -205,12 +297,65 @@ function RoutePlanner() {
   const [errMsg,     setErrMsg]     = useState('')
   const [recs,       setRecs]       = useState(() => pickFour(ALL_RECOMMENDATIONS))
   const [mapPicker,  setMapPicker]  = useState(null) // null | 'start' | 'end'
+  const [gpsStatus,  setGpsStatus]  = useState('idle') // idle | loading | done | error
   const navigate = useNavigate()
 
   // 讀取本地目前的用戶資料
   const user       = JSON.parse(localStorage.getItem('currentUser') || '{}')
-  const maxDiff    = getMaxDifficulty(user.score ?? 0)
+  const maxDiff    = getMaxDifficulty(user)
   const levelLabel = LEVEL_LABEL[maxDiff]
+
+  // ── GPS 一鍵定位起點 ──────────────────────────────────────────────
+  async function handleGPS() {
+    if (!navigator.geolocation) {
+      setErrMsg('此裝置或瀏覽器不支援 GPS 定位')
+      return
+    }
+    setGpsStatus('loading')
+    setErrMsg('')
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
+        const lat = pos.coords.latitude
+        const lng = pos.coords.longitude
+        // 龜山區粗略範圍檢查
+        if (lat < 24.97 || lat > 25.07 || lng < 121.27 || lng > 121.43) {
+          setGpsStatus('error')
+          setErrMsg('目前位置不在龜山區範圍內，無法作為練習起點')
+          return
+        }
+        // 反向地理編碼取地名
+        try {
+          const url = new URL('https://nominatim.openstreetmap.org/reverse')
+          url.searchParams.set('lat', lat)
+          url.searchParams.set('lon', lng)
+          url.searchParams.set('format', 'json')
+          url.searchParams.set('accept-language', 'zh-TW,zh')
+          url.searchParams.set('addressdetails', '1')
+          const res  = await fetch(url.toString(), { headers: { 'User-Agent': 'driving-route-database/1.0' } })
+          const data = await res.json()
+          const addr = data.address || {}
+          const name = data.name ||
+            addr.road || addr.pedestrian || addr.footway ||
+            addr.suburb || `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+          setStart(name)
+          setStartCoord([lat, lng])
+        } catch {
+          setStart(`${lat.toFixed(5)}, ${lng.toFixed(5)}`)
+          setStartCoord([lat, lng])
+        }
+        setGpsStatus('done')
+      },
+      err => {
+        setGpsStatus('error')
+        setErrMsg(
+          err.code === 1
+            ? 'GPS 定位被拒絕，請允許瀏覽器存取位置後再試'
+            : 'GPS 定位失敗，請手動輸入起點'
+        )
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+    )
+  }
 
   async function geocodeText(query) {
     const GUISHAN_BBOX = '121.27,25.07,121.43,24.97'
@@ -250,14 +395,11 @@ function RoutePlanner() {
         max_distance_m:      maxDist ? maxDist * 1000 : null,
       })
 
-      // 將資料打包帶往剛剛縫合好的 /route-select 畫面
-      navigate('/route-select', {
-        state: {
-          routes: res.data.routes,
-          prefs:  { start, end, startCoord: sCoord, endCoord: eCoord,
-                    bridge, tunnel, maxDist, difficulty },
-        }
-      })
+      const routes = res.data.routes
+      const prefs  = { start, end, startCoord: sCoord, endCoord: eCoord,
+                       bridge, tunnel, maxDist, difficulty }
+
+      navigate('/route-select', { state: { routes, prefs } })
     } catch (err) {
       const detail = err.response?.data?.detail
       setErrMsg(ERR_MSG[detail] || err.message || '路線規劃失敗，請稍後再試')
@@ -297,13 +439,27 @@ function RoutePlanner() {
                     <LocationInput
                       value={start}
                       coord={startCoord}
-                      onChange={(v, c) => { setStart(v); setStartCoord(c) }}
+                      onChange={(v, c) => { setStart(v); setStartCoord(c); if (!c) setGpsStatus('idle') }}
                       onSelect={c => setStartCoord(c)}
                       placeholder="設定出發起點（例：長庚大學）"
                       labelText="START POINT"
                     />
                     <button type="button" className="map-pin-btn" onClick={() => setMapPicker('start')} title="在地圖上選取起點">
                       <Map size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`map-pin-btn gps-btn gps-${gpsStatus}`}
+                      onClick={handleGPS}
+                      disabled={gpsStatus === 'loading'}
+                      title={
+                        gpsStatus === 'loading' ? '定位中...' :
+                        gpsStatus === 'error'   ? '定位失敗，點擊重試' :
+                        gpsStatus === 'done'    ? '已定位成功，點擊重新定位' :
+                                                 '使用 GPS 定位目前位置作為起點'
+                      }
+                    >
+                      <Navigation size={15} className={gpsStatus === 'loading' ? 'spin-icon' : ''} />
                     </button>
                   </div>
                 </div>
@@ -483,6 +639,7 @@ function RoutePlanner() {
       {mapPicker && (
         <MapPickerModal
           target={mapPicker}
+          otherCoord={mapPicker === 'end' ? startCoord : endCoord}
           onConfirm={(name, coord) => {
             if (mapPicker === 'start') { setStart(name); setStartCoord(coord) }
             else                       { setEnd(name);   setEndCoord(coord)   }

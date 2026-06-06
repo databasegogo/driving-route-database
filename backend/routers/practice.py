@@ -12,9 +12,19 @@ LEVEL_CODE   = {1: "BEGINNER", 2: "NORMAL", 3: "EXPERIENCED"}
 
 
 class PracticeRequest(BaseModel):
-    route_id:             int
-    selected_difficulty:  str
-    actual_duration_sec:  int | None = None  # 實際練習秒數（None = 不計時）
+    route_id:            int
+    selected_difficulty: str
+    actual_duration_sec: int | None = None  # 實際練習秒數（None = 不計時）
+    gps_verified:        bool       = False # GPS 偵測到達終點為 True（全程完成）
+    terminated_early:    bool       = False # 使用者主動終止練習（提前結束）
+
+    @property
+    def validated_duration(self) -> int | None:
+        if self.actual_duration_sec is None:
+            return None
+        if self.actual_duration_sec < 10:   # 10 秒以下視為異常
+            return None
+        return self.actual_duration_sec
 
 
 @router.post("/complete")
@@ -34,6 +44,23 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
             raise HTTPException(404, "ROUTE_NOT_FOUND")
         total_distance_m, estimated_duration_sec = row
 
+        # 1b. 防刷分邏輯
+        # - GPS 驗證到達終點（gps_verified=true）→ 不限次數，全額計分
+        # - 提前終止（terminated_early=true） → 不限次數，按比例折扣計分
+        # - 兩者皆否（直接繞過 UI 呼叫 API）→ 同路線當天只能計分一次
+        if not req.gps_verified and not req.terminated_early:
+            cur.execute("""
+                SELECT 1 FROM user_practice_history
+                WHERE user_id = %s
+                  AND route_id = %s
+                  AND status = 'completed'
+                  AND gps_verified = false
+                  AND terminated_early = false
+                  AND practice_time >= CURRENT_DATE
+            """, (user_id, req.route_id))
+            if cur.fetchone():
+                raise HTTPException(400, "MANUAL_COMPLETE_DAILY_LIMIT")
+
         # 2. 確認難度合法
         if req.selected_difficulty not in SCORE_WEIGHT:
             raise HTTPException(400, "INVALID_DIFFICULTY")
@@ -51,14 +78,28 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
             raise HTTPException(400, "DIFFICULTY_TOO_HIGH")
 
         # 4. 計算基本分數
-        base_score = int(total_distance_m / 1000) * SCORE_WEIGHT[req.selected_difficulty]
+        duration = req.validated_duration
 
-        # 4b. 計算 time_bonus（在預估時間內完成 → 加 50%）
-        time_bonus = 0
-        if (req.actual_duration_sec is not None
-                and estimated_duration_sec is not None
-                and req.actual_duration_sec <= estimated_duration_sec):
-            time_bonus = int(base_score * 0.5)
+        if req.terminated_early:
+            # 提前終止：依實際行駛時間佔預估時間的比例計算，再打 8 折
+            EARLY_DISCOUNT = 0.8
+            if duration and estimated_duration_sec and estimated_duration_sec > 0:
+                covered_pct = min(duration / estimated_duration_sec, 1.0)
+            else:
+                covered_pct = 0.0   # 無計時資料就不計分
+            base_score = int(total_distance_m * covered_pct / 1000
+                             * EARLY_DISCOUNT) * SCORE_WEIGHT[req.selected_difficulty]
+            time_bonus = 0          # 提前終止不給 time_bonus
+        else:
+            # 全程完成（GPS 驗證或正常完成）
+            base_score = int(total_distance_m / 1000) * SCORE_WEIGHT[req.selected_difficulty]
+
+            # 4b. time_bonus：在預估時間內完成 → 加 50%
+            time_bonus = 0
+            if (duration is not None
+                    and estimated_duration_sec is not None
+                    and duration <= estimated_duration_sec):
+                time_bonus = int(base_score * 0.5)
 
         score_earned = base_score + time_bonus
 
@@ -66,13 +107,15 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
         cur.execute("""
             INSERT INTO user_practice_history
               (user_id, route_id, practice_time, end_time,
-               status, selected_difficulty, score_earned, time_bonus)
+               status, selected_difficulty, score_earned, time_bonus,
+               gps_verified, terminated_early)
             VALUES (%s, %s, NOW() - INTERVAL '1 second' * %s, NOW(),
-                    'completed', %s, %s, %s)
+                    'completed', %s, %s, %s, %s, %s)
             RETURNING practice_id
         """, (user_id, req.route_id,
-              req.actual_duration_sec or 0,
-              req.selected_difficulty, score_earned, time_bonus))
+              duration or 0,
+              req.selected_difficulty, score_earned, time_bonus,
+              req.gps_verified, req.terminated_early))
         practice_id = cur.fetchone()[0]
 
         # 6. 累加總分
@@ -101,20 +144,22 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
         conn.commit()
 
         return {
-            "practice_id":     practice_id,
-            "base_score":      base_score,
-            "time_bonus":      time_bonus,
-            "score_earned":    score_earned,
-            "new_total_score": new_total,
-            "new_level_id":    new_level_id,
-            "new_level":       LEVEL_CODE[new_level_id]
+            "practice_id":      practice_id,
+            "base_score":       base_score,
+            "time_bonus":       time_bonus,
+            "score_earned":     score_earned,
+            "new_total_score":  new_total,
+            "new_level_id":     new_level_id,
+            "new_level":        LEVEL_CODE[new_level_id],
+            "terminated_early": req.terminated_early,
+            "gps_verified":     req.gps_verified,
         }
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         conn.rollback()
-        raise HTTPException(500, str(e))
+        raise HTTPException(500, "INTERNAL_SERVER_ERROR")
     finally:
         cur.close()
         conn.close()
@@ -170,8 +215,8 @@ def get_history(current_user: dict = Depends(get_current_user)):
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(500, str(e))
+    except Exception:
+        raise HTTPException(500, "INTERNAL_SERVER_ERROR")
     finally:
         cur.close()
         conn.close()
@@ -209,9 +254,9 @@ def toggle_favorite(practice_id: int, current_user: dict = Depends(get_current_u
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         conn.rollback()
-        raise HTTPException(500, str(e))
+        raise HTTPException(500, "INTERNAL_SERVER_ERROR")
     finally:
         cur.close()
         conn.close()

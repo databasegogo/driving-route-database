@@ -168,6 +168,22 @@
   text-decoration: underline;
 }
 
+/* ── 欄位字數計數器 ── */
+.field-counter {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-align: right;
+  letter-spacing: 0.2px;
+  transition: color 0.2s;
+}
+.field-counter.at-limit {
+  color: #e76f51;
+  font-weight: 700;
+}
+
 /* RWD 響應式安全防線：如果使用者縮小視窗或用平板看，自動平滑切回單欄置中，排版絕對不炸開 */
 @media (max-width: 768px) {
   .auth-glass-card {

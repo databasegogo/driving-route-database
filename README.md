@@ -91,7 +91,21 @@ bash setup/import_accidents.sh
 
 ---
 
-### Step 5：安裝後端套件
+### Step 5：設定環境變數（建議）
+
+後端 JWT 金鑰預設為開發用值，正式使用前請設定環境變數：
+
+```bash
+# Windows PowerShell
+$env:JWT_SECRET_KEY = "your-random-secret-key-here"
+
+# Linux / macOS
+export JWT_SECRET_KEY="your-random-secret-key-here"
+```
+
+---
+
+### Step 6：安裝後端套件
 
 ```bash
 cd backend
@@ -100,7 +114,7 @@ pip install -r requirements.txt
 
 ---
 
-### Step 6：啟動後端
+### Step 7：啟動後端
 
 ```bash
 cd backend
@@ -111,7 +125,7 @@ uvicorn main:app --reload
 
 ---
 
-### Step 7：安裝前端套件
+### Step 8：安裝前端套件
 
 ```bash
 cd frontend
@@ -120,7 +134,7 @@ npm install
 
 ---
 
-### Step 8：啟動前端
+### Step 9：啟動前端
 
 ```bash
 cd frontend
@@ -150,17 +164,18 @@ npm run dev
 
 ## API 端點總覽
 
-| 方法 | 路徑 | 說明 |
-|------|------|------|
-| POST | `/auth/register` | 註冊 |
-| POST | `/auth/login` | 登入 |
-| GET  | `/user/me` | 取得個人資料 |
-| PUT  | `/user/preference` | 更新路線偏好 |
-| POST | `/route/plan` | 規劃練習路線（回傳 3 條） |
-| GET  | `/route/{id}` | 取得路線詳情 |
-| POST | `/practice/complete` | 完成練習、計算得分 |
-| GET  | `/practice/history` | 查看練習紀錄 |
-| PUT  | `/practice/{id}/favorite` | 切換愛心收藏 |
+| 方法 | 路徑 | 驗證 | 說明 |
+|------|------|------|------|
+| POST | `/auth/register` | ❌ | 註冊新帳號 |
+| POST | `/auth/login` | ❌ | 登入取得 JWT |
+| GET  | `/user/me` | ✅ | 取得個人資料與等級 |
+| PUT  | `/user/preference` | ✅ | 更新路線偏好設定 |
+| POST | `/route/plan` | ✅ | 規劃練習路線（最多 3 條） |
+| GET  | `/route/{id}` | ✅ | 取得路線詳情 |
+| POST | `/practice/complete` | ✅ | 完成練習、計算得分 |
+| GET  | `/practice/history` | ✅ | 查看練習紀錄 |
+| PUT  | `/practice/{id}/favorite` | ✅ | 切換愛心收藏 |
+| GET  | `/district/boundary` | ❌ | 取得龜山區行政邊界 GeoJSON |
 
 ---
 

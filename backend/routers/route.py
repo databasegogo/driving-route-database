@@ -127,7 +127,7 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                 ST_AsGeoJSON(re.geom)                           AS geom_json,
                 r.bridge                                        AS bridge,
                 r.tunnel                                        AS tunnel
-            FROM pgr_ksp(%s, %s, %s, 3, directed := false) d
+            FROM pgr_ksp(%s, %s, %s, 6, directed := false) d
             JOIN road_edge re  ON d.edge = re.edge_id
             JOIN road r        ON re.road_id = r.road_id
             LEFT JOIN edge_risk_score ers ON re.edge_id = ers.edge_id
@@ -153,10 +153,23 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         if not all_rows:
             raise HTTPException(422, "NO_PATH_FOUND")
 
-        # 6. 按 path_id 分組 → {1: [rows...], 2: [rows...], 3: [rows...]}
+        # 6. 按 path_id 分組 → {1: [rows...], 2: [rows...], ...}
         paths = defaultdict(list)
         for row in all_rows:
             paths[row[0]].append(row)
+
+        # 6b. Jaccard 去重：相似度 > 80% 視為重複路線，最多保留 3 條
+        # 去除完全相同的路線（edge set 完全一樣才算重複）
+        unique_path_ids = []
+        seen_edge_sets  = []
+        for pid in sorted(paths.keys()):
+            edge_set = frozenset(seg[2] for seg in paths[pid])
+            if edge_set not in seen_edge_sets:
+                unique_path_ids.append(pid)
+                seen_edge_sets.append(edge_set)
+            if len(unique_path_ids) == 3:
+                break
+        paths = {pid: paths[pid] for pid in unique_path_ids}
 
         # 7. 距離上限：優先用本次請求帶的值，沒帶才查使用者偏好設定
         if req.max_distance_m is not None:
@@ -278,7 +291,7 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(500, str(e))
+        raise HTTPException(500, "INTERNAL_SERVER_ERROR")
     finally:
         cur.close()
         conn.close()
@@ -314,7 +327,7 @@ def get_route(route_id: int, current_user: dict = Depends(get_current_user)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, str(e))
+        raise HTTPException(500, "INTERNAL_SERVER_ERROR")
     finally:
         cur.close()
         conn.close()

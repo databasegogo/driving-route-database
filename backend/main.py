@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import auth, user, route, practice
+from routers import auth, user, route, practice, district
 
 app = FastAPI(title="駕駛練習路線系統")
 
@@ -19,6 +19,7 @@ app.include_router(auth.router)
 app.include_router(user.router)
 app.include_router(route.router)
 app.include_router(practice.router)
+app.include_router(district.router)
 
 
 @app.get("/")

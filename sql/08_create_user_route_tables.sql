@@ -117,7 +117,9 @@ CREATE TABLE user_practice_history (
   selected_difficulty TEXT NOT NULL,                                 -- BEGINNER / NORMAL / EXPERIENCED（依等級限制可選範圍）
   score_earned        INTEGER NOT NULL DEFAULT 0,                    -- 基本分數
   time_bonus          INTEGER NOT NULL DEFAULT 0,                    -- 準時完成加分（超時則為 0）
-  is_favorite         BOOLEAN NOT NULL DEFAULT false                 -- 使用者愛心收藏
+  is_favorite         BOOLEAN NOT NULL DEFAULT false,                -- 使用者愛心收藏
+  gps_verified        BOOLEAN NOT NULL DEFAULT false,               -- GPS 偵測到達終點（true = 真實駕駛驗證）
+  terminated_early    BOOLEAN NOT NULL DEFAULT false                 -- 使用者主動提前終止練習（折扣計分）
 );
 
 CREATE INDEX practice_user_idx  ON user_practice_history(user_id);

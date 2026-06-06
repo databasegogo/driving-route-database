@@ -68,8 +68,8 @@ def get_me(current_user: dict = Depends(get_current_user)):
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(500, str(e))
+    except Exception:
+        raise HTTPException(500, "INTERNAL_SERVER_ERROR")
     finally:
         cur.close()
         conn.close()

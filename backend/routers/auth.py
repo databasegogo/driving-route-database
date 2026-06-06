@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-import hashlib
+from pydantic import BaseModel, EmailStr, Field
+import bcrypt
 
 from database import get_db
 from utils.auth import create_access_token
@@ -11,22 +11,25 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # ── Request schemas ──────────────────────────────────────────────
 
 class RegisterRequest(BaseModel):
-    username: str
-    email: str
-    password: str
-    birth_date: str    # 格式：YYYY-MM-DD
-    license_date: str  # 格式：YYYY-MM-DD
+    username:     str      = Field(min_length=1,  max_length=26)
+    email:        EmailStr
+    password:     str      = Field(min_length=6,  max_length=26)
+    birth_date:   str      = Field(pattern=r'^\d{4}-\d{2}-\d{2}$')
+    license_date: str      = Field(pattern=r'^\d{4}-\d{2}-\d{2}$')
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email:    EmailStr
+    password: str = Field(min_length=1, max_length=100)
 
 
 # ── 工具函式 ──────────────────────────────────────────────────────
 
 def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode(), hashed.encode())
 
 
 # ── 端點 ──────────────────────────────────────────────────────────
@@ -34,14 +37,12 @@ def hash_password(password: str) -> str:
 @router.post("/register")
 def register(req: RegisterRequest):
     conn = get_db()
-    cur = conn.cursor()
+    cur  = conn.cursor()
     try:
-        # 檢查 email 是否已被註冊
-        cur.execute("SELECT user_id FROM app_user WHERE email = %s", (req.email,))
+        cur.execute("SELECT user_id FROM app_user WHERE email = %s", (str(req.email),))
         if cur.fetchone():
             raise HTTPException(status_code=400, detail="EMAIL_ALREADY_EXISTS")
 
-        # 新增使用者
         cur.execute("""
             INSERT INTO app_user
               (username, email, password_hash, birth_date, license_date,
@@ -50,7 +51,7 @@ def register(req: RegisterRequest):
             RETURNING user_id, username, user_level_id
         """, (
             req.username,
-            req.email,
+            str(req.email),
             hash_password(req.password),
             req.birth_date,
             req.license_date,
@@ -60,20 +61,19 @@ def register(req: RegisterRequest):
         conn.commit()
 
         token = create_access_token(user_id, username)
-
         return {
-            "message": "register success",
-            "token": token,
-            "user_id": user_id,
-            "username": username,
+            "message":       "register success",
+            "token":         token,
+            "user_id":       user_id,
+            "username":      username,
             "user_level_id": user_level_id
         }
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="INTERNAL_SERVER_ERROR")
     finally:
         cur.close()
         conn.close()
@@ -82,35 +82,34 @@ def register(req: RegisterRequest):
 @router.post("/login")
 def login(req: LoginRequest):
     conn = get_db()
-    cur = conn.cursor()
+    cur  = conn.cursor()
     try:
         cur.execute("""
             SELECT user_id, username, password_hash, user_level_id
-            FROM app_user
-            WHERE email = %s
-        """, (req.email,))
+            FROM app_user WHERE email = %s
+        """, (str(req.email),))
 
         row = cur.fetchone()
 
-        # email 不存在 或 密碼錯誤 → 同一個錯誤訊息（避免洩漏資訊）
-        if not row or row[2] != hash_password(req.password):
+        # email 不存在 或 密碼錯誤 → 同一個訊息（不洩漏哪個錯）
+        if not row or not verify_password(req.password, row[2]):
             raise HTTPException(status_code=401, detail="INVALID_CREDENTIALS")
 
         user_id, username, _, user_level_id = row
         token = create_access_token(user_id, username)
 
         return {
-            "message": "login success",
-            "token": token,
-            "user_id": user_id,
-            "username": username,
+            "message":       "login success",
+            "token":         token,
+            "user_id":       user_id,
+            "username":      username,
             "user_level_id": user_level_id
         }
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail="INTERNAL_SERVER_ERROR")
     finally:
         cur.close()
         conn.close()
