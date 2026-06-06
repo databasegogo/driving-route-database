@@ -37,9 +37,9 @@ def build_cost_expr(base_expr: str, avoid_bridge: bool, avoid_tunnel: bool) -> s
     """
     conditions = []
     if avoid_bridge:
-        conditions.append("(r.bridge IS NOT NULL AND r.bridge <> '')")
+        conditions.append("r.bridge = 'T'")
     if avoid_tunnel:
-        conditions.append("(r.tunnel IS NOT NULL AND r.tunnel <> '')")
+        conditions.append("r.tunnel = 'T'")
 
     if conditions:
         when_clause = " OR ".join(conditions)
@@ -216,8 +216,8 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                 continue
 
             # 偵測此路線是否實際含有橋樑/隧道
-            has_bridge = any(seg[9] is not None and seg[9] != '' for seg in segments)
-            has_tunnel = any(seg[10] is not None and seg[10] != '' for seg in segments)
+            has_bridge = any(seg[9]  == 'T' for seg in segments)
+            has_tunnel = any(seg[10] == 'T' for seg in segments)
             # 使用者要求避開，但路線仍含有 → 需警告
             constraint_relaxed = (req.avoid_bridge and has_bridge) or \
                                   (req.avoid_tunnel and has_tunnel)
