@@ -22,21 +22,23 @@ function SmartPathLogo() {
 
 function MainLayout() {
   const navigate = useNavigate()
-  const [username, setUsername] = useState('Nina')
+
+  // lazy initializer：mount 時從 localStorage 讀一次，不觸發額外 re-render
+  const [username] = useState(() => {
+    try {
+      const stored = localStorage.getItem('currentUser')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        return parsed.name ?? parsed.username ?? 'Nina'
+      }
+    } catch {}
+    return 'Nina'
+  })
 
   useEffect(() => {
-    // 🔒 安全驗證：如果沒有 Token 證明登入過，直接無情踢回登入頁
+    // 🔒 安全驗證：沒有 Token 就踢回登入頁
     const token = localStorage.getItem('token')
-    if (!token) {
-      navigate('/login')
-      return
-    }
-
-    const storedUser = localStorage.getItem('currentUser')
-    if (storedUser) {
-      const parsed = JSON.parse(storedUser)
-      if (parsed.name) setUsername(parsed.name)
-    }
+    if (!token) navigate('/login')
   }, [navigate])
 
   // 🚪 滿血回歸的登出核心機制！
