@@ -476,6 +476,102 @@ body {
   display: inline-block; margin: 2px 0;
 }
 
+/* ── 地圖選點 + GPS 按鈕（RoutePlanner）── */
+.input-with-map-btn {
+  display: flex; align-items: flex-end; gap: 8px; flex: 1;
+}
+.input-with-map-btn .premium-input-box { flex: 1; }
+
+.map-pin-btn {
+  flex-shrink: 0; width: 38px; height: 38px;
+  background: #f4f3ee; border: 1.5px solid #e0ddd7; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #7e8b9b; transition: all 0.2s; margin-bottom: 2px;
+}
+.map-pin-btn:hover {
+  border-color: var(--nordic-orange); color: var(--nordic-orange); background: #fff8f6;
+}
+
+/* ── 地圖選點 Modal ── */
+.map-picker-overlay {
+  position: fixed; inset: 0; background: rgba(38, 70, 83, 0.5);
+  backdrop-filter: blur(4px); display: flex; align-items: center;
+  justify-content: center; z-index: 3000; padding: 20px;
+}
+.map-picker-modal {
+  background: #fff; border-radius: 16px; width: 100%; max-width: 640px;
+  max-height: 88svh; display: flex; flex-direction: column;
+  overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.2);
+}
+.map-picker-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px; font-size: 15px; font-weight: 700; color: #264653;
+  border-bottom: 1px solid #f0ede8;
+}
+.map-picker-close {
+  background: none; border: none; font-size: 18px; color: #aaa; cursor: pointer;
+}
+.map-picker-close:hover { color: #333; }
+.map-picker-hint {
+  padding: 8px 20px; font-size: 12px; color: #888;
+  background: #fafaf8; border-bottom: 1px solid #f0ede8;
+}
+.map-picker-map { height: 380px; flex-shrink: 0; position: relative; }
+.map-picker-footer {
+  display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid #f0ede8;
+}
+.map-picker-cancel {
+  flex: 1; padding: 11px; background: #f4f3ee; border: 1.5px solid #e0ddd7;
+  border-radius: 10px; font-size: 14px; font-weight: 600; color: #7e8b9b; cursor: pointer;
+}
+.map-picker-confirm {
+  flex: 2; padding: 11px; background: var(--nordic-orange); border: none;
+  border-radius: 10px; font-size: 14px; font-weight: 700; color: #fff;
+  cursor: pointer; transition: opacity 0.2s;
+}
+.map-picker-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+.map-picker-confirm:hover:not(:disabled) { opacity: 0.88; }
+
+/* ── 推薦終點區塊 ── */
+.rec-dest-zone { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.rec-dest-label {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--nordic-gray); font-weight: 600; letter-spacing: 0.5px;
+}
+.rec-refresh-btn {
+  background: none; border: none; cursor: pointer; color: var(--nordic-gray);
+  font-size: 14px; padding: 0 2px; margin-left: 2px;
+  transition: transform 0.3s; line-height: 1;
+}
+.rec-refresh-btn:hover { transform: rotate(180deg); color: var(--nordic-orange); }
+.rec-dest-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.rec-chip {
+  background: #f4f3ee; border: 1.5px solid #e0ddd7; border-radius: 20px;
+  padding: 6px 12px; font-size: 12px; color: #3d4a52;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.rec-chip:hover { border-color: var(--nordic-orange); color: var(--nordic-orange); background: #fff8f6; }
+.rec-chip.active {
+  background: var(--nordic-orange); border-color: var(--nordic-orange);
+  color: #fff; font-weight: 600;
+}
+
+/* ── GPS 定位按鈕狀態 ── */
+.gps-btn.gps-loading { opacity: 0.6; cursor: wait; }
+.gps-btn.gps-loading svg, .spin-icon { animation: spin 0.9s linear infinite; }
+.gps-btn.gps-done {
+  border-color: #2a9d8f !important; color: #2a9d8f !important;
+  background: rgba(42, 157, 143, 0.06) !important;
+}
+.gps-btn.gps-error {
+  border-color: #e76f51 !important; color: #e76f51 !important;
+  background: rgba(231, 111, 81, 0.06) !important;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 /* ==========================================================================
    🌿 告示橫條與微調
    ========================================================================== */
