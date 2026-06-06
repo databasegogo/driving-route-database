@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from 'react-leaflet'
+import { RotateCcw, ChevronRight, Heart, CalendarDays, X } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 import api from '../api'
 import '../styles/records.css'
 
 const DIFF_STARS = { BEGINNER: 1, NORMAL: 2, EXPERIENCED: 3 }
+const WEEKDAYS   = ['週日', '週一', '週二', '週三', '週四', '週五', '週六']
 
-// 把後端歷史紀錄格式轉成前端顯示格式
 function fmtHHMM(isoStr) {
   if (!isoStr) return '--'
   const dt = new Date(isoStr)
@@ -15,10 +16,9 @@ function fmtHHMM(isoStr) {
 }
 
 function fromBackend(h) {
-  const dt  = new Date(h.practice_time)
-  const mm  = String(dt.getMonth() + 1).padStart(2, '0')
-  const dd  = String(dt.getDate()).padStart(2, '0')
-  // 終止練習優先顯示為 'terminated'，其餘依後端 status
+  const dt = new Date(h.practice_time)
+  const mm = String(dt.getMonth() + 1).padStart(2, '0')
+  const dd = String(dt.getDate()).padStart(2, '0')
   const displayStatus = h.terminated_early ? 'terminated' : (h.status ?? 'completed')
   return {
     id:              h.practice_id,
@@ -31,73 +31,149 @@ function fromBackend(h) {
     diffCode:        h.selected_difficulty,
     status:          displayStatus,
     score:           h.score_earned,
-    timeBonus:       h.time_bonus ?? 0,
-    prefs:           { bridge: false, tunnel: false },
     coords:          null,
-    favorited:       h.is_favorite      ?? false,
+    favorited:       h.is_favorite ?? false,
     gpsVerified:     h.gps_verified     ?? false,
     terminatedEarly: h.terminated_early ?? false,
   }
 }
 
-
 function FitBounds({ coords }) {
   const map = useMap()
   useEffect(() => {
-    if (coords?.length) map.fitBounds(coords, { padding: [24, 24] })
+    if (!coords?.length) return
+    map.invalidateSize()
+    map.fitBounds(coords, { padding: [24, 24] })
   }, [map, coords])
   return null
 }
 
 const STATUS_META = {
-  completed:    { label: '完成',   cls: 'st-done'       },
-  'in-progress':{ label: '練習中', cls: 'st-ing'        },
-  in_progress:  { label: '練習中', cls: 'st-ing'        },
-  incomplete:   { label: '未完成', cls: 'st-none'       },
-  terminated:   { label: '終止',   cls: 'st-terminated' },
+  completed:     { label: '完成',   cls: 'st-done'       },
+  'in-progress': { label: '練習中', cls: 'st-ing'        },
+  in_progress:   { label: '練習中', cls: 'st-ing'        },
+  incomplete:    { label: '未完成', cls: 'st-none'       },
+  terminated:    { label: '終止',   cls: 'st-terminated' },
 }
 
 function StatusBadge({ status }) {
+  const meta = STATUS_META[status] ?? { label: '未知', cls: 'st-off' }
+  return <span className={`st-pill ${meta.cls}`}>{meta.label}</span>
+}
+
+function CarIcon() {
   return (
-    <div className="status-pills">
-      {Object.entries(STATUS_META).map(([k, { label, cls }]) => (
-        <span key={k} className={`st-pill ${status === k ? cls : 'st-off'}`}>{label}</span>
-      ))}
-    </div>
+    <svg viewBox="0 0 70 42" width="54" height="34" xmlns="http://www.w3.org/2000/svg">
+      <path d="M 10 26 Q 6 26 8 19 L 14 11 Q 19 4 32 4 L 46 4 Q 56 4 60 11 L 64 19 Q 66 26 62 26 Z" fill="#ff6b35" />
+      <path d="M 25 6 L 44 6 Q 52 6 55 11 L 58 17 L 16 17 Z" fill="#264653" />
+      <path d="M 27 8 L 38 8 L 40 15 L 21 15 Z" fill="#ffffff" opacity="0.35" />
+      <path d="M 41 8 L 49 8 L 54 15 L 42 15 Z" fill="#ffffff" opacity="0.35" />
+      <circle cx="21" cy="27" r="7.5" fill="#1e293b" stroke="#ffffff" strokeWidth="2" />
+      <circle cx="21" cy="27" r="3" fill="#cbd5e1" />
+      <circle cx="49" cy="27" r="7.5" fill="#1e293b" stroke="#ffffff" strokeWidth="2" />
+      <circle cx="49" cy="27" r="3" fill="#cbd5e1" />
+    </svg>
   )
+}
+
+function getWeekday(mmdd) {
+  if (!mmdd || mmdd === '--') return ''
+  const [mm, dd] = mmdd.split('/')
+  const year = new Date().getFullYear()
+  const dt = new Date(year, parseInt(mm) - 1, parseInt(dd))
+  return WEEKDAYS[dt.getDay()]
+}
+
+// 從 startTime 萃取分鐘數（無論格式是 "14:16" 還是舊格式 "6/6 01:47"）
+function parseMinutes(timeStr) {
+  if (!timeStr || timeStr === '--') return -1
+  const m = timeStr.match(/(\d{1,2}):(\d{2})/)
+  return m ? parseInt(m[1]) * 60 + parseInt(m[2]) : -1
+}
+
+// 產生用於排序的數字 key（越大 = 越新）
+function recSortKey(r) {
+  if (!r.date || r.date === '--') return 0
+  const parts = r.date.split('/')
+  const mm = parseInt(parts[0]) || 0
+  const dd = parseInt(parts[1]) || 0
+  const mins = parseMinutes(r.startTime)
+  return mm * 1000000 + dd * 10000 + (mins >= 0 ? mins : 0)
+}
+
+function groupByDate(records) {
+  const groups = {}
+  const order  = []
+  records.forEach(r => {
+    const d = r.date ?? '--'
+    if (!groups[d]) { groups[d] = []; order.push(d) }
+    groups[d].push(r)
+  })
+  return order.map(d => ({
+    date:    d,
+    day:     d !== '--' ? d.split('/')[1] : '--',
+    month:   d !== '--' ? d.split('/')[0] : '--',
+    weekday: getWeekday(d),
+    records: groups[d],
+  }))
 }
 
 export default function Records() {
   const navigate = useNavigate()
-  const [records, setRecords] = useState([])
-  const [selected, setSelected] = useState(null)   // record for modal
-  const [mapOpen, setMapOpen]   = useState(false)   // map sub-view
+  const [records,    setRecords]    = useState([])
+  const [selected,   setSelected]   = useState(null)
+  const [mapOpen,    setMapOpen]    = useState(false)
+  const [favOnly,      setFavOnly]      = useState(false)
+  const [dateFilter,   setDateFilter]   = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [user,         setUser]         = useState(null)
 
   useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem('currentUser') || '{}')
+    if (stored.username) setUser(stored)
+
     const token = localStorage.getItem('token')
     if (token) {
-      // 有 token → 從後端拿
       api.get('/practice/history')
         .then(res => {
           const backendRecords = res.data.history.map(fromBackend)
-          // 合併本地紀錄（保留收藏狀態和有 coords 的舊紀錄）
-          const local = JSON.parse(localStorage.getItem('practiceRecords') || '[]')
+          const local    = JSON.parse(localStorage.getItem('practiceRecords') || '[]')
           const localMap = Object.fromEntries(local.map(r => [r.id, r]))
-          const merged = backendRecords.map(r => ({
-            ...r,
-            favorited: localMap[r.id]?.favorited ?? false,
-            coords:    localMap[r.id]?.coords ?? null,
-          }))
-          setRecords(merged)
+          const merged   = backendRecords.map(r => {
+            const loc = localMap[r.id]
+            return {
+              ...r,
+              // 優先用 localStorage 的時間（客戶端實際時間更準確）
+              date:       loc?.date      ?? r.date,
+              startTime:  loc?.startTime ?? r.startTime,
+              endTime:    loc?.endTime   ?? r.endTime,
+              // 其他欄位
+              favorited:   loc?.favorited   ?? false,
+              coords:      loc?.coords      ?? null,
+              coordsMulti: loc?.coordsMulti ?? null,
+              routeName:   loc?.routeName   ?? r.routeName,
+              start:       loc?.start       ?? null,
+              end:         loc?.end         ?? null,
+              startCoord:  loc?.startCoord  ?? null,
+              endCoord:    loc?.endCoord    ?? null,
+              diffCode:    loc?.diffCode    ?? r.diffCode,
+              route_id:    loc?.route_id    ?? null,
+              time:        loc?.time        ?? null,
+            }
+          })
+          const backendIds = new Set(backendRecords.map(r => r.id))
+          const localOnly  = local.filter(r => !backendIds.has(r.id))
+          const all = [...localOnly, ...merged]
+          all.sort((a, b) => recSortKey(b) - recSortKey(a))
+          setRecords(all)
         })
         .catch(() => {
-          // 後端失敗就退回 localStorage
-          const stored = JSON.parse(localStorage.getItem('practiceRecords') || '[]')
-          setRecords(stored)
+          const s = JSON.parse(localStorage.getItem('practiceRecords') || '[]')
+          setRecords(s)
         })
     } else {
-      const stored = JSON.parse(localStorage.getItem('practiceRecords') || '[]')
-      setRecords(stored)
+      const s = JSON.parse(localStorage.getItem('practiceRecords') || '[]')
+      setRecords(s)
     }
   }, [])
 
@@ -105,92 +181,245 @@ export default function Records() {
     const updated = records.map(r => r.id === id ? { ...r, favorited: !r.favorited } : r)
     setRecords(updated)
     localStorage.setItem('practiceRecords', JSON.stringify(updated))
-    // 同步到後端
     api.put(`/practice/${id}/favorite`).catch(() => {})
+  }
+
+  function buildSegmentsFromRecord(r) {
+    if (r.coordsMulti?.length) {
+      return {
+        type: 'FeatureCollection',
+        features: r.coordsMulti.map(seg => ({
+          type: 'Feature', properties: null,
+          geometry: { type: 'LineString', coordinates: seg.map(([lat, lng]) => [lng, lat]) },
+        })),
+      }
+    }
+    if (r.coords?.length) {
+      return {
+        type: 'FeatureCollection',
+        features: [{ type: 'Feature', properties: null, geometry: { type: 'LineString', coordinates: r.coords.map(([lat, lng]) => [lng, lat]) } }],
+      }
+    }
+    return null
+  }
+
+  function handleRepeat(r) {
+    navigate('/route-detail', {
+      state: {
+        route: {
+          route_id:       r.route_id   ?? r.id,
+          start:          r.start      ?? r.routeName,
+          end:            r.end        ?? '',
+          startCoord:     r.startCoord ?? null,
+          endCoord:       r.endCoord   ?? null,
+          distance:       r.distance,
+          time:           r.time       ?? '--',
+          difficulty:     r.difficulty ?? 1,
+          diffCode:       r.diffCode   ?? 'BEGINNER',
+          estimatedScore: r.score      ?? 0,
+          segments:       buildSegmentsFromRecord(r),
+        },
+        prefs: {},
+      },
+    })
   }
 
   const total      = records.length
   const completed  = records.filter(r => r.status === 'completed').length
-  const terminated = records.filter(r => r.status === 'terminated').length
-  const inProgress = records.filter(r => r.status === 'in-progress' || r.status === 'in_progress').length
+  const inProgress = records.filter(r => ['in-progress', 'in_progress'].includes(r.status)).length
   const incomplete = records.filter(r => r.status === 'incomplete').length
+  const terminated = records.filter(r => r.status === 'terminated').length
   const pct        = total ? Math.round((completed / total) * 100) : 0
+
+  let filtered = favOnly ? records.filter(r => r.favorited) : records
+  if (statusFilter !== 'all') filtered = filtered.filter(r => {
+    if (statusFilter === 'in-progress') return ['in-progress', 'in_progress'].includes(r.status)
+    return r.status === statusFilter
+  })
+  if (dateFilter !== 'all') filtered = filtered.filter(r => r.date === dateFilter)
+
+  function toggleStatusFilter(val) {
+    setStatusFilter(prev => prev === val ? 'all' : val)
+  }
+
+  const groups      = groupByDate(filtered)
+  const uniqueDates = [...new Set(records.map(r => r.date).filter(d => d && d !== '--'))]
+  const userInitial = user?.username?.[0]?.toUpperCase() ?? 'U'
+  // 已排序，第一筆就是最新的
+  const newestId    = filtered[0]?.id
 
   return (
     <div className="rec-page">
-      <header className="route-header">
-        <button className="back-btn" onClick={() => navigate('/dashboard')}>← 返回</button>
-        <span className="route-title">練習紀錄</span>
-        <span />
-      </header>
+      <div className="rec-layout">
 
-      <main className="rec-main">
+      {/* ── 左側欄包裝（含外部返回按鈕）── */}
+      <div className="rec-sidebar-wrap">
+        <button className="rec-nav-back-outer" onClick={() => navigate('/dashboard')}>
+          ‹ 返回首頁
+        </button>
 
-        {/* ── 進度條 ── */}
-        <section className="rec-progress-card">
-          <div className="prog-top">
-            <span className="prog-title">練習完成度</span>
-          </div>
-          <div className="prog-bar-row">
-            <span className="prog-count">{completed} / {total} 次</span>
-            <span className="prog-pct">{pct}%</span>
-          </div>
-          <div className="prog-track">
-            <div className="prog-fill" style={{ width: `${pct}%` }} />
-          </div>
-          <div className="prog-stats">
-            <div className="prog-stat done">
-              <span className="ps-num">{completed}</span>
-              <span className="ps-lbl">完成</span>
-            </div>
-            <div className="prog-stat terminated">
-              <span className="ps-num">{terminated}</span>
-              <span className="ps-lbl">終止</span>
-            </div>
-            <div className="prog-stat ing">
-              <span className="ps-num">{inProgress}</span>
-              <span className="ps-lbl">練習中</span>
-            </div>
-            <div className="prog-stat none">
-              <span className="ps-num">{incomplete}</span>
-              <span className="ps-lbl">未完成</span>
-            </div>
-          </div>
-        </section>
+      <aside className="rec-sidebar">
+        <h2 className="rec-sidebar-title">練習紀錄</h2>
 
-        {/* ── 紀錄卡片 ── */}
-        {records.length === 0 ? (
-          <p className="rec-empty">還沒有練習紀錄，完成第一次練習後會顯示在這裡。</p>
-        ) : (
-          <div className="rec-grid">
-            {records.map(r => (
-              <div key={r.id} className="rec-card">
-                <button
-                  className={`fav-btn ${r.favorited ? 'faved' : ''}`}
-                  onClick={() => toggleFav(r.id)}
-                  title="收藏路線"
-                >
-                  {r.favorited ? '❤️' : '🤍'}
-                </button>
+        {/* 統計（可點選篩選）*/}
+        <div className="rec-stats-block">
+          {[
+            ['完成',   completed,  'done',       'completed'],
+            ['練習中', inProgress, 'ing',        'in-progress'],
+            ['未完成', incomplete, 'none',       'incomplete'],
+            ['終止',   terminated, 'terminated', 'terminated'],
+          ].map(([label, num, cls, val]) => (
+            <button
+              key={label}
+              className={`rec-stat-row rec-stat-${cls} ${statusFilter === val ? 'rec-stat-active' : ''}`}
+              onClick={() => toggleStatusFilter(val)}
+            >
+              <span className="rec-stat-label">{label}</span>
+              <span className="rec-stat-num">{num}</span>
+            </button>
+          ))}
+        </div>
 
-                <div className="rec-row"><span className="rc-key">練習日期</span><span>{r.date}</span></div>
-                <div className="rec-row"><span className="rc-key">練習路徑</span><span className="rc-route">{r.routeName}</span></div>
-                <div className="rec-row"><span className="rc-key">練習時間</span><span>{r.startTime} – {r.endTime}</span></div>
-                <div className="rec-row"><span className="rc-key">距離長度</span><span>{r.distance} 公里</span></div>
-                <div className="rec-row align-top">
-                  <span className="rc-key">完成度</span>
-                  <StatusBadge status={r.status} />
-                </div>
-                <div className="rec-row"><span className="rc-key">本次得分</span><span className="rc-score">+{r.score} 分</span></div>
+        {/* 完成度 */}
+        <div className="rec-prog-header">
+          <span>練習完成度</span>
+          <span className="rec-prog-pct">{pct}%</span>
+        </div>
+        <div className="rec-prog-track">
+          <div className="rec-prog-fill" style={{ width: `${pct}%` }} />
+        </div>
 
-                <button className="more-btn" onClick={() => { setSelected(r); setMapOpen(false) }}>
-                  查看更多
-                </button>
-              </div>
-            ))}
+        {/* 日期查詢 */}
+        <p className="rec-filter-label">日期查詢</p>
+        <div className="rec-date-picker-wrap">
+          {/* 隱藏的原生 date input */}
+          <input
+            type="date"
+            className="rec-date-input-hidden"
+            id="rec-date-native"
+            value={dateFilter === 'all' ? '' : (() => {
+              const year = new Date().getFullYear()
+              const [mm, dd] = dateFilter.split('/')
+              return `${year}-${mm?.padStart(2,'0')}-${dd?.padStart(2,'0')}`
+            })()}
+            onChange={e => {
+              if (!e.target.value) { setDateFilter('all'); return }
+              const [, mm, dd] = e.target.value.split('-')
+              setDateFilter(`${mm}/${dd}`)
+            }}
+          />
+          {/* 自訂外觀的按鈕 */}
+          <button
+            className={`rec-date-trigger ${dateFilter !== 'all' ? 'has-value' : ''}`}
+            onClick={() => {
+              const el = document.getElementById('rec-date-native')
+              el?.showPicker?.()
+              el?.focus()
+            }}
+          >
+            <CalendarDays size={15} />
+            <span>
+              {dateFilter === 'all'
+                ? '選擇日期'
+                : `${dateFilter} ${getWeekday(dateFilter)}`
+              }
+            </span>
+            {dateFilter !== 'all' && (
+              <span
+                className="rec-date-trigger-clear"
+                onClick={e => { e.stopPropagation(); setDateFilter('all') }}
+              >
+                <X size={13} />
+              </span>
+            )}
+          </button>
+        </div>
+        {dateFilter !== 'all' && (
+          <p className="rec-date-result-hint">
+            共 {records.filter(r => r.date === dateFilter).length} 筆練習紀錄
+          </p>
+        )}
+
+        {/* 收藏 */}
+        <button
+          className={`rec-fav-all-btn ${favOnly ? 'active' : ''}`}
+          onClick={() => setFavOnly(v => !v)}
+        >
+          <Heart size={14} fill={favOnly ? '#ff6b35' : 'none'} />
+          收藏路徑
+        </button>
+      </aside>
+      </div>{/* /rec-sidebar-wrap */}
+
+      {/* ── 右側時間軸 ── */}
+      <main className="rec-content">
+        {/* 右上用戶 */}
+        {user && (
+          <div className="rec-top-user">
+            <div className="rec-user-avatar">{userInitial}</div>
+            <span>Hi, {user.username}</span>
           </div>
         )}
+
+        {records.length === 0 ? (
+          <p className="rec-empty">還沒有練習紀錄，完成第一次練習後會顯示在這裡。</p>
+        ) : filtered.length === 0 ? (
+          <p className="rec-empty">這個篩選條件下沒有紀錄。</p>
+        ) : (
+          groups.map((group, gi) => (
+            <div key={group.date} className="rec-date-group">
+              {/* 日期標頭 */}
+              <div className="rec-group-header">
+                <div className="rec-date-badge">
+                  <span className="rec-badge-day">{group.day}</span>
+                  <span className="rec-badge-month">/{group.month}</span>
+                </div>
+                <div>
+                  <p className="rec-group-date">{group.date} {group.weekday}</p>
+                  <p className="rec-group-count">{group.records.length} 筆練習</p>
+                </div>
+              </div>
+
+              {/* 紀錄列 */}
+              {group.records.map((r, ri) => (
+                <div key={r.id} className="rec-timeline-card">
+                  <div className="rec-tc-icon">
+                    <CarIcon />
+                  </div>
+                  <div className="rec-tc-info">
+                    <div className="rec-tc-name">
+                      {r.routeName}
+                      {r.id === newestId && <span className="rec-newest-tag">最新</span>}
+                    </div>
+                    <div className="rec-tc-meta">
+                      {r.startTime}—{r.endTime} · {r.distance} 公里
+                    </div>
+                  </div>
+                  <div className="rec-tc-status">
+                    <StatusBadge status={r.status} />
+                    <span className="rec-tc-score">+{r.score} 分</span>
+                  </div>
+                  <div className="rec-tc-actions">
+                    <button
+                      className={`rec-fav-btn ${r.favorited ? 'faved' : ''}`}
+                      onClick={() => toggleFav(r.id)}
+                    >
+                      <Heart size={15} fill={r.favorited ? '#ff6b35' : 'none'} />
+                    </button>
+                    <button className="rec-btn rec-btn-ghost" onClick={() => { setSelected(r); setMapOpen(false) }}>
+                      查看更多 <ChevronRight size={14} />
+                    </button>
+                    <button className="rec-btn rec-btn-primary" onClick={() => handleRepeat(r)}>
+                      <RotateCcw size={14} /> 再練習一次
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))
+        )}
       </main>
+      </div>{/* /rec-layout */}
 
       {/* ── 詳細 Modal ── */}
       {selected && !mapOpen && (
@@ -198,57 +427,44 @@ export default function Records() {
           <div className="detail-modal" onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setSelected(null)}>✕</button>
             <h3 className="modal-title">練習詳情</h3>
-
             <div className="modal-rows">
               {[
                 ['練習日期', selected.date],
                 ['練習路徑', selected.routeName],
                 ['距離長度', `${selected.distance} 公里`],
                 ['練習時間', `${selected.startTime} – ${selected.endTime}`],
+                ['預計時間', selected.time && selected.time !== '--' && selected.time !== 'undefined' ? `${selected.time} 分鐘` : '--'],
               ].map(([k, v]) => (
                 <div key={k} className="modal-row">
                   <span className="mr-key">{k}</span><span>{v}</span>
                 </div>
               ))}
-
-              <div className="modal-row align-top">
+              <div className="modal-row">
                 <span className="mr-key">完成度</span>
                 <StatusBadge status={selected.status} />
               </div>
-
               <div className="modal-row">
                 <span className="mr-key">難易度</span>
-                <span>{'⭐'.repeat(selected.difficulty)}</span>
-              </div>
-              <div className="modal-row">
-                <span className="mr-key">路線偏好</span>
-                <span>
-                  {selected.prefs.bridge ? '✅' : '❌'} 橋樑
-                  {selected.prefs.tunnel ? '✅' : '❌'} 隧道
-                </span>
+                <span>{'⭐'.repeat(selected.difficulty ?? 1)}</span>
               </div>
               <div className="modal-row">
                 <span className="mr-key">本次得分</span>
                 <span className="rc-score">+{selected.score} 分</span>
               </div>
-              {selected.gpsVerified && (
-                <div className="modal-row">
-                  <span className="mr-key" />
-                  <span className="rec-gps-badge">✅ GPS 驗證到達終點</span>
-                </div>
-              )}
-              {selected.terminatedEarly && (
-                <div className="modal-row">
-                  <span className="mr-key" />
-                  <span className="rec-terminated-note">🏁 提前終止・折扣計分 × 0.8</span>
-                </div>
-              )}
             </div>
-
+            {selected.gpsVerified     && <div className="rec-gps-badge">✅ GPS 驗證到達終點</div>}
+            {selected.terminatedEarly && <div className="rec-terminated-note">⚠️ 提前終止練習（0.8 折計分）</div>}
             {selected.coords?.length > 0 && (
               <button className="map-btn" onClick={() => setMapOpen(true)}>🗺 查看路線地圖</button>
             )}
-            <button className="confirm-btn" onClick={() => setSelected(null)}>確認</button>
+            <button
+              className="rec-btn rec-btn-primary"
+              style={{ width: '100%', justifyContent: 'center', marginTop: '8px' }}
+              onClick={() => handleRepeat(selected)}
+            >
+              <RotateCcw size={14} /> 再練習一次
+            </button>
+            <button className="confirm-btn" onClick={() => setSelected(null)}>關閉</button>
           </div>
         </div>
       )}
@@ -261,21 +477,25 @@ export default function Records() {
             <p className="map-modal-title">{selected.routeName}</p>
             <MapContainer
               key={selected.id}
-              center={selected.coords[0]}
+              center={selected.coords?.[0] ?? [25.04, 121.37]}
               zoom={14}
               className="rec-map"
               zoomControl
             >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution="© OpenStreetMap contributors"
-              />
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
               <FitBounds coords={selected.coords} />
-              <Polyline positions={selected.coords} color="#4f7cff" weight={5} opacity={0.85} />
-              <CircleMarker center={selected.coords[0]}
-                radius={9} fillColor="#2e7d32" color="#fff" weight={2} fillOpacity={1} />
-              <CircleMarker center={selected.coords[selected.coords.length - 1]}
-                radius={9} fillColor="#c62828" color="#fff" weight={2} fillOpacity={1} />
+              {selected.coordsMulti?.length > 0
+                ? selected.coordsMulti.map((seg, i) => (
+                    <Polyline key={i} positions={seg} color="#ff6b35" weight={5} opacity={0.85} />
+                  ))
+                : <Polyline positions={selected.coords} color="#ff6b35" weight={5} opacity={0.85} />
+              }
+              {selected.coords?.[0] && (
+                <CircleMarker center={selected.coords[0]} radius={9} fillColor="#264653" color="#fff" weight={2} fillOpacity={1} />
+              )}
+              {selected.coords?.length > 1 && (
+                <CircleMarker center={selected.coords[selected.coords.length - 1]} radius={9} fillColor="#ff6b35" color="#fff" weight={2} fillOpacity={1} />
+              )}
             </MapContainer>
           </div>
         </div>

@@ -109,7 +109,7 @@ function Login() {
             )}
 
             <button type="submit" className="auth-submit-btn" disabled={loading}>
-              <span>{loading ? '協議驗證中...' : '安全登入'}</span>
+              <span>{loading ? '協議驗證中...' : '立即登入'}</span>
               {!loading && <LogIn size={15} />}
             </button>
             

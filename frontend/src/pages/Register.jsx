@@ -27,25 +27,11 @@ function Register() {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  // 即時字數計算
-  const nameLen = form.name.length
-  const pwLen   = form.password.length
-
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-
-    // ── 前端預驗證（避免不必要的 API 呼叫）───────────────────────
-    if (nameLen < 1 || nameLen > 26) {
-      setError('姓名長度需在 1–26 字元之間')
-      return
-    }
-    if (pwLen < 6 || pwLen > 26) {
-      setError('密碼長度需在 6–26 字元之間')
-      return
-    }
-
     setLoading(true)
+
     try {
       await api.post('/auth/register', {
         username:     form.name,
@@ -53,27 +39,26 @@ function Register() {
         password:     form.password,
         birth_date:   form.birthday,
         license_date: form.licenseDate,
+        address:      JSON.stringify({
+          city:     form.addrCity,
+          district: form.addrDistrict,
+          road:     form.addrRoad,
+          section:  form.addrSection,
+          lane:     form.addrLane,
+          number:   form.addrNumber,
+        }),
       })
-
-      localStorage.setItem('pendingAddr', JSON.stringify({
-        addrCity:     form.addrCity,
-        addrDistrict: form.addrDistrict,
-        addrRoad:     form.addrRoad,
-        addrSection:  form.addrSection,
-        addrLane:     form.addrLane,
-        addrNumber:   form.addrNumber,
-      }))
 
       setSuccess(true)
     } catch (err) {
+      const status = err.response?.status
       const detail = err.response?.data?.detail
       if (detail === 'EMAIL_ALREADY_EXISTS') {
         setError('此 Email 已被使用 ❌')
-      } else if (Array.isArray(detail)) {
-        // Pydantic 422 驗證錯誤 → 取第一個欄位轉中文
-        const FIELD_ZH = { username: '姓名', email: 'Email', password: '密碼', birth_date: '生日', license_date: '駕照日期' }
-        const field = detail[0]?.loc?.[1]
-        setError(`${FIELD_ZH[field] || '欄位'}格式或長度不符合要求`)
+      } else if (status === 422) {
+        const errs = err.response?.data?.detail
+        const msg  = Array.isArray(errs) ? errs.map(e => e.msg).join('、') : '輸入格式錯誤'
+        setError(`格式錯誤：${msg} ⚠️`)
       } else {
         setError('註冊失敗，請稍後再試 ⚠️')
       }
@@ -131,15 +116,15 @@ function Register() {
               
               <div className="panel-inside-grid-2col">
                 <div className="auth-input-group">
-                  <label htmlFor="name">姓名</label>
+                  <label htmlFor="name">
+                    姓名
+                    <span className={`field-counter ${form.name.length >= 26 ? 'at-limit' : ''}`}>
+                      {form.name.length}/26
+                    </span>
+                  </label>
                   <input id="name" name="name" type="text" className="auth-field"
                     value={form.name} onChange={handleChange} placeholder="請輸入姓名"
                     maxLength={26} required />
-                  {nameLen >= 20 && (
-                    <span className={`field-counter ${nameLen >= 26 ? 'at-limit' : ''}`}>
-                      {nameLen} / 26{nameLen >= 26 ? ' ⚠️ 已達上限' : ''}
-                    </span>
-                  )}
                 </div>
 
                 <div className="auth-input-group">
@@ -153,16 +138,7 @@ function Register() {
                 <div className="auth-input-group">
                   <label htmlFor="reg-password">密碼</label>
                   <input id="reg-password" name="password" type="password" className="auth-field"
-                    value={form.password} onChange={handleChange} placeholder="設定密碼（6–26 字元）"
-                    maxLength={26} required />
-                  {pwLen > 0 && pwLen < 6 && (
-                    <span className="field-counter at-limit">密碼至少需要 6 個字元</span>
-                  )}
-                  {pwLen >= 20 && (
-                    <span className={`field-counter ${pwLen >= 26 ? 'at-limit' : ''}`}>
-                      {pwLen} / 26{pwLen >= 26 ? ' ⚠️ 已達上限' : ''}
-                    </span>
-                  )}
+                    value={form.password} onChange={handleChange} placeholder="設定密碼" required />
                 </div>
 
                 <div className="auth-input-group">

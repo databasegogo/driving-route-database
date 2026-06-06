@@ -1,312 +1,645 @@
-/* 🌟 全新大地暖色調座艙背景 (精準吻合 #f4f3ee) */
-.profile-innovative-page {
-  min-height: 100vh;
-  background-color: #f4f3ee !important; /* 👈 完美接駁妳最愛的暖白灰底色 */
-  display: flex;
-  flex-direction: column;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+/* ==========================================================================
+   個人資料頁
+   ========================================================================== */
+
+:root {
+  --pf-bg:      #f4f3ee;
+  --pf-dark:    #264653;
+  --pf-hero-bg: #1e3a4a;
+  --pf-orange:  #ff6b35;
+  --pf-teal:    #2a9d8f;
+  --pf-gray:    #7e8b9b;
+  --pf-border:  rgba(38, 70, 83, 0.08);
+  --pf-surface: #ffffff;
 }
 
-/* 🌿 頂部極簡導航（無大粗橫條、無多餘標題） */
-.profile-innovative-navbar {
-  height: 68px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 40px;
-  background: transparent; /* 完美融入大底色 */
+.pf-page {
+  min-height: 100svh;
+  background: var(--pf-bg);
+  font-family: 'PingFang TC', -apple-system, sans-serif;
 }
 
-.innovative-back-btn {
-  display: flex;
+/* ── 返回按鈕 ── */
+.pf-back-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   background: none;
   border: none;
-  color: #7e8b9b;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pf-gray);
   cursor: pointer;
-  transition: all 0.2s;
-  padding: 8px 14px;
-  border-radius: 20px;
+  font-family: inherit;
+  padding: 0;
+  transition: color 0.2s;
+  align-self: flex-start;
+  margin-left: -12px;
+  margin-top: 12px;
 }
+.pf-back-btn:hover { color: var(--pf-orange); }
 
-.innovative-back-btn:hover {
-  color: #ff6f43; /* 呼應橘色調 */
-  background: rgba(255, 111, 67, 0.05);
-}
-
-/* 主體包覆區 */
-.profile-innovative-wrapper {
-  max-width: 1040px;
-  width: 100%;
-  margin: 12px auto 48px auto;
+/* ── 主內容 ── */
+.pf-main {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 28px 60px;
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding: 0 32px;
-  box-sizing: border-box;
 }
 
-/* 👑 懸浮式頭貼與核心數據榮譽卡 */
-.innovative-hero-card {
-  background: #ffffff;
+/* ══════════════════════════════════
+   Hero 深色卡
+   ══════════════════════════════════ */
+.pf-hero {
+  background: linear-gradient(135deg, #0e1e28 0%, #1e4256 40%, #264653 70%, #2d6878 100%);
   border-radius: 20px;
-  padding: 24px 36px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02); /* 跟偏好設定一樣的輕柔微陰影 */
-}
-
-.innovative-avatar-picker-block {
+  padding: 24px 32px;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 0;
 }
 
-/* 💡 可點擊更換頭貼的極致圓形外殼 */
-.innovative-clickable-avatar {
-  width: 72px;
-  height: 72px;
+/* 左：用戶區 */
+.pf-hero-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+  padding-right: 32px;
+}
+
+.pf-avatar {
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
-  position: relative;
-  cursor: pointer;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-  background: #264653; /* 預設深色調 */
-}
-
-.avatar-text-fallback {
-  width: 100%;
-  height: 100%;
-  color: white;
+  background: rgba(255,255,255,0.18);
+  border: 2px solid rgba(255,255,255,0.3);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
-  font-weight: 800;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
-.avatar-uploaded-img {
+.pf-avatar-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.avatar-hover-overlay {
+.pf-avatar-initial {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.pf-avatar-overlay {
   position: absolute;
-  top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.4);
-  color: white;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s;
 }
+.pf-avatar:hover .pf-avatar-overlay { opacity: 1; }
 
-.innovative-clickable-avatar:hover .avatar-hover-overlay {
-  opacity: 1;
-}
-
-.innovative-pilot-info h2 {
-  font-size: 22px;
-  font-weight: 800;
-  color: #264653;
-  margin: 0 0 4px 0;
-  text-align: left;
-}
-
-.innovative-uid-tag {
-  font-size: 13px;
-  color: #a0aec0;
-  font-weight: 500;
-  display: block;
-  text-align: left;
-}
-
-/* 車載儀表板數據板 */
-.innovative-stats-panel {
-  display: flex;
-  align-items: center;
-  gap: 36px;
-}
-
-.innovative-stat-box {
+.pf-hero-info {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  gap: 6px;
 }
 
-.innovative-stat-label {
-  font-size: 11px;
-  color: #a0aec0;
+.pf-hero-name {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -0.3px;
+  line-height: 1;
+}
+
+.pf-hero-email {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+}
+
+.pf-badge {
+  font-size: 13px;
   font-weight: 700;
-  margin-bottom: 6px;
-  letter-spacing: 0.5px;
+  padding: 3px 12px;
+  border-radius: 20px;
+  display: inline-block;
 }
 
-.innovative-stat-value {
+.pf-badge-level {
+  background: rgba(255,107,53,0.25);
+  color: #ff9a6b;
+  text-align: center;
+}
+
+/* 分隔線 */
+.pf-hero-sep {
+  width: 1px;
+  height: 56px;
+  background: rgba(255,255,255,0.15);
+  flex-shrink: 0;
+}
+
+/* 中：分數 + 進度條 */
+.pf-hero-score-block {
+  flex: 1;
+  padding: 0 32px;
+}
+
+.pf-hs-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.pf-hs-big {
+  font-size: 44px;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.pf-hs-pts {
   font-size: 16px;
   font-weight: 800;
+  color: rgba(255,255,255,0.55);
 }
 
-.font-dark-blue {
-  color: #264653;
-  font-size: 19px;
-}
-
-.font-dark-blue small {
-  font-size: 11px;
-  color: #a0aec0;
-}
-
-/* 完美對齊主畫面的亮橘色高光 Label */
-.label-orange-highlight {
-  color: #ff6f43 !important;
-  background: rgba(255, 111, 67, 0.08) !important;
+.pf-hs-pill {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.12);
   padding: 3px 12px;
   border-radius: 20px;
-  font-size: 12px;
+  margin-left: 4px;
 }
 
-.label-teal-highlight {
-  color: #2a9d8f;
-  background: rgba(42, 157, 143, 0.08);
-  padding: 3px 12px;
-  border-radius: 20px;
-  font-size: 12px;
+.pf-hs-prog-track {
+  height: 6px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 7px;
 }
 
-/* 🎛️ 創新：改為兩個對稱並排的懸浮白卡片 */
-.innovative-form-layout {
+.pf-hs-prog-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: var(--pf-orange);
+  transition: width 0.7s ease;
+}
+
+.pf-hs-prog-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: rgba(255,255,255,0.45);
+  font-weight: 600;
+}
+
+/* 右：次數 + 里程 */
+.pf-hero-stats {
+  display: flex;
+  gap: 28px;
+  padding-left: 32px;
+  flex-shrink: 0;
+}
+
+.pf-hero-stat {
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  width: 100%;
+  gap: 4px;
 }
 
-.innovative-sections-flexbox {
+.pf-hs-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pf-hs-icon { flex-shrink: 0; opacity: 0.85; }
+
+.pf-hs-num {
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+.pf-hs-num small {
+  font-size: 15px;
+  font-weight: 700;
+  margin-left: 1px;
+}
+
+.pf-hs-orange { color: var(--pf-orange); }
+.pf-hs-teal   { color: #4dd6c8; }
+.pf-hs-white  { color: #ffffff; }
+
+.pf-hs-lbl {
+  font-size: 13px;
+  color: rgba(255,255,255,0.45);
+  font-weight: 500;
+}
+
+/* ══════════════════════════════════
+   表單區
+   ══════════════════════════════════ */
+.pf-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pf-cards {
   display: grid;
-  grid-template-columns: 1fr 1fr; /* 👈 精準平分左右大雙欄，各回各的家，絕不擠爆溢出 */
-  gap: 24px;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
 }
 
-/* 獨立迷你高奢白卡片 */
-.innovative-sub-white-card {
-  background: #ffffff;
-  border-radius: 20px;
-  padding: 32px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
-  box-sizing: border-box; /* 確保 padding 不會把卡片擠胖擠爆 */
+.pf-card {
+  background: var(--pf-surface);
+  border-radius: 18px;
+  padding: 24px 24px 28px;
+  border: 1px solid var(--pf-border);
+  box-shadow: 0 4px 20px rgba(38, 70, 83, 0.05);
 }
 
-.innovative-section-header {
+.pf-card-header {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 15px;
   font-weight: 800;
-  color: #264653;
-  margin-bottom: 20px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
-  padding-bottom: 12px;
+  color: var(--pf-dark);
+  margin-bottom: 22px;
 }
 
-.innovative-fields-stack {
+.pf-card-tag {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pf-gray);
+  background: #f0ede6;
+  padding: 3px 9px;
+  border-radius: 20px;
+  margin-left: 4px;
+}
+
+.pf-fields {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-/* 微型內部格柵 */
-.innovative-2col-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-
-.innovative-3col-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
-}
-
-/* 統一修復輸入框細節尺寸，完美對齊 Login 頁面比例 */
-.innovative-sub-white-card .auth-input-group {
+.pf-field-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  text-align: left;
 }
 
-.innovative-sub-white-card label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #7e8b9b;
+.pf-label {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--pf-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.innovative-sub-white-card .auth-field {
-  height: 38px !important;
-  padding: 8px 12px !important;
-  border-radius: 8px !important;
-  border: 1px solid #e2e8f0 !important;
-  background-color: #f8fafc !important;
-  font-size: 13px !important;
-  color: #264653 !important;
-  font-weight: 600 !important;
-  box-sizing: border-box !important;
-  width: 100% !important;
+.pf-input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid #e8e6e0;
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--pf-dark);
+  background: var(--pf-surface);
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.pf-input:focus {
+  outline: none;
+  border-color: var(--pf-teal);
 }
 
-.innovative-sub-white-card .auth-field:focus {
-  border-color: #ff6f43 !important; /* 聚焦時亮橘高光 */
-  background-color: white !important;
-}
-
-/* 唯讀 */
-.disabled-field {
-  background-color: #f1f5f9 !important;
-  color: #94a3b8 !important;
+.pf-input-disabled {
+  background: #f5f4f0;
+  color: var(--pf-gray);
   cursor: not-allowed;
 }
 
-/* 🚀 底部動作區：換上跟妳主畫面一體化的驚艷亮橘色調（#ff6f43） */
-.innovative-form-action-center {
+.pf-pwd-wrap {
+  position: relative;
+}
+.pf-pwd-wrap .pf-input {
+  padding-right: 44px;
+}
+.pf-eye-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--pf-gray);
   display: flex;
-  justify-content: center;
+  align-items: center;
+  padding: 4px;
+  transition: color 0.2s;
+}
+.pf-eye-btn:hover { color: var(--pf-dark); }
+
+.pf-error {
+  font-size: 13px;
+  color: #e53e3e;
+}
+
+.pf-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pf-row3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+/* 卡片內編輯按鈕 */
+.pf-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 5px 13px;
+  border-radius: 20px;
+  border: 1.5px solid var(--pf-border);
+  background: transparent;
+  color: var(--pf-gray);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.pf-edit-btn:hover { border-color: var(--pf-orange); color: var(--pf-orange); }
+
+/* 讀模式欄位 */
+.pf-view-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pf-view-row {
+  display: flex;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid #f5f4f0;
+  gap: 12px;
+}
+.pf-view-row:last-child { border-bottom: none; }
+
+.pf-view-key {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pf-gray);
+  min-width: 88px;
+  flex-shrink: 0;
+}
+
+.pf-view-val {
+  font-size: 14px;
+  color: var(--pf-dark);
+  font-weight: 500;
+}
+
+/* 密碼修改區 */
+.pf-pwd-section {
   margin-top: 4px;
 }
 
-.innovative-orange-submit-btn {
-  max-width: 280px;
-  width: 100%;
-  height: 44px;
-  background-color: #ff6f43; /* 👈 高精準對齊生成路徑頁面的大橘色按鈕！ */
-  color: white;
-  border-radius: 24px; /* 圓潤流線弧度 */
-  border: none;
-  font-size: 14px;
+.pf-pwd-toggle {
+  background: none;
+  border: 1.5px dashed var(--pf-border);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 13px;
   font-weight: 700;
+  color: var(--pf-gray);
   cursor: pointer;
+  font-family: inherit;
+  width: 100%;
+  text-align: left;
+  transition: border-color 0.2s, color 0.2s;
+}
+.pf-pwd-toggle:hover { border-color: var(--pf-teal); color: var(--pf-teal); }
+
+.pf-pwd-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 16px;
+  background: #f9f8f4;
+  border-radius: 12px;
+  border: 1px solid var(--pf-border);
+}
+
+/* 底部操作按鈕（編輯模式）*/
+.pf-edit-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.pf-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 32px;
+  border-radius: 40px;
+  border: 1.5px solid var(--pf-border);
+  background: transparent;
+  color: var(--pf-gray);
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.pf-cancel-btn:hover { border-color: var(--pf-dark); color: var(--pf-dark); }
+
+.pf-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 40px;
+  border-radius: 40px;
+  border: none;
+  background: var(--pf-orange);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+.pf-save-btn:hover { background: #e85a26; transform: translateY(-1px); }
+
+/* 卡片內操作按鈕列 */
+.pf-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--pf-border);
+}
+
+.pf-cancel-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  border-radius: 10px;
+  border: 1.5px solid var(--pf-border);
+  background: transparent;
+  color: var(--pf-gray);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.pf-cancel-sm:hover { border-color: var(--pf-dark); color: var(--pf-dark); }
+
+.pf-save-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 22px;
+  border-radius: 10px;
+  border: none;
+  background: var(--pf-orange);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+.pf-save-sm:hover { background: #e85a26; transform: translateY(-1px); }
+
+/* 卡片內儲存成功提示 */
+.pf-saved-inline {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: 0 4px 16px rgba(255, 111, 67, 0.25);
-  transition: all 0.2s ease;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pf-teal);
+  padding: 10px 0 2px;
 }
 
-.innovative-orange-submit-btn:hover {
-  background-color: #e6552b;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(255, 111, 67, 0.35);
+/* ── 密碼錯誤震動動畫 ── */
+@keyframes pf-shake-anim {
+  0%, 100% { transform: translateX(0); }
+  18%      { transform: translateX(-7px); }
+  36%      { transform: translateX(7px); }
+  54%      { transform: translateX(-4px); }
+  72%      { transform: translateX(4px); }
+  90%      { transform: translateX(-2px); }
+}
+.pf-shake {
+  animation: pf-shake-anim 0.42s ease;
 }
 
-/* 成功變色 */
-.btn-saved-orange {
-  background-color: #2a9d8f !important;
-  box-shadow: 0 4px 16px rgba(42, 157, 143, 0.25) !important;
+/* ── 手機版 ── */
+@media (max-width: 768px) {
+  .pf-main { padding: 0 16px 40px; }
+
+  /* Hero 卡改直排，整體置中 */
+  .pf-hero {
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    padding: 24px 20px 22px;
+    border-radius: 18px;
+  }
+
+  /* 用戶區：avatar + 名字上下置中排列 */
+  .pf-hero-user {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding-right: 0;
+    padding-bottom: 16px;
+    width: 100%;
+  }
+
+  /* 名字、email、badge 置中 */
+  .pf-hero-info {
+    align-items: center;
+    text-align: center;
+  }
+
+  /* 分隔線 */
+  .pf-hero-sep {
+    width: 100%;
+    height: 1px;
+    margin: 0;
+  }
+
+  /* 積分進度區置中 */
+  .pf-hero-score-block {
+    padding: 16px 0;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* 積分數字列置中 */
+  .pf-hs-score-row {
+    justify-content: center;
+  }
+
+  /* 次數 + 里程：置中並排 */
+  .pf-hero-stats {
+    padding-left: 0;
+    padding-top: 16px;
+    gap: 28px;
+    justify-content: center;
+    width: 100%;
+  }
+
+  /* 每個 stat 置中 */
+  .pf-hero-stat {
+    align-items: center;
+  }
+
+  /* 積分數字縮小一點 */
+  .pf-hs-big { font-size: 36px; }
+
+  .pf-cards { grid-template-columns: 1fr; }
+  .pf-row2  { grid-template-columns: 1fr 1fr; }
 }

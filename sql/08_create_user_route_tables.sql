@@ -22,9 +22,9 @@ CREATE TABLE user_level (
 
 INSERT INTO user_level (level_code, level_name, risk_weight, min_score, description)
 VALUES
-  ('BEGINNER',    '新手駕駛', 80,    0, '剛取得駕照，優先選擇低風險路段'),
-  ('NORMAL',      '一般駕駛', 40,  500, '有基本駕駛經驗，平衡距離與風險'),
-  ('EXPERIENCED', '熟練駕駛', 10, 2000, '駕駛經驗豐富，接近一般導航');
+  ('BEGINNER',    '新手駕駛', 80,   0, '剛取得駕照，優先選擇低風險路段'),
+  ('NORMAL',      '一般駕駛', 40, 150, '有基本駕駛經驗，平衡距離與風險'),
+  ('EXPERIENCED', '熟練駕駛', 10, 300, '駕駛經驗豐富，接近一般導航');
 
 -- 2. App User
 CREATE TABLE app_user (
@@ -124,6 +124,16 @@ CREATE TABLE user_practice_history (
 
 CREATE INDEX practice_user_idx  ON user_practice_history(user_id);
 CREATE INDEX practice_route_idx ON user_practice_history(route_id);
+
+-- ── 現有 DB 升級腳本（idempotent）──
+-- 更新等級閾值（與前端 getMaxDifficulty 0/150/300 對齊）
+UPDATE user_level SET min_score = 150 WHERE level_code = 'NORMAL';
+UPDATE user_level SET min_score = 300 WHERE level_code = 'EXPERIENCED';
+
+-- 確保 user_practice_history 有新欄位
+ALTER TABLE user_practice_history
+  ADD COLUMN IF NOT EXISTS gps_verified     BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS terminated_early BOOLEAN NOT NULL DEFAULT false;
 
 -- Verification
 SELECT 'user_level'             AS table_name, COUNT(*) AS count FROM user_level

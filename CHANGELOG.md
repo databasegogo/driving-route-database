@@ -1,5 +1,27 @@
 # Changelog
 
+## [v1.3.0] - 2026-06-07
+
+### 前端全面重設計（UI Redesign — merge feature/ui-redesign）
+
+#### 全新頁面
+- **Landing Page**：首頁歡迎頁（`/`），未登入時顯示，附產品介紹圖文
+- **Dashboard**：SVG 道路進度視覺化、用戶資訊卡、近期練習橫向捲動清單
+
+#### 重設計頁面
+- **Records**：深色左側欄（3:7 網格）+ 右側時間軸佈局；日期篩選；狀態篩選可點選；終止練習（橙色）獨立標籤；GPS 驗證徽章
+- **RoutePlanner**：Cockpit 雙欄佈局；難易度依 `total_score` (0/150/300) 鎖定星星
+- **Profile**：Hero 漸層頭部；行內密碼修改；頭像上傳
+- **MainLayout**：漢堡選單下拉；登出導回 Landing
+
+#### 路由
+- `App.jsx`：`/` → Landing，`*` → `/`
+
+### 閾值對齊
+- DB `user_level.min_score`：NORMAL 500→150，EXPERIENCED 2000→300（對齊前端 `getMaxDifficulty` 計算）
+
+---
+
 ## [v1.2.0] - 2026-06-06
 
 ### 安全性修復（Security）

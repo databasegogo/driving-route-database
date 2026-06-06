@@ -1,0 +1,547 @@
+/* =====================================================
+   Landing Page — Journey Path Design
+   ===================================================== */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --cream:  #f9f8f4;
+  --teal:   #264653;
+  --orange: #ff6b35;
+  --white:  #ffffff;
+  --gray:   #7e8b9b;
+  --light:  #f0efea;
+  --shadow-sm:  0 4px 12px rgba(38,70,83,0.08);
+  --shadow-md:  0 12px 36px rgba(38,70,83,0.11);
+  --shadow-lg:  0 20px 56px rgba(38,70,83,0.13);
+}
+
+.lp-root {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: var(--cream);
+  color: var(--teal);
+}
+
+/* ══ NAV ══ */
+.lp-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 69px; /* ★ 調整 Nav 高度 */
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 48px; /* ★ 左右內距 */
+  background: rgba(249,248,244,0.92);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(38,70,83,0.07);
+}
+.lp-nav-brand { display: flex; align-items: center; gap: 12px; }
+.lp-nav-logo  {
+  width: 40px; height: 40px; /* ★ Logo 大小 */
+  border-radius: 10px; object-fit: cover;
+  box-shadow: 0 2px 8px rgba(38,70,83,0.14);
+}
+.lp-nav-name  { font-size: 18px; font-weight: 800; color: var(--teal); line-height: 1.2; } /* ★ 品牌名稱字號 */
+.lp-nav-sub   { font-size: 11px; color: var(--gray); font-weight: 500; }
+.lp-nav-login {
+  background: var(--teal); border: none; color: #fff;
+  font-size: 14px; font-weight: 700; padding: 9px 26px; /* ★ 登入按鈕大小 */
+  border-radius: 999px; cursor: pointer; transition: background 0.2s, transform 0.2s;
+}
+.lp-nav-login:hover { background: var(--orange); transform: translateY(-1px); }
+
+/* ══ HERO ══ */
+.lp-hero {
+  position: relative;
+  min-height: 100vh;
+  padding-top: 72px; /* 配合 Nav 高度 */
+  overflow: hidden;
+  background: #e8e2d8;
+}
+
+/* 全屏背景圖 */
+.lp-hero-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: 100% center; /* ★ 數字越大圖片越往右，100% = 最右 */
+  z-index: 0;
+}
+.lp-hero-bg--desktop { display: block; filter: brightness(1.18); }
+.lp-hero-bg--mobile  { display: none; }
+
+/* 四邊柔焦漸層（向內淡出到透明，保留中心清晰） */
+.lp-hero-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(to right,  rgba(232,226,216,0.82) 0%, transparent 18%, transparent 82%, rgba(232,226,216,0.82) 100%),
+    linear-gradient(to bottom, rgba(232,226,216,0.88) 0%, transparent 16%, transparent 84%, rgba(232,226,216,0.88) 100%);
+}
+
+/* 標題區：橢圓漸層光暈，無硬邊 */
+.lp-hero-card {
+  position: absolute;
+  z-index: 2;
+  left: 50%;                      /* ★ 水平位置 */
+  top: 45%;                       /* ★ 垂直位置 */
+  transform: translate(-50%, -50%);
+  width: 34vw;                    /* ★ 內容區寬度 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: hero-rise 0.9s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+/* 橢圓光暈：從中心向外淡出，沒有硬邊 */
+.lp-hero-card::before {
+  content: '';
+  position: absolute;
+  inset: -60px -80px;             /* ★ 光暈往外延伸的距離 */
+  background: radial-gradient(
+    ellipse at center,
+    rgba(244,241,234,0.92) 15%,   /* ★ 中心濃度 */
+    rgba(244,241,234,0.65) 40%,   /* ★ 中段濃度 */
+    transparent 74%               /* ★ 幾%開始完全透明 */
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+@keyframes hero-rise {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 24px)); }
+  to   { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/* 往下箭頭 */
+.lp-scroll-hint {
+  position: absolute;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+.lp-scroll-arrow {
+  width: 36px; height: 36px; display: block;
+  animation: arrow-bounce 1.6s ease-in-out infinite;
+}
+@keyframes arrow-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(7px); }
+}
+
+.lp-hero-logo {
+  width: 76px; height: 76px; border-radius: 18px; object-fit: contain;
+  background: #fff; padding: 7px; margin-bottom: 16px; display: block;
+  box-shadow: 0 0 0 1px rgba(38,70,83,0.08), 0 8px 24px rgba(38,70,83,0.12);
+  animation: float-y 4s ease-in-out infinite;
+}
+@keyframes float-y { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
+
+.lp-badge {
+  display: inline-block; margin-bottom: 14px;
+  background: rgba(255,107,53,0.10); border: 1px solid rgba(255,107,53,0.30);
+  border-radius: 999px; padding: 5px 16px;
+  font-size: 12.5px; font-weight: 700; color: var(--orange); letter-spacing: 0.7px;
+}
+
+.lp-title {
+  font-size: clamp(52px, 6vw, 96px); /* ★ 標題大小 */
+  font-weight: 900;
+  color: var(--teal);
+  letter-spacing: -3px;
+  line-height: 1.0;
+  margin-bottom: 16px;
+  white-space: nowrap;
+  /* ★ 立體感 + 讓文字在圖片上清晰 */
+  text-shadow:
+    1px 2px 0   rgba(38,70,83,0.20),
+    2px 4px 0   rgba(38,70,83,0.12),
+    4px 8px 0   rgba(38,70,83,0.08);
+}
+
+.lp-subtitle {
+  font-size: 16px;
+  color: var(--gray);
+  line-height: 1.85;
+  margin-bottom: 28px;
+}
+
+.lp-hero-btns {
+  display: flex;
+   /* ★ 改成縱排，讓登入按鈕到下一行 */
+  align-items: center;
+  gap: 14px; /* ★ 按鈕間距 */
+}
+
+/* ── Shared: Primary Button ── */
+.lp-cta {
+  display: inline-flex; align-items: center; gap: 10px; padding: 14px 30px;
+  background: var(--teal); color: #fff; border: none; border-radius: 14px;
+  font-size: 15.5px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(38,70,83,0.18); transition: all 0.22s ease;
+}
+.lp-cta-arrow { width: 14px; height: 14px; transition: transform 0.2s; flex-shrink: 0; }
+.lp-cta:hover {
+  background: var(--orange); transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(255,107,53,0.28);
+}
+.lp-cta:hover .lp-cta-arrow { transform: translateX(4px); }
+
+.lp-ghost-btn {
+  background: none; border: none; color: var(--gray); font-size: 14px; font-weight: 600;
+  cursor: pointer; padding: 0; transition: color 0.2s;
+}
+.lp-ghost-btn:hover { color: var(--orange); }
+
+/* 滾動提示 */
+.lp-scroll-hint {
+  position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.lp-scroll-text {
+  font-size: 10.5px; font-weight: 700; color: var(--gray);
+  letter-spacing: 2px; text-transform: uppercase;
+}
+.lp-scroll-mouse {
+  width: 22px; height: 34px; border: 2px solid rgba(38,70,83,0.20);
+  border-radius: 999px; display: flex; justify-content: center; padding-top: 5px;
+  animation: mouse-bob 2s ease-in-out infinite;
+}
+@keyframes mouse-bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(5px)} }
+.lp-scroll-wheel {
+  width: 3px; height: 7px; background: var(--orange); border-radius: 999px;
+  animation: wheel-scroll 2s ease-in-out infinite;
+}
+@keyframes wheel-scroll {
+  0%  { opacity:1; transform:translateY(0); }
+  60% { opacity:0; transform:translateY(8px); }
+  61% { opacity:0; transform:translateY(0); }
+  100%{ opacity:1; transform:translateY(0); }
+}
+
+/* ── Road animations ── */
+.lp-road-lane {
+  stroke-dasharray: 900;
+  stroke-dashoffset: 900;
+  animation: draw-road 2.2s cubic-bezier(0.4,0,0.2,1) 0.4s forwards;
+}
+@keyframes draw-road { to { stroke-dashoffset: 0; } }
+
+.lp-pin-glow  { animation: pin-pulse 2.4s ease-in-out infinite; }
+@keyframes pin-pulse { 0%,100%{opacity:.12} 50%{opacity:.25} }
+
+.lp-pin-start {
+  opacity: 0;
+  animation: pin-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.3s forwards;
+  transform-origin: 380px 0px;
+}
+@keyframes pin-pop { from{opacity:0;transform:scale(0)} to{opacity:1;transform:scale(1)} }
+
+.lp-pin-end { animation: pin-pulse 2.4s ease-in-out 1.2s infinite; }
+
+/* ══ JOURNEY — Features ══ */
+.lp-journey {
+  background: var(--white);
+  padding: 96px 0 80px;
+}
+
+/* ── Section Header (shared) ── */
+.lp-section-hd {
+  text-align: center;
+  margin-bottom: 72px;
+  padding: 0 24px;
+}
+.lp-eyebrow {
+  display: inline-block; margin-bottom: 12px;
+  font-size: 11px; font-weight: 800; letter-spacing: 3.5px; color: var(--orange);
+  text-transform: uppercase;
+}
+.lp-section-title {
+  font-size: clamp(28px, 4vw, 42px); font-weight: 900; color: var(--teal);
+  letter-spacing: -1px; margin-bottom: 12px;
+}
+.lp-section-sub {
+  font-size: 16px; color: var(--gray); line-height: 1.7;
+}
+
+/* Track: vertical path through features */
+.lp-track {
+  position: relative;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+/* 中軸線 */
+.lp-track::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(38,70,83,0.12) 4%,
+    rgba(38,70,83,0.12) 96%,
+    transparent 100%
+  );
+  transform: translateX(-50%);
+}
+
+/* Waypoint */
+.lp-waypoint {
+  display: grid;
+  grid-template-columns: 1fr 80px 1fr;
+  align-items: center;
+  margin-bottom: 56px;
+}
+
+.lp-wp-imgL .lp-wp-img-wrap { grid-column: 1; grid-row: 1; }
+.lp-wp-imgL .lp-wp-mid      { grid-column: 2; grid-row: 1; }
+.lp-wp-imgL .lp-wp-card     { grid-column: 3; grid-row: 1; }
+
+.lp-wp-imgR .lp-wp-img-wrap { grid-column: 3; grid-row: 1; }
+.lp-wp-imgR .lp-wp-mid      { grid-column: 2; grid-row: 1; }
+.lp-wp-imgR .lp-wp-card     { grid-column: 1; grid-row: 1; }
+
+/* 圖片 */
+.lp-wp-img-wrap {
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+.lp-wp-img {
+  width: 100%; height: 280px; object-fit: cover; display: block;
+  transition: transform 0.65s cubic-bezier(0.25,1,0.5,1);
+}
+.lp-wp-img-wrap:hover .lp-wp-img { transform: scale(1.04); }
+
+/* 中軸：連線 + 節點 */
+.lp-wp-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  min-height: 280px;
+  z-index: 1;
+}
+
+.lp-wp-line {
+  flex: 1;
+  width: 2px;
+  background: rgba(38,70,83,0.10);
+}
+
+.lp-wp-node {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--white);
+  border: 3px solid var(--orange);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 18px rgba(255,107,53,0.18), 0 0 0 7px rgba(255,107,53,0.07);
+  z-index: 2;
+}
+.lp-wp-nodenum {
+  font-size: 12px; font-weight: 900; color: var(--orange); letter-spacing: 0.5px;
+}
+
+/* 文字卡 */
+.lp-wp-card {
+  padding: 20px 40px;
+}
+
+.lp-wp-imgR .lp-wp-card { padding-left: 0; padding-right: 40px; }
+.lp-wp-imgL .lp-wp-card { padding-right: 0; padding-left: 40px; }
+
+.lp-wp-tag {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 14px;
+}
+.lp-wp-icon    { font-size: 22px; }
+.lp-wp-tagtext {
+  font-size: 10px; font-weight: 800; letter-spacing: 2.5px; color: var(--orange); text-transform: uppercase;
+}
+
+.lp-wp-title {
+  font-size: 28px; font-weight: 900; color: var(--teal);
+  letter-spacing: -0.6px; line-height: 1.2; margin-bottom: 14px;
+}
+
+.lp-wp-divider {
+  width: 36px; height: 3px; background: var(--orange); border-radius: 999px; margin-bottom: 16px;
+}
+
+.lp-wp-desc {
+  font-size: 15.5px; color: var(--gray); line-height: 1.85;
+}
+
+/* ══ HOW TO USE ══ */
+.lp-howto {
+  background: var(--cream);
+  padding: 96px 24px 80px;
+  text-align: center;
+}
+
+/* 三步驟 */
+.lp-steps {
+  display: flex;
+  gap: 0;
+  max-width: 860px;
+  margin: 0 auto 72px;
+  position: relative;
+}
+
+/* 連接虛線 */
+.lp-steps::before {
+  content: '';
+  position: absolute;
+  top: 27px;
+  left: calc(100% / 6);
+  right: calc(100% / 6);
+  height: 2px;
+  background: repeating-linear-gradient(
+    to right,
+    rgba(255,107,53,0.4) 0, rgba(255,107,53,0.4) 8px,
+    transparent 8px, transparent 18px
+  );
+  pointer-events: none;
+}
+
+.lp-step {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+  padding: 0 24px;
+}
+
+.lp-step-num {
+  width: 54px; height: 54px; border-radius: 50%;
+  background: var(--teal); color: #fff;
+  font-size: 15px; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 18px;
+  box-shadow: 0 8px 22px rgba(38,70,83,0.16);
+  position: relative; z-index: 1;
+}
+
+.lp-step-icon {
+  font-size: 28px; margin-bottom: 14px;
+}
+
+.lp-step-title {
+  font-size: 18px; font-weight: 800; color: var(--teal);
+  margin-bottom: 10px; letter-spacing: -0.3px;
+}
+
+.lp-step-desc {
+  font-size: 14px; color: var(--gray); line-height: 1.78;
+}
+
+/* Final CTA */
+.lp-final {
+  display: flex; flex-direction: column; align-items: center; gap: 22px;
+}
+.lp-final-text {
+  font-size: 17px; color: var(--teal); font-weight: 600;
+}
+
+/* ══ SCROLL REVEAL ══ */
+.lp-reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.75s ease, transform 0.75s ease;
+}
+.lp-reveal.lp-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ══ RWD ══ */
+
+/* Tablet */
+@media (max-width: 960px) {
+  .lp-hero-inner { padding: 40px 32px; }
+  .lp-wp-card { padding: 16px 28px; }
+  .lp-wp-imgR .lp-wp-card { padding-right: 28px; }
+  .lp-wp-imgL .lp-wp-card { padding-left: 28px; }
+  .lp-wp-img { height: 360px; }
+  .lp-wp-mid { min-height: 360px; }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  /* Nav 手機版放大 */
+  .lp-nav {
+    padding: 0 20px;
+    height: 70px; /* ★ 手機 Nav 高度 */
+  }
+  .lp-nav-name { font-size: 20px; } /* ★ 手機 Nav 標題字 */
+  .lp-nav-logo { width: 40px; height: 40px; }
+
+  /* 手機切換 phone.jpg 背景，往右移 */
+  .lp-hero-bg--desktop { display: none; }
+  .lp-hero-bg--mobile  {
+    display: block;
+    object-position: 80% center; /* ★ 手機背景往右移，數字越大越右 */
+  }
+
+  /* 手機：標題卡移到正中間偏上 */
+  .lp-hero-card {
+    left: 50%;
+    top: 50%;                   /* ★ 手機垂直位置，數字越小越上 */
+    bottom: auto;
+    transform: translate(-50%, -50%);
+    width: calc(100% - 48px);
+    max-width: 340px;
+  }
+  @keyframes hero-rise {
+    from { opacity: 0; transform: translate(-50%, calc(-50% + 16px)); }
+    to   { opacity: 1; transform: translate(-50%, -50%); }
+  }
+  .lp-hero-card .lp-hero-logo { width: 56px; height: 56px; border-radius: 13px; }
+  .lp-title {
+    white-space: normal;
+    font-size: clamp(40px, 11.5vw, 54px); /* ★ 手機標題大小 */
+    letter-spacing: 0.3px;
+  }
+  /* 手機：已有帳號換行到 CTA 下面 */
+  .lp-hero-btns {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Track: hide center column, stack vertically */
+  .lp-track::before { display: none; }
+
+  .lp-waypoint {
+    grid-template-columns: 1fr;
+    margin-bottom: 48px;
+  }
+  .lp-wp-imgL .lp-wp-img-wrap,
+  .lp-wp-imgR .lp-wp-img-wrap { grid-column: 1; grid-row: 1; }
+
+  .lp-wp-mid { display: none; }
+
+  .lp-wp-imgL .lp-wp-card,
+  .lp-wp-imgR .lp-wp-card { grid-column: 1; grid-row: 2; padding: 24px 0 0; }
+
+  .lp-wp-img { height: 280px; }
+
+  .lp-journey { padding: 72px 20px 60px; }
+
+  /* Steps: vertical */
+  .lp-steps { flex-direction: column; gap: 40px; margin-bottom: 52px; }
+  .lp-steps::before { display: none; }
+  .lp-step { padding: 0; }
+  .lp-howto { padding: 72px 20px 60px; }
+}
+
+@media (max-width: 480px) {
+  .lp-title { font-size: clamp(44px, 11.5vw, 62px); }
+  .lp-cta  { padding: 13px 26px; font-size: 15px; }
+  .lp-wp-img { height: 240px; }
+  .lp-wp-title { font-size: 23px; }
+  .lp-track { padding: 0 16px; }
+}
