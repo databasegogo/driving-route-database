@@ -35,6 +35,7 @@ function fromBackend(h) {
     favorited:       h.is_favorite ?? false,
     gpsVerified:     h.gps_verified     ?? false,
     terminatedEarly: h.terminated_early ?? false,
+    prefs:           { bridge: false, tunnel: false },
   }
 }
 
@@ -159,6 +160,7 @@ export default function Records() {
               diffCode:    loc?.diffCode    ?? r.diffCode,
               route_id:    loc?.route_id    ?? null,
               time:        loc?.time        ?? null,
+              prefs:       loc?.prefs       ?? r.prefs,
             }
           })
           const backendIds = new Set(backendRecords.map(r => r.id))
@@ -219,7 +221,7 @@ export default function Records() {
           estimatedScore: r.score      ?? 0,
           segments:       buildSegmentsFromRecord(r),
         },
-        prefs: {},
+        prefs: r.prefs ?? { bridge: false, tunnel: false },
       },
     })
   }
