@@ -14,6 +14,31 @@ const DIFF_LABEL = { 1: '新手', 2: '一般', 3: '熟練' }
 const START_COLOR = '#22c55e'   // 綠
 const END_COLOR   = '#ef4444'   // 紅
 
+// ── 從 GeoJSON segments 取出路線實際起終點 [lat,lng] ─────────────
+// 用於標記：取第一條 feature 的第一個點、最後一條 feature 的最後一個點
+function segmentEndpoints(segments) {
+  const features = segments?.features
+  if (!features?.length) return [null, null]
+
+  function firstCoord(feat) {
+    const g = feat?.geometry
+    if (!g) return null
+    const coords = g.type === 'MultiLineString' ? g.coordinates[0] : g.coordinates
+    const c = coords?.[0]
+    return c ? [c[1], c[0]] : null   // GeoJSON [lng,lat] → Leaflet [lat,lng]
+  }
+  function lastCoord(feat) {
+    const g = feat?.geometry
+    if (!g) return null
+    const lines = g.type === 'MultiLineString' ? g.coordinates : [g.coordinates]
+    const lastLine = lines[lines.length - 1]
+    const c = lastLine?.[lastLine.length - 1]
+    return c ? [c[1], c[0]] : null
+  }
+
+  return [firstCoord(features[0]), lastCoord(features[features.length - 1])]
+}
+
 // ── 從 GeoJSON segments 展開座標 ─────────────────────────────────
 function flatCoords(segments) {
   if (!segments?.features?.length) return []
@@ -58,15 +83,13 @@ function RouteCardMap({ segments }) {
     }).filter(line => line.length > 1)
   }, [segments])
 
-  const allCoords = useMemo(() => flatCoords(segments), [segments])
+  const [startC, endC] = useMemo(() => segmentEndpoints(segments), [segments])
 
-  if (!allCoords.length || !segLines.length) return (
+  if (!segLines.length) return (
     <div style={{ width: '100%', height: '100%', background: '#eef2f7',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontSize: 13, color: '#94a3b8' }}>載入中…</div>
   )
-  const startC = allCoords[0]
-  const endC   = allCoords[allCoords.length - 1]
   return (
     <MapContainer center={[25.02, 121.35]} zoom={13}
       zoomControl={false} attributionControl={false}
@@ -103,12 +126,18 @@ function FitBounds({ segments }) {
 }
 
 // ── 最短路徑 vs 推薦路線比較地圖 ─────────────────────────────────
-function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endCoord }) {
+function ShortestRouteMap({ shortestRoute, recommendedSegments }) {
   if (!shortestRoute?.segments?.features?.length) return null
 
   const distKm    = +(shortestRoute.total_distance_m / 1000).toFixed(2)
   const riskScore = shortestRoute.total_risk_score?.toFixed(1) ?? '—'
   const allFeatures = shortestRoute.segments.features
+
+  // 起終點標記：從推薦路線的實際座標抓（而非 snap 吸附點）
+  const [startCoord, endCoord] = useMemo(
+    () => segmentEndpoints(recommendedSegments),
+    [recommendedSegments]
+  )
 
   const recEdgeSet = new Set(
     (recommendedSegments?.features ?? [])
@@ -481,8 +510,6 @@ function RouteSelect() {
         <ShortestRouteMap
           shortestRoute={shortest_route}
           recommendedSegments={routes[active]?.segments}
-          startCoord={startCoord}
-          endCoord={endCoord}
         />
       </main>
     </>
