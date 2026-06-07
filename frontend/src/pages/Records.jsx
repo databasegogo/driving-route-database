@@ -22,6 +22,7 @@ function fromBackend(h) {
   const displayStatus = h.terminated_early ? 'terminated' : (h.status ?? 'completed')
   return {
     id:              h.practice_id,
+    route_id:        h.route_id,
     date:            `${mm}/${dd}`,
     startTime:       fmtHHMM(h.practice_time),
     endTime:         fmtHHMM(h.end_time),
@@ -32,10 +33,13 @@ function fromBackend(h) {
     status:          displayStatus,
     score:           h.score_earned,
     coords:          null,
+    coordsMulti:     null,
     favorited:       h.is_favorite ?? false,
     gpsVerified:     h.gps_verified     ?? false,
     terminatedEarly: h.terminated_early ?? false,
     prefs:           { bridge: false, tunnel: false },
+    start:           h.start_name ?? null,   // 起點地名（DB 持久化）
+    end:             h.end_name   ?? null,   // 終點地名（DB 持久化）
     // 後端補回預計時間（秒 → 分鐘）
     time:            h.estimated_duration_sec
                        ? Math.ceil(h.estimated_duration_sec / 60)
@@ -128,6 +132,7 @@ export default function Records() {
   const [records,    setRecords]    = useState([])
   const [selected,   setSelected]   = useState(null)
   const [mapOpen,    setMapOpen]    = useState(false)
+  const [mapLoading, setMapLoading] = useState(false)
   const [favOnly,      setFavOnly]      = useState(false)
   const [dateFilter,   setDateFilter]   = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -152,17 +157,17 @@ export default function Records() {
               date:       loc?.date      ?? r.date,
               startTime:  loc?.startTime ?? r.startTime,
               endTime:    loc?.endTime   ?? r.endTime,
-              // 其他欄位
-              favorited:   loc?.favorited   ?? false,
+              // 其他欄位（後端有的優先用後端，localStorage 補前端限定欄位）
+              favorited:   loc?.favorited   ?? r.favorited,
               coords:      loc?.coords      ?? null,
               coordsMulti: loc?.coordsMulti ?? null,
               routeName:   loc?.routeName   ?? r.routeName,
-              start:       loc?.start       ?? null,
-              end:         loc?.end         ?? null,
+              start:       loc?.start       ?? r.start,    // 後端 start_name 作為 fallback
+              end:         loc?.end         ?? r.end,      // 後端 end_name 作為 fallback
               startCoord:  loc?.startCoord  ?? null,
               endCoord:    loc?.endCoord    ?? null,
               diffCode:    loc?.diffCode    ?? r.diffCode,
-              route_id:    loc?.route_id    ?? null,
+              route_id:    r.route_id       ?? loc?.route_id ?? null,  // 後端優先
               time:        loc?.time        ?? r.time,
               prefs:       loc?.prefs       ?? r.prefs,
             }
@@ -188,6 +193,32 @@ export default function Records() {
     setRecords(updated)
     localStorage.setItem('practiceRecords', JSON.stringify(updated))
     api.put(`/practice/${id}/favorite`).catch(() => {})
+  }
+
+  async function handleViewMap() {
+    // 有本地座標 → 直接開
+    if (selected.coordsMulti?.length || selected.coords?.length) {
+      setMapOpen(true)
+      return
+    }
+    // 沒有座標但有 route_id → 懶加載
+    if (!selected.route_id) return
+    setMapLoading(true)
+    try {
+      const res = await api.get(`/route/${selected.route_id}`)
+      const feats = res.data.segments?.features ?? []
+      const coordsMulti = feats
+        .filter(f => f.geometry?.type === 'LineString')
+        .map(f => f.geometry.coordinates.map(([lng, lat]) => [lat, lng]))
+      const coords = coordsMulti.flat()
+      // 更新 selected 讓地圖可以渲染
+      setSelected(prev => ({ ...prev, coordsMulti, coords }))
+      setMapOpen(true)
+    } catch {
+      // fetch 失敗就不開地圖，靜默處理
+    } finally {
+      setMapLoading(false)
+    }
   }
 
   function buildSegmentsFromRecord(r) {
@@ -490,8 +521,10 @@ export default function Records() {
             </div>
             {selected.gpsVerified     && <div className="rec-gps-badge">✅ GPS 驗證到達終點</div>}
             {selected.terminatedEarly && <div className="rec-terminated-note">⚠️ 提前終止練習（0.8 折計分）</div>}
-            {selected.coords?.length > 0 && (
-              <button className="map-btn" onClick={() => setMapOpen(true)}>🗺 查看路線地圖</button>
+            {selected.route_id && (
+              <button className="map-btn" onClick={handleViewMap} disabled={mapLoading}>
+                {mapLoading ? '載入地圖…' : '🗺 查看路線地圖'}
+              </button>
             )}
             <button
               className="rec-btn rec-btn-primary"

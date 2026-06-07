@@ -57,6 +57,8 @@ class SaveRouteBody(BaseModel):
     total_final_cost:       float = 0.0
     estimated_duration_sec: int
     segments:               list[SaveSegmentData]
+    start_name:             str | None = None   # 起點地名（前端反地理編碼結果）
+    end_name:               str | None = None   # 終點地名
 
 
 # ── 工具函式 ──────────────────────────────────────────────────────
@@ -208,9 +210,10 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         """
 
         # 5. pgr_ksp：回傳 3 條最短路徑
-        # 回傳欄位：[0]path_id [1]path_seq [2]edge [3]road_name
+        # 回傳欄位：[0]path_id [1]path_seq [2]edge  [3]road_name
         #           [4]distance_m [5]base_cost [6]risk_score [7]final_cost
         #           [8]geom_json [9]bridge [10]tunnel
+        #           [11]seg_source [12]seg_target  ← 用於迴路偵測
         # geom_json：若 road_edge.geom 為 NULL（OSM 資料缺漏）
         #            → 用 source/target 頂點直線補救，避免前端渲染空缺斷點
         ksp_sql = f"""
@@ -230,7 +233,9 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                     ))
                 )                                               AS geom_json,
                 r.bridge                                        AS bridge,
-                r.tunnel                                        AS tunnel
+                r.tunnel                                        AS tunnel,
+                re.source                                       AS seg_source,
+                re.target                                       AS seg_target
             FROM pgr_ksp(%s, %s, %s, 6, directed := false) d
             JOIN road_edge re  ON d.edge = re.edge_id
             JOIN road r        ON re.road_id = r.road_id
@@ -284,6 +289,30 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         paths = defaultdict(list)
         for row in all_rows:
             paths[row[0]].append(row)
+
+        # 6a. 迴路過濾：從 start_node 出發追蹤實際遍歷節點（考慮邊的雙向遍歷）
+        # pgr_ksp undirected 模式下，一條邊可能被反向走（stored source→target，但實際走 target→source）
+        # 需根據「進入節點」動態判斷「離開節點」，才能正確偵測重複節點
+        non_loop_paths = {}
+        for pid, segs in paths.items():
+            cur_v   = start_node   # 從 pgr_ksp 起始節點出發
+            visited = {cur_v}
+            is_loop = False
+            for seg in segs:
+                src, tgt = seg[11], seg[12]
+                if   src == cur_v: next_v = tgt
+                elif tgt == cur_v: next_v = src
+                else:
+                    # 序列斷裂（橋接邊或資料問題）→ 保守放行
+                    break
+                if next_v in visited:
+                    is_loop = True
+                    break
+                visited.add(next_v)
+                cur_v = next_v
+            if not is_loop:
+                non_loop_paths[pid] = segs
+        paths = non_loop_paths
 
         # 6b. Jaccard 去重：相似度 > 80% 視為重複路線，最多保留 3 條
         # 去除完全相同的路線（edge set 完全一樣才算重複）
@@ -521,18 +550,21 @@ def save_route(req: SaveRouteBody, current_user: dict = Depends(get_current_user
             cur.execute("""
                 INSERT INTO route_request
                   (user_id, user_level_id, start_lng, start_lat, end_lng, end_lat,
-                   start_geom, end_geom, risk_weight, avoid_bridge, avoid_tunnel, max_distance_m)
+                   start_geom, end_geom, risk_weight, avoid_bridge, avoid_tunnel, max_distance_m,
+                   start_name, end_name)
                 VALUES (%s, %s, %s, %s, %s, %s,
                         ST_SetSRID(ST_Point(%s, %s), 4326),
                         ST_SetSRID(ST_Point(%s, %s), 4326),
-                        %s, %s, %s, %s)
+                        %s, %s, %s, %s,
+                        %s, %s)
                 RETURNING request_id
             """, (
                 user_id, user_level_id,
                 req.start_lng, req.start_lat, req.end_lng, req.end_lat,
                 req.start_lng, req.start_lat,
                 req.end_lng,   req.end_lat,
-                risk_weight, req.avoid_bridge, req.avoid_tunnel, req.max_distance_m
+                risk_weight, req.avoid_bridge, req.avoid_tunnel, req.max_distance_m,
+                req.start_name, req.end_name
             ))
             request_id = cur.fetchone()[0]
 

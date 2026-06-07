@@ -248,6 +248,8 @@ function RouteSelect() {
         avoid_tunnel:           prefs.tunnel  ?? false,
         max_distance_m:         prefs.maxDist ? prefs.maxDist * 1000 : null,
         route_name:             r.route_name,
+        start_name:             prefs.start   ?? null,
+        end_name:               prefs.end     ?? null,
         total_distance_m:       r.total_distance_m,
         total_base_cost:        r.total_base_cost   ?? 0,
         total_risk_score:       r.total_risk_score  ?? 0,

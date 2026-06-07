@@ -193,9 +193,12 @@ def get_history(current_user: dict = Depends(get_current_user)):
                 r.route_name,
                 ph.terminated_early,
                 ph.gps_verified,
-                r.estimated_duration_sec
+                r.estimated_duration_sec,
+                rr.start_name,
+                rr.end_name
             FROM user_practice_history ph
-            JOIN route r ON ph.route_id = r.route_id
+            JOIN route r          ON ph.route_id   = r.route_id
+            JOIN route_request rr ON r.request_id  = rr.request_id
             WHERE ph.user_id = %s
             ORDER BY ph.practice_time DESC
         """, (user_id,))
@@ -220,6 +223,8 @@ def get_history(current_user: dict = Depends(get_current_user)):
                     "terminated_early":       row[11],
                     "gps_verified":           row[12],
                     "estimated_duration_sec": row[13],
+                    "start_name":             row[14],
+                    "end_name":               row[15],
                 }
                 for row in rows
             ]
