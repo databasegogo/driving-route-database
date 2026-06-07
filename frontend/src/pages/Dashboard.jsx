@@ -613,21 +613,38 @@ export default function Dashboard() {
       .catch(() => { localStorage.removeItem('token'); localStorage.removeItem('currentUser'); navigate('/login') })
 
     api.get('/practice/history')
-      .then(res => {
+      .then(async res => {
         const hist = res.data.history || []
         const local = JSON.parse(localStorage.getItem('practiceRecords') || '[]')
         const localMap = Object.fromEntries(local.map(r => [r.id, r]))
         const km = hist.reduce((sum, h) => sum + (h.total_distance_m || 0), 0)
         setTotalKm(+(km / 1000).toFixed(1))
         setTotalCount(hist.length)
-        setRecentRecs(hist.slice(0, 10).map(h => {
+
+        const recs = hist.slice(0, 10).map(h => {
           const r = recFromBackend(h, localMap)
           return {
             ...r,
             routeName:   localMap[r.id]?.routeName   ?? r.routeName,
             coordsMulti: localMap[r.id]?.coordsMulti ?? null,
           }
-        }))
+        })
+        setRecentRecs(recs)
+
+        // 對缺座標但有 route_id 的紀錄，批次從後端補抓（換裝置/清 cache 後縮圖仍可顯示）
+        const needCoords = recs.filter(r => !r.coords?.length && !r.coordsMulti?.length && r.route_id)
+        if (needCoords.length === 0) return
+        const fetched = await Promise.allSettled(
+          needCoords.map(r =>
+            api.get(`/route/${r.route_id}/coords`).then(res => ({ id: r.id, coords: res.data.coords }))
+          )
+        )
+        const coordMap = {}
+        fetched.forEach(result => {
+          if (result.status === 'fulfilled') coordMap[result.value.id] = result.value.coords
+        })
+        if (Object.keys(coordMap).length === 0) return
+        setRecentRecs(prev => prev.map(r => coordMap[r.id] ? { ...r, coords: coordMap[r.id] } : r))
       })
       .catch(() => {
         const local = JSON.parse(localStorage.getItem('practiceRecords') || '[]')

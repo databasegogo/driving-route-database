@@ -671,6 +671,53 @@ def snap_to_road(lat: float, lng: float, current_user: dict = Depends(get_curren
         conn.close()
 
 
+@router.get("/{route_id}/coords")
+def get_route_coords(route_id: int, current_user: dict = Depends(get_current_user)):
+    """從 route_segment → road_edge 重建路線座標陣列，供前端縮圖/地圖輕量使用"""
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT
+                COALESCE(
+                    ST_AsGeoJSON(re.geom),
+                    ST_AsGeoJSON(ST_MakeLine(vsrc.the_geom, vtgt.the_geom))
+                ) AS geom_json
+            FROM route_segment rs
+            JOIN road_edge re ON rs.edge_id = re.edge_id
+            LEFT JOIN road_edges_guishan_vertices_pgr vsrc ON re.source = vsrc.id
+            LEFT JOIN road_edges_guishan_vertices_pgr vtgt ON re.target = vtgt.id
+            WHERE rs.route_id = %s
+            ORDER BY rs.sequence_order
+        """, (route_id,))
+        rows = cur.fetchall()
+        if not rows:
+            raise HTTPException(404, "ROUTE_NOT_FOUND")
+
+        coords = []
+        for (geom_json,) in rows:
+            if not geom_json:
+                continue
+            geom = json.loads(geom_json)
+            if geom["type"] == "LineString":
+                for lng, lat in geom["coordinates"]:
+                    coords.append([lat, lng])
+            elif geom["type"] == "MultiLineString":
+                for line in geom["coordinates"]:
+                    for lng, lat in line:
+                        coords.append([lat, lng])
+
+        return {"route_id": route_id, "coords": coords}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+
 @router.get("/{route_id}")
 def get_route(route_id: int, current_user: dict = Depends(get_current_user)):
     conn = get_db()

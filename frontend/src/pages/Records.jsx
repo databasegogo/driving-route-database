@@ -215,18 +215,13 @@ export default function Records() {
       setMapOpen(true)
       return
     }
-    // 沒有座標但有 route_id → 懶加載
+    // 沒有座標但有 route_id → 輕量懶加載（只取座標，不需完整 GeoJSON）
     if (!selected.route_id) return
     setMapLoading(true)
     try {
-      const res = await api.get(`/route/${selected.route_id}`)
-      const feats = res.data.segments?.features ?? []
-      const coordsMulti = feats
-        .filter(f => f.geometry?.type === 'LineString')
-        .map(f => f.geometry.coordinates.map(([lng, lat]) => [lat, lng]))
-      const coords = coordsMulti.flat()
-      // 更新 selected 讓地圖可以渲染
-      setSelected(prev => ({ ...prev, coordsMulti, coords }))
+      const res = await api.get(`/route/${selected.route_id}/coords`)
+      const coords = res.data.coords ?? []
+      setSelected(prev => ({ ...prev, coords }))
       setMapOpen(true)
     } catch {
       // fetch 失敗就不開地圖，靜默處理
