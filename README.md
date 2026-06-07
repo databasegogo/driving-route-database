@@ -85,9 +85,13 @@ bash setup/init_db.sh
 
 # 匯入事故資料 + 執行 SQL 04~09
 bash setup/import_accidents.sh
+
+# 執行路網橋接腳本（SQL 10，必須在 09 之後執行）
+psql -h localhost -p 5433 -U postgres -d gisdb -f sql/10_bridge_gaps.sql
 ```
 
-> 詳細說明見 `setup/setup.md`
+> 詳細說明見 `setup/setup.md`  
+> SQL 腳本需按 **01 → 10** 順序執行，不可跳過
 
 ---
 

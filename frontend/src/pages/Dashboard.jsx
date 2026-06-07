@@ -188,7 +188,7 @@ function recFromBackend(h, localMap = {}) {
     score:     h.score_earned ?? 0,
     coords:      loc?.coords      ?? null,
     coordsMulti: loc?.coordsMulti ?? null,
-    time:        loc?.time        ?? null,
+    time:        loc?.time        ?? (h.estimated_duration_sec ? Math.ceil(h.estimated_duration_sec / 60) : null),
     start:       loc?.start       ?? null,
     end:         loc?.end         ?? null,
     startCoord:  loc?.startCoord  ?? null,
@@ -338,25 +338,53 @@ export default function Dashboard() {
     return null
   }
 
-  function handleRepeat(r) {
-    navigate('/route-detail', {
-      state: {
-        route: {
-          route_id:       r.route_id   ?? r.id,
-          start:          r.start      ?? r.routeName,
-          end:            r.end        ?? '',
-          startCoord:     r.startCoord ?? null,
-          endCoord:       r.endCoord   ?? null,
-          distance:       r.distance,
-          time:           r.time       ?? '--',
-          difficulty:     r.difficulty ?? 1,
-          diffCode:       r.diffCode   ?? 'BEGINNER',
-          estimatedScore: r.score      ?? 0,
-          segments:       buildSegmentsFromRecord(r),
+  async function handleRepeat(r) {
+    const routeId = r.route_id ?? r.id
+    try {
+      // 從後端取完整路段幾何，確保地圖路徑正確
+      const res = await api.get(`/route/${routeId}`)
+      const d   = res.data
+      navigate('/route-detail', {
+        state: {
+          route: {
+            route_id:       d.route_id,
+            start:          r.start      ?? r.routeName,
+            end:            r.end        ?? '',
+            startCoord:     r.startCoord ?? null,
+            endCoord:       r.endCoord   ?? null,
+            distance:       +(d.total_distance_m / 1000).toFixed(2),
+            time:           d.estimated_duration_sec
+                              ? Math.ceil(d.estimated_duration_sec / 60)
+                              : (r.time ?? '--'),
+            difficulty:     r.difficulty ?? 1,
+            diffCode:       r.diffCode   ?? 'BEGINNER',
+            estimatedScore: r.score      ?? 0,
+            segments:       d.segments,
+          },
+          prefs: {},
         },
-        prefs: {},
-      }
-    })
+      })
+    } catch {
+      // API 失敗：fallback 用 localStorage 座標
+      navigate('/route-detail', {
+        state: {
+          route: {
+            route_id:       routeId,
+            start:          r.start      ?? r.routeName,
+            end:            r.end        ?? '',
+            startCoord:     r.startCoord ?? null,
+            endCoord:       r.endCoord   ?? null,
+            distance:       r.distance,
+            time:           r.time       ?? '--',
+            difficulty:     r.difficulty ?? 1,
+            diffCode:       r.diffCode   ?? 'BEGINNER',
+            estimatedScore: r.score      ?? 0,
+            segments:       buildSegmentsFromRecord(r),
+          },
+          prefs: {},
+        },
+      })
+    }
   }
 
   useEffect(() => {
@@ -531,7 +559,9 @@ export default function Dashboard() {
                       <span className="dash-rec-badge" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
                       <span className="dash-rec-date">{r.date}</span>
                     </div>
-                    <p className="dash-rec-route">{r.routeName}</p>
+                    <p className="dash-rec-route">
+                      {r.start && r.end ? `${r.start} → ${r.end}` : r.routeName}
+                    </p>
                     <div className="dash-rec-divider" />
                     <div className="dash-rec-foot">
                       <span className="dash-rec-km"><Navigation size={12} /> {r.distance} km</span>
@@ -561,7 +591,9 @@ export default function Dashboard() {
 
             <div className="dash-modal-rows">
               {[
-                ['練習路徑', detailRec.routeName],
+                ['練習路徑', detailRec.start && detailRec.end
+                  ? `${detailRec.start} → ${detailRec.end}`
+                  : detailRec.routeName],
                 ['練習日期', detailRec.date],
                 ['距離長度', `${detailRec.distance} 公里`],
                 ['預計時間', detailRec.time && detailRec.time !== '--' && detailRec.time !== 'undefined' ? `${detailRec.time} 分鐘` : '--'],

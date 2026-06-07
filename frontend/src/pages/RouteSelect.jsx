@@ -4,46 +4,58 @@ import { ArrowLeft, Milestone, Clock, Zap, Star, AlertTriangle, ChevronLeft, Che
 import { MapContainer, TileLayer, GeoJSON, CircleMarker, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import api from '../api'
 import '../styles/route.css'
 
 const DIFF_CODE  = { 1: 'BEGINNER', 2: 'NORMAL', 3: 'EXPERIENCED' }
 const DIFF_LABEL = { 1: '新手', 2: '一般', 3: '熟練' }
 
-// GeoJSON FeatureCollection → [[lat, lng], ...] 座標陣列
-function extractCoords(segments) {
-  if (!segments?.features) return []
-  const coords = []
-  for (const feature of segments.features) {
-    const geom = feature.geometry
+// GeoJSON FeatureCollection → SVG path 字串
+// 每條邊獨立 M...L，邊之間不連線，避免方向不一致造成鋸齒
+function toSVG(segments, w = 320, h = 180, pad = 20) {
+  if (!segments?.features?.length) return null
+
+  // 取每條邊的 [lat, lng][] 陣列
+  const edgeCoords = []
+  for (const feat of segments.features) {
+    const geom = feat?.geometry
     if (!geom) continue
     if (geom.type === 'LineString') {
-      for (const [lng, lat] of geom.coordinates) coords.push([lat, lng])
+      edgeCoords.push(geom.coordinates.map(([lng, lat]) => [lat, lng]))
     } else if (geom.type === 'MultiLineString') {
       for (const line of geom.coordinates)
-        for (const [lng, lat] of line) coords.push([lat, lng])
+        edgeCoords.push(line.map(([lng, lat]) => [lat, lng]))
     }
   }
-  return coords
-}
+  if (!edgeCoords.length) return null
 
-// 座標陣列 → SVG path 字串
-function toSVG(coords, w = 320, h = 180, pad = 20) {
-  if (!coords.length) return null
-  const lats = coords.map(c => c[0])
-  const lngs = coords.map(c => c[1])
+  // 計算全域邊界框
+  const all  = edgeCoords.flat()
+  const lats = all.map(c => c[0])
+  const lngs = all.map(c => c[1])
   const minLat = Math.min(...lats), maxLat = Math.max(...lats)
   const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
   const lr  = maxLat - minLat || 0.001
   const lgr = maxLng - minLng || 0.001
-  const pts = coords.map(([lat, lng]) => ({
+
+  const toXY = ([lat, lng]) => ({
     x: pad + ((lng - minLng) / lgr) * (w - pad * 2),
     y: (h - pad) - ((lat - minLat) / lr) * (h - pad * 2),
-  }))
-  return {
-    path:  'M' + pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L'),
-    start: pts[0],
-    end:   pts[pts.length - 1],
-  }
+  })
+
+  // 每條邊獨立畫（M 移動 + L 連線；邊之間不連線）
+  const pathData = edgeCoords
+    .map(edge => {
+      const pts = edge.map(toXY)
+      return 'M' + pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')
+    })
+    .join(' ')
+
+  // 起終點：第一條邊的起頭 / 最後一條邊的結尾
+  const start = toXY(edgeCoords[0][0])
+  const end   = toXY(edgeCoords.at(-1).at(-1))
+
+  return { path: pathData, start, end }
 }
 
 // ── 地圖自動縮放 ────────────────────────────────────────────────
@@ -199,6 +211,7 @@ function RouteSelect() {
   const { state } = useLocation()
   const navigate  = useNavigate()
   const [active, setActive]  = useState(0)
+  const [saving, setSaving]  = useState(false)
   const touchStartX          = useRef(null)
 
   function handleTouchStart(e) {
@@ -219,26 +232,63 @@ function RouteSelect() {
   const { routes, shortest_route, prefs } = state
   const { start, end, startCoord, endCoord, bridge, tunnel, maxDist, difficulty } = prefs
 
-  function goToDetail(r) {
-    navigate('/route-detail', {
-      state: {
-        route: {
-          route_id:       r.route_id,
-          start,          end,
-          startCoord,     endCoord,
-          distanceM:      r.total_distance_m,
-          distance:       +(r.total_distance_m / 1000).toFixed(2),
-          time:           Math.ceil(r.estimated_duration_sec / 60),
-          difficulty,
-          diffCode:       DIFF_CODE[difficulty],
-          estimatedScore: r.estimated_score,
-          segments:       r.segments,
-        },
-        prefs,
-        routes,          // 退回鍵需要
-        shortest_route,  // 退回鍵需要
+  async function goToDetail(r) {
+    if (saving) return
+    setSaving(true)
+    try {
+      // 呼叫 /route/save：只存使用者選擇的那一條路線到 DB
+      // 相同起終點 + 難度 + 距離 → 後端會去重複，回傳現有 route_id
+      const payload = {
+        start_lat:              prefs.startCoord[0],
+        start_lng:              prefs.startCoord[1],
+        end_lat:                prefs.endCoord[0],
+        end_lng:                prefs.endCoord[1],
+        selected_difficulty:    DIFF_CODE[difficulty],
+        avoid_bridge:           prefs.bridge  ?? false,
+        avoid_tunnel:           prefs.tunnel  ?? false,
+        max_distance_m:         prefs.maxDist ? prefs.maxDist * 1000 : null,
+        route_name:             r.route_name,
+        total_distance_m:       r.total_distance_m,
+        total_base_cost:        r.total_base_cost   ?? 0,
+        total_risk_score:       r.total_risk_score  ?? 0,
+        total_final_cost:       r.total_final_cost  ?? 0,
+        estimated_duration_sec: r.estimated_duration_sec,
+        segments: (r.segments?.features ?? []).map(f => ({
+          seq:        f.properties.seq,
+          edge_id:    f.properties.edge_id,
+          distance_m: f.properties.distance_m,
+          base_cost:  f.properties.base_cost  ?? 0,
+          risk_score: f.properties.risk_score ?? 0,
+          final_cost: f.properties.final_cost ?? 0,
+        })),
       }
-    })
+      const res = await api.post('/route/save', payload)
+      const routeId = res.data.route_id
+
+      navigate('/route-detail', {
+        state: {
+          route: {
+            route_id:       routeId,
+            start,          end,
+            startCoord,     endCoord,
+            distanceM:      r.total_distance_m,
+            distance:       +(r.total_distance_m / 1000).toFixed(2),
+            time:           Math.ceil(r.estimated_duration_sec / 60),
+            difficulty,
+            diffCode:       DIFF_CODE[difficulty],
+            estimatedScore: r.estimated_score,
+            segments:       r.segments,
+          },
+          prefs,
+          routes,          // 退回鍵需要
+          shortest_route,  // 退回鍵需要
+        }
+      })
+    } catch (e) {
+      console.error('save route failed', e)
+      alert('儲存路線失敗，請稍後再試')
+      setSaving(false)
+    }
   }
 
   return (
@@ -291,8 +341,7 @@ function RouteSelect() {
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}>
               {routes.map((r, idx) => {
-                const coords  = extractCoords(r.segments)
-                const svg     = toSVG(coords)
+                const svg = toSVG(r.segments)
                 const distKm  = +(r.total_distance_m / 1000).toFixed(2)
                 const timeMin = Math.ceil(r.estimated_duration_sec / 60)
                 const label   = String.fromCharCode(65 + idx)
@@ -354,8 +403,11 @@ function RouteSelect() {
                         </div>
                       )}
 
-                      <button className="slide-select-btn" onClick={() => goToDetail(r)}>
-                        選擇此路線 →
+                      <button
+                        className="slide-select-btn"
+                        onClick={() => goToDetail(r)}
+                        disabled={saving}>
+                        {saving ? '儲存中…' : '選擇此路線 →'}
                       </button>
                     </div>
                   </div>

@@ -36,6 +36,10 @@ function fromBackend(h) {
     gpsVerified:     h.gps_verified     ?? false,
     terminatedEarly: h.terminated_early ?? false,
     prefs:           { bridge: false, tunnel: false },
+    // 後端補回預計時間（秒 → 分鐘）
+    time:            h.estimated_duration_sec
+                       ? Math.ceil(h.estimated_duration_sec / 60)
+                       : null,
   }
 }
 
@@ -159,7 +163,7 @@ export default function Records() {
               endCoord:    loc?.endCoord    ?? null,
               diffCode:    loc?.diffCode    ?? r.diffCode,
               route_id:    loc?.route_id    ?? null,
-              time:        loc?.time        ?? null,
+              time:        loc?.time        ?? r.time,
               prefs:       loc?.prefs       ?? r.prefs,
             }
           })
@@ -205,25 +209,53 @@ export default function Records() {
     return null
   }
 
-  function handleRepeat(r) {
-    navigate('/route-detail', {
-      state: {
-        route: {
-          route_id:       r.route_id   ?? r.id,
-          start:          r.start      ?? r.routeName,
-          end:            r.end        ?? '',
-          startCoord:     r.startCoord ?? null,
-          endCoord:       r.endCoord   ?? null,
-          distance:       r.distance,
-          time:           r.time       ?? '--',
-          difficulty:     r.difficulty ?? 1,
-          diffCode:       r.diffCode   ?? 'BEGINNER',
-          estimatedScore: r.score      ?? 0,
-          segments:       buildSegmentsFromRecord(r),
+  async function handleRepeat(r) {
+    const routeId = r.route_id ?? r.id
+    try {
+      // 從後端取完整路段幾何，確保地圖路徑正確
+      const res = await api.get(`/route/${routeId}`)
+      const d   = res.data
+      navigate('/route-detail', {
+        state: {
+          route: {
+            route_id:       d.route_id,
+            start:          r.start      ?? r.routeName,
+            end:            r.end        ?? '',
+            startCoord:     r.startCoord ?? null,
+            endCoord:       r.endCoord   ?? null,
+            distance:       +(d.total_distance_m / 1000).toFixed(2),
+            time:           d.estimated_duration_sec
+                              ? Math.ceil(d.estimated_duration_sec / 60)
+                              : (r.time ?? '--'),
+            difficulty:     r.difficulty ?? 1,
+            diffCode:       r.diffCode   ?? 'BEGINNER',
+            estimatedScore: r.score      ?? 0,
+            segments:       d.segments,
+          },
+          prefs: r.prefs ?? { bridge: false, tunnel: false },
         },
-        prefs: r.prefs ?? { bridge: false, tunnel: false },
-      },
-    })
+      })
+    } catch {
+      // API 失敗：fallback 用 localStorage 座標
+      navigate('/route-detail', {
+        state: {
+          route: {
+            route_id:       routeId,
+            start:          r.start      ?? r.routeName,
+            end:            r.end        ?? '',
+            startCoord:     r.startCoord ?? null,
+            endCoord:       r.endCoord   ?? null,
+            distance:       r.distance,
+            time:           r.time       ?? '--',
+            difficulty:     r.difficulty ?? 1,
+            diffCode:       r.diffCode   ?? 'BEGINNER',
+            estimatedScore: r.score      ?? 0,
+            segments:       buildSegmentsFromRecord(r),
+          },
+          prefs: r.prefs ?? { bridge: false, tunnel: false },
+        },
+      })
+    }
   }
 
   const total      = records.length
@@ -390,7 +422,7 @@ export default function Records() {
                   </div>
                   <div className="rec-tc-info">
                     <div className="rec-tc-name">
-                      {r.routeName}
+                      {r.start && r.end ? `${r.start} → ${r.end}` : r.routeName}
                       {r.id === newestId && <span className="rec-newest-tag">最新</span>}
                     </div>
                     <div className="rec-tc-meta">
@@ -432,7 +464,9 @@ export default function Records() {
             <div className="modal-rows">
               {[
                 ['練習日期', selected.date],
-                ['練習路徑', selected.routeName],
+                ['練習路徑', selected.start && selected.end
+                  ? `${selected.start} → ${selected.end}`
+                  : selected.routeName],
                 ['距離長度', `${selected.distance} 公里`],
                 ['練習時間', `${selected.startTime} – ${selected.endTime}`],
                 ['預計時間', selected.time && selected.time !== '--' && selected.time !== 'undefined' ? `${selected.time} 分鐘` : '--'],
@@ -476,7 +510,11 @@ export default function Records() {
         <div className="modal-overlay">
           <div className="map-modal">
             <button className="map-close" onClick={() => setMapOpen(false)}>✕</button>
-            <p className="map-modal-title">{selected.routeName}</p>
+            <p className="map-modal-title">
+              {selected.start && selected.end
+                ? `${selected.start} → ${selected.end}`
+                : selected.routeName}
+            </p>
             <MapContainer
               key={selected.id}
               center={selected.coords?.[0] ?? [25.04, 121.37]}

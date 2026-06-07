@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from collections import defaultdict
 import json
+import math
 
 from database import get_db
 from utils.auth import get_current_user
@@ -29,6 +30,33 @@ class RouteRequest(BaseModel):
     avoid_bridge: bool = False
     avoid_tunnel: bool = False
     max_distance_m: int | None = None  # None = 不限距離
+
+
+class SaveSegmentData(BaseModel):
+    seq:        int
+    edge_id:    int
+    distance_m: float
+    base_cost:  float = 0.0
+    risk_score: float = 0.0
+    final_cost: float = 0.0
+
+
+class SaveRouteBody(BaseModel):
+    start_lat:              float
+    start_lng:              float
+    end_lat:                float
+    end_lng:                float
+    selected_difficulty:    str
+    avoid_bridge:           bool = False
+    avoid_tunnel:           bool = False
+    max_distance_m:         int | None = None
+    route_name:             str
+    total_distance_m:       float
+    total_base_cost:        float = 0.0
+    total_risk_score:       float = 0.0
+    total_final_cost:       float = 0.0
+    estimated_duration_sec: int
+    segments:               list[SaveSegmentData]
 
 
 # ── 工具函式 ──────────────────────────────────────────────────────
@@ -88,21 +116,75 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
 
         risk_weight = RISK_WEIGHT[req.selected_difficulty]
 
-        # 3. 查最近節點（只在主連通 component 內找，確保起終點可連通）
+        # 2b. 起終點直線距離最短限制（< 150 m 無法規劃有意義的練習路線）
+        _dlat = math.radians(req.end_lat - req.start_lat)
+        _dlng = math.radians(req.end_lng - req.start_lng)
+        _a    = (math.sin(_dlat / 2) ** 2
+                 + math.cos(math.radians(req.start_lat))
+                 * math.cos(math.radians(req.end_lat))
+                 * math.sin(_dlng / 2) ** 2)
+        straight_line_m = 6_371_000 * 2 * math.asin(math.sqrt(_a))
+        if straight_line_m < 150:
+            raise HTTPException(422, "START_END_TOO_CLOSE")
+
+        # 3. 查最近節點（改良版）
+        #    舊做法：找距離點擊座標最近的 vertex → vertex 是交叉口，可能距點擊點幾百公尺遠
+        #    新做法：
+        #      a. KNN 取最近 50 條邊，篩選 source/target 都在 main_component_nodes 的邊
+        #         （過濾掉步道、腳踏車道、孤立路等不可路由的邊）
+        #      b. 取其 source/target 作為候選節點 → 這才是正確的路由入口節點
+        #      c. 若無結果（理論上不會），回退至最近 vertex
         find_node_sql = """
+            WITH near_routable AS (
+                -- GiST 掃描前 50 條最近邊，再篩選主連通分量內的可路由邊
+                SELECT source, target, geom
+                FROM (
+                    SELECT source, target, geom
+                    FROM road_edges_guishan
+                    ORDER BY geom <-> ST_SetSRID(ST_Point(%s, %s), 4326)
+                    LIMIT 50
+                ) candidates
+                WHERE source IN (SELECT node FROM main_component_nodes)
+                  AND target IN (SELECT node FROM main_component_nodes)
+                ORDER BY geom <-> ST_SetSRID(ST_Point(%s, %s), 4326)
+                LIMIT 5
+            ),
+            edge_nodes AS (
+                SELECT source AS nid FROM near_routable
+                UNION
+                SELECT target AS nid FROM near_routable
+            )
+            SELECT v.id
+            FROM road_edges_guishan_vertices_pgr v
+            JOIN edge_nodes en ON v.id = en.nid
+            ORDER BY v.the_geom <-> ST_SetSRID(ST_Point(%s, %s), 4326)
+            LIMIT 6
+        """
+        fallback_sql = """
             SELECT v.id
             FROM road_edges_guishan_vertices_pgr v
             WHERE v.id IN (SELECT node FROM main_component_nodes)
             ORDER BY v.the_geom <-> ST_SetSRID(ST_Point(%s, %s), 4326)
             LIMIT 5
         """
-        cur.execute(find_node_sql, (req.start_lng, req.start_lat))
+
+        cur.execute(find_node_sql, (req.start_lng, req.start_lat,
+                                    req.start_lng, req.start_lat,
+                                    req.start_lng, req.start_lat))
         start_candidates = [r[0] for r in cur.fetchall()]
+        if not start_candidates:
+            cur.execute(fallback_sql, (req.start_lng, req.start_lat))
+            start_candidates = [r[0] for r in cur.fetchall()]
         if not start_candidates:
             raise HTTPException(422, "NODE_NOT_FOUND")
 
-        cur.execute(find_node_sql, (req.end_lng, req.end_lat))
+        cur.execute(find_node_sql, (req.end_lng, req.end_lat,
+                                    req.end_lng, req.end_lat,
+                                    req.end_lng, req.end_lat))
         end_candidates = [r[0] for r in cur.fetchall()]
+        if not end_candidates:
+            cur.execute(fallback_sql, (req.end_lng, req.end_lat))
+            end_candidates = [r[0] for r in cur.fetchall()]
         if not end_candidates:
             raise HTTPException(422, "NODE_NOT_FOUND")
 
@@ -129,6 +211,8 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         # 回傳欄位：[0]path_id [1]path_seq [2]edge [3]road_name
         #           [4]distance_m [5]base_cost [6]risk_score [7]final_cost
         #           [8]geom_json [9]bridge [10]tunnel
+        # geom_json：若 road_edge.geom 為 NULL（OSM 資料缺漏）
+        #            → 用 source/target 頂點直線補救，避免前端渲染空缺斷點
         ksp_sql = f"""
             SELECT
                 d.path_id,
@@ -139,13 +223,20 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                 re.cost                                         AS segment_base_cost,
                 COALESCE(ers.risk_score, 0)                     AS segment_risk_score,
                 (re.cost + COALESCE(ers.risk_score, 0) * {risk_weight}) AS segment_final_cost,
-                ST_AsGeoJSON(re.geom)                           AS geom_json,
+                COALESCE(
+                    ST_AsGeoJSON(re.geom),
+                    ST_AsGeoJSON(ST_SetSRID(
+                        ST_MakeLine(vsrc.the_geom, vtgt.the_geom), 4326
+                    ))
+                )                                               AS geom_json,
                 r.bridge                                        AS bridge,
                 r.tunnel                                        AS tunnel
             FROM pgr_ksp(%s, %s, %s, 6, directed := false) d
             JOIN road_edge re  ON d.edge = re.edge_id
             JOIN road r        ON re.road_id = r.road_id
             LEFT JOIN edge_risk_score ers ON re.edge_id = ers.edge_id
+            LEFT JOIN road_edges_guishan_vertices_pgr vsrc ON vsrc.id = re.source
+            LEFT JOIN road_edges_guishan_vertices_pgr vtgt ON vtgt.id = re.target
             WHERE d.edge > 0
             ORDER BY d.path_id, d.path_seq
         """
@@ -218,26 +309,9 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
             pref     = cur.fetchone()
             max_dist = pref[0] if pref else None
 
-        # 8. 存入 route_request
-        cur.execute("""
-            INSERT INTO route_request
-              (user_id, user_level_id, start_lng, start_lat, end_lng, end_lat,
-               start_geom, end_geom, risk_weight, avoid_bridge, avoid_tunnel, max_distance_m)
-            VALUES (%s, %s, %s, %s, %s, %s,
-                    ST_SetSRID(ST_Point(%s, %s), 4326),
-                    ST_SetSRID(ST_Point(%s, %s), 4326),
-                    %s, %s, %s, %s)
-            RETURNING request_id
-        """, (
-            user_id, user_level_id,
-            req.start_lng, req.start_lat, req.end_lng, req.end_lat,
-            req.start_lng, req.start_lat,
-            req.end_lng,   req.end_lat,
-            risk_weight, req.avoid_bridge, req.avoid_tunnel, max_dist
-        ))
-        request_id = cur.fetchone()[0]
-
-        # 9. 為每條路徑存 route + route_segment，並組回傳結果
+        # 8. 組回傳結果
+        #    延遲寫入：/route/plan 不存 DB，使用者點選「選擇此路線」後
+        #    再由前端呼叫 POST /route/save 存入一條選定的路線。
         avg_speed_m_per_sec = 30 * 1000 / 3600   # 30 km/h → 8.33 m/s
         routes_result = []
 
@@ -262,28 +336,7 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
             estimated_score        = int(total_distance / 1000) * SCORE_WEIGHT[req.selected_difficulty]
             route_name             = f"{req.selected_difficulty} 路線 {path_id}"
 
-            # 存 route
-            cur.execute("""
-                INSERT INTO route
-                  (request_id, route_name, total_distance_m, total_base_cost,
-                   total_risk_score, total_final_cost, estimated_duration_sec)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                RETURNING route_id
-            """, (request_id, route_name, total_distance, total_base_cost,
-                  total_risk, total_final, estimated_duration_sec))
-            route_id = cur.fetchone()[0]
-
-            # 存 route_segment
-            for seg in segments:
-                cur.execute("""
-                    INSERT INTO route_segment
-                      (route_id, sequence_order, edge_id,
-                       segment_distance_m, segment_base_cost,
-                       segment_risk_score, segment_final_cost)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, (route_id, seg[1], seg[2], seg[4], seg[5], seg[6], seg[7]))
-
-            # 組 GeoJSON
+            # 組 GeoJSON（含 base_cost，供前端 /route/save 傳回存入 DB）
             features = []
             for seg in segments:
                 geom = json.loads(seg[8]) if seg[8] else None
@@ -295,22 +348,24 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                         "seq":        seg[1],
                         "road_name":  seg[3],
                         "distance_m": round(seg[4], 2),
+                        "base_cost":  round(seg[5], 2),
                         "risk_score": round(seg[6], 2),
                         "final_cost": round(seg[7], 2),
                     }
                 })
 
             routes_result.append({
-                "route_id":               route_id,
+                "route_id":               None,   # 尚未存入 DB，選擇後由 /route/save 回傳真實 id
                 "route_name":             route_name,
                 "total_distance_m":       round(total_distance, 2),
+                "total_base_cost":        round(total_base_cost, 2),
                 "total_risk_score":       round(total_risk, 2),
                 "total_final_cost":       round(total_final, 2),
                 "estimated_score":        estimated_score,
                 "estimated_duration_sec": estimated_duration_sec,
                 "has_bridge":             has_bridge,
                 "has_tunnel":             has_tunnel,
-                "constraint_relaxed":     constraint_relaxed,  # 想避但無法避
+                "constraint_relaxed":     constraint_relaxed,
                 "segments":               {"type": "FeatureCollection", "features": features}
             })
 
@@ -362,8 +417,7 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         conn.commit()
 
         return {
-            "request_id":    request_id,
-            "routes":        routes_result,
+            "routes":         routes_result,
             "shortest_route": shortest_route,
         }
 
@@ -377,21 +431,177 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         conn.close()
 
 
+@router.post("/save")
+def save_route(req: SaveRouteBody, current_user: dict = Depends(get_current_user)):
+    """
+    使用者在 RouteSelect 點擊「選擇此路線」時呼叫。
+    - 先做去重複查詢：相同起終點（30 m 容差）+ 相同難度 + 相近路線距離（10 m 容差）
+      → 若已存在，直接回傳舊 route_id（reused: true）
+    - 若不存在，才建立 route_request → route → route_segment，回傳新 route_id
+    """
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
+        user_id     = current_user["user_id"]
+        risk_weight = RISK_WEIGHT.get(req.selected_difficulty, 80)
+
+        # 1. 取使用者等級 ID
+        cur.execute(
+            "SELECT user_level_id FROM app_user WHERE user_id = %s",
+            (user_id,)
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "USER_NOT_FOUND")
+        user_level_id = row[0]
+
+        # 2. 去重複：相同起終點 + 難度 + 距離 → 直接回傳已存在的 route_id
+        cur.execute("""
+            SELECT ro.route_id
+            FROM route ro
+            JOIN route_request rr ON ro.request_id = rr.request_id
+            WHERE rr.user_id = %s
+              AND ST_DWithin(
+                    rr.start_geom::geography,
+                    ST_SetSRID(ST_Point(%s, %s), 4326)::geography,
+                    30
+                  )
+              AND ST_DWithin(
+                    rr.end_geom::geography,
+                    ST_SetSRID(ST_Point(%s, %s), 4326)::geography,
+                    30
+                  )
+              AND rr.risk_weight   = %s
+              AND rr.avoid_bridge  = %s
+              AND rr.avoid_tunnel  = %s
+              AND ABS(ro.total_distance_m - %s) < 10
+            ORDER BY ro.route_id ASC
+            LIMIT 1
+        """, (
+            user_id,
+            req.start_lng, req.start_lat,
+            req.end_lng,   req.end_lat,
+            risk_weight, req.avoid_bridge, req.avoid_tunnel,
+            req.total_distance_m
+        ))
+        existing = cur.fetchone()
+        if existing:
+            return {"route_id": existing[0], "reused": True}
+
+        # 3. 找或建立 route_request（相同起終點 + 難度 → 共用同一個 request）
+        cur.execute("""
+            SELECT request_id FROM route_request
+            WHERE user_id = %s
+              AND ST_DWithin(
+                    start_geom::geography,
+                    ST_SetSRID(ST_Point(%s, %s), 4326)::geography,
+                    30
+                  )
+              AND ST_DWithin(
+                    end_geom::geography,
+                    ST_SetSRID(ST_Point(%s, %s), 4326)::geography,
+                    30
+                  )
+              AND risk_weight  = %s
+              AND avoid_bridge = %s
+              AND avoid_tunnel = %s
+            ORDER BY request_id DESC
+            LIMIT 1
+        """, (
+            user_id,
+            req.start_lng, req.start_lat,
+            req.end_lng,   req.end_lat,
+            risk_weight, req.avoid_bridge, req.avoid_tunnel
+        ))
+        existing_req = cur.fetchone()
+
+        if existing_req:
+            request_id = existing_req[0]
+        else:
+            cur.execute("""
+                INSERT INTO route_request
+                  (user_id, user_level_id, start_lng, start_lat, end_lng, end_lat,
+                   start_geom, end_geom, risk_weight, avoid_bridge, avoid_tunnel, max_distance_m)
+                VALUES (%s, %s, %s, %s, %s, %s,
+                        ST_SetSRID(ST_Point(%s, %s), 4326),
+                        ST_SetSRID(ST_Point(%s, %s), 4326),
+                        %s, %s, %s, %s)
+                RETURNING request_id
+            """, (
+                user_id, user_level_id,
+                req.start_lng, req.start_lat, req.end_lng, req.end_lat,
+                req.start_lng, req.start_lat,
+                req.end_lng,   req.end_lat,
+                risk_weight, req.avoid_bridge, req.avoid_tunnel, req.max_distance_m
+            ))
+            request_id = cur.fetchone()[0]
+
+        # 4. 存 route
+        cur.execute("""
+            INSERT INTO route
+              (request_id, route_name, total_distance_m, total_base_cost,
+               total_risk_score, total_final_cost, estimated_duration_sec)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING route_id
+        """, (
+            request_id, req.route_name,
+            req.total_distance_m, req.total_base_cost,
+            req.total_risk_score, req.total_final_cost,
+            req.estimated_duration_sec
+        ))
+        route_id = cur.fetchone()[0]
+
+        # 5. 存 route_segment
+        for seg in req.segments:
+            cur.execute("""
+                INSERT INTO route_segment
+                  (route_id, sequence_order, edge_id,
+                   segment_distance_m, segment_base_cost,
+                   segment_risk_score, segment_final_cost)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (
+                route_id, seg.seq, seg.edge_id,
+                seg.distance_m, seg.base_cost,
+                seg.risk_score, seg.final_cost
+            ))
+
+        conn.commit()
+        return {"route_id": route_id, "reused": False}
+
+    except HTTPException:
+        raise
+    except Exception:
+        conn.rollback()
+        raise HTTPException(500, "INTERNAL_SERVER_ERROR")
+    finally:
+        cur.close()
+        conn.close()
+
+
 @router.get("/snap")
 def snap_to_road(lat: float, lng: float, current_user: dict = Depends(get_current_user)):
     """
-    將座標吸附到最近道路幾何上的垂足點（ST_ClosestPoint）。
-    不跳到 node，而是找最近 edge 上的最近點，
-    讓 marker 永遠顯示在路線上，不會跳到遠處的交叉口。
+    將座標吸附到最近「可路由」道路幾何上的垂足點（ST_ClosestPoint）。
+    只吸附到 source/target 都在 main_component_nodes 的邊，
+    排除步道、腳踏車道、孤立路等不在路由圖中的邊，
+    確保 snap 結果與路由圖一致。
     """
     conn = get_db()
     cur  = conn.cursor()
     try:
         cur.execute("""
-            WITH nearest_edge AS (
-                -- 用 GiST 索引找距離最近的 edge（pgRouting 原生表）
+            WITH nearest_routable_edge AS (
+                -- GiST 掃描最近 200 條邊，再篩選可路由邊（兩端節點都在主連通分量）
+                -- 設 200 是因為某些區域近鄰全是步道/行人路，需要掃更多才能找到可路由車道
                 SELECT re.geom
-                FROM road_edges_guishan re
+                FROM (
+                    SELECT geom, source, target
+                    FROM road_edges_guishan
+                    ORDER BY geom <-> ST_SetSRID(ST_Point(%s, %s), 4326)
+                    LIMIT 200
+                ) re
+                WHERE re.source IN (SELECT node FROM main_component_nodes)
+                  AND re.target IN (SELECT node FROM main_component_nodes)
                 ORDER BY re.geom <-> ST_SetSRID(ST_Point(%s, %s), 4326)
                 LIMIT 1
             ),
@@ -401,7 +611,7 @@ def snap_to_road(lat: float, lng: float, current_user: dict = Depends(get_curren
                     ne.geom,
                     ST_SetSRID(ST_Point(%s, %s), 4326)
                 ) AS closest_pt
-                FROM nearest_edge ne
+                FROM nearest_routable_edge ne
             )
             SELECT
                 ST_Y(foot.closest_pt)  AS snap_lat,
@@ -411,7 +621,7 @@ def snap_to_road(lat: float, lng: float, current_user: dict = Depends(get_curren
                     ST_SetSRID(ST_Point(%s, %s), 4326)::geography
                 ) AS dist_m
             FROM foot
-        """, (lng, lat, lng, lat, lng, lat))
+        """, (lng, lat, lng, lat, lng, lat, lng, lat))
         row = cur.fetchone()
         if not row:
             raise HTTPException(422, "NODE_NOT_FOUND")
@@ -434,6 +644,7 @@ def get_route(route_id: int, current_user: dict = Depends(get_current_user)):
     conn = get_db()
     cur  = conn.cursor()
     try:
+        # 1. 路線基本資料
         cur.execute("""
             SELECT route_id, request_id, route_name,
                    total_distance_m, total_base_cost,
@@ -445,6 +656,36 @@ def get_route(route_id: int, current_user: dict = Depends(get_current_user)):
         if not row:
             raise HTTPException(404, "ROUTE_NOT_FOUND")
 
+        # 2. 路段幾何（JOIN road_edge 取回 geom）
+        cur.execute("""
+            SELECT rs.sequence_order,
+                   rs.edge_id,
+                   r.name             AS road_name,
+                   rs.segment_distance_m,
+                   rs.segment_risk_score,
+                   ST_AsGeoJSON(re.geom) AS geom_json
+            FROM route_segment rs
+            JOIN road_edge re ON rs.edge_id = re.edge_id
+            JOIN road r       ON re.road_id  = r.road_id
+            WHERE rs.route_id = %s
+            ORDER BY rs.sequence_order
+        """, (route_id,))
+
+        features = []
+        for seg in cur.fetchall():
+            geom = json.loads(seg[5]) if seg[5] else None
+            features.append({
+                "type": "Feature",
+                "geometry": geom,
+                "properties": {
+                    "edge_id":    seg[1],
+                    "seq":        seg[0],
+                    "road_name":  seg[2],
+                    "distance_m": round(seg[3], 2),
+                    "risk_score": round(seg[4], 2),
+                }
+            })
+
         return {
             "route_id":               row[0],
             "request_id":             row[1],
@@ -454,11 +695,12 @@ def get_route(route_id: int, current_user: dict = Depends(get_current_user)):
             "total_risk_score":       row[5],
             "total_final_cost":       row[6],
             "estimated_duration_sec": row[7],
+            "segments": {"type": "FeatureCollection", "features": features},
         }
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(500, "INTERNAL_SERVER_ERROR")
     finally:
         cur.close()

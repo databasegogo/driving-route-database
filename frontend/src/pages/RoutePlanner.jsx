@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Compass, Sliders, Star, Shield, ArrowRight, MapPin, AlertCircle, Map, Navigation } from 'lucide-react'
-import { MapContainer, TileLayer, useMapEvents, GeoJSON, CircleMarker, Polyline } from 'react-leaflet'
+import { MapContainer, TileLayer, useMapEvents, GeoJSON, CircleMarker, Polyline, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api'
 import '../styles/route.css'
@@ -10,9 +10,10 @@ const DIFF_CODE = { 1: 'BEGINNER', 2: 'NORMAL', 3: 'EXPERIENCED' }
 
 const ERR_MSG = {
   NODE_NOT_FOUND:    '找不到起點或終點附近的道路，請換個地點',
-  NO_PATH_FOUND:     '起終點之間找不到可行路線，請換個地點',
+  NO_PATH_FOUND:     '起終點之間找不到可行路線（可能位於不相連的路網區段），請嘗試換個地點或將起終點設在主要道路附近',
   DIFFICULTY_TOO_HIGH: '選擇的難度超過你目前的等級',
   ALL_ROUTES_EXCEED_DISTANCE_LIMIT: '所有路線都超過距離上限，請調高距離或換個地點',
+  START_END_TOO_CLOSE: '起點和終點距離太近（直線 < 150 公尺），請設定更遠的目的地',
 }
 
 // 依 total_score 計算最高難度（與前端 0/150/300 閾值對齊）
@@ -148,6 +149,7 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
   const [loading,   setLoading]   = useState(false)
   const [boundary,  setBoundary]  = useState(null)
   const [snapDist,  setSnapDist]  = useState(null)   // 距離最近道路幾公尺
+  const [snapFail,  setSnapFail]  = useState(false)  // snap 失敗：此處無道路
   const snapTimerRef = useRef(null)                  // 0.5s 延遲的 timer
 
   // 載入龜山區邊界；如果有 initialCoord，邊界載完後自動選點（不延遲、不畫虛線）
@@ -182,9 +184,11 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
 
     setLoading(true)
     setName('定位中...')
+    setSnapFail(false)
 
     // 1. Snap 到最近道路垂足點
     let finalCoord = coord
+    let snapOk = false
     try {
       const snapRes = await api.get('/route/snap', {
         params: { lat: coord[0], lng: coord[1] }
@@ -192,12 +196,21 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
       const { snap_lat, snap_lng, dist_m } = snapRes.data
       finalCoord = [snap_lat, snap_lng]
       setPicked(finalCoord)
+      snapOk = true
       if (dist_m > 5) {
         setSnapDist(Math.round(dist_m))
         // 只有使用者點擊時才畫虛線（initialCoord 預填不畫）
         if (showLine) setSnapLine([coord, finalCoord])
       }
-    } catch { /* snap 失敗就用原座標 */ }
+    } catch {
+      // snap API 回傳 422 → 此位置附近無可路由道路
+      setSnapFail(true)
+      setLoading(false)
+      setName('')
+      return
+    }
+
+    if (!snapOk) return
 
     // 2. 反地理編碼取得名稱
     try {
@@ -226,6 +239,7 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
     if (snapTimerRef.current) clearTimeout(snapTimerRef.current)
     setSnapLine(null)
     setSnapDist(null)
+    setSnapFail(false)
     setName('')
 
     // 立即把 marker 放在點擊位置
@@ -253,14 +267,18 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
           <button className="map-picker-close" onClick={onClose}>✕</button>
         </div>
         <div className="map-picker-hint">
-          {!picked && !otherCoord && '點擊橘色區域內的龜山區範圍來選取位置'}
-          {!picked &&  otherCoord && target === 'end'   && '📌 綠點為已選起點，請在地圖上點選終點位置'}
-          {!picked &&  otherCoord && target === 'start' && '📌 紅點為已選終點，請在地圖上點選起點位置'}
+          {!picked && !otherCoord && '點擊橘色龜山區範圍內來選取位置'}
+          {!picked &&  otherCoord && target === 'end'   && '📌 地圖上綠色標記為已選起點，請點選終點位置'}
+          {!picked &&  otherCoord && target === 'start' && '📌 地圖上紅色標記為已選終點，請點選起點位置'}
           {picked && !isInside && '⚠️ 所選位置超出龜山區範圍，請重新點選'}
           {picked && isInside && loading && '⏳ 即將吸附到最近道路...'}
-          {picked && isInside && !loading && snapDist && snapDist > 5 &&
+          {picked && isInside && !loading && snapFail &&
+            '🚫 此位置附近沒有道路，無法作為起終點，請點選靠近道路的位置'}
+          {picked && isInside && !loading && !snapFail && snapDist && snapDist > 200 &&
+            `⚠️ 已選：${name}　（附近最近道路距此 ${snapDist} 公尺，路線可能不準確）`}
+          {picked && isInside && !loading && !snapFail && snapDist && snapDist > 5 && snapDist <= 200 &&
             `✅ 已選：${name}　（已自動調整 ${snapDist} 公尺至最近道路）`}
-          {picked && isInside && !loading && (!snapDist || snapDist <= 5) && name &&
+          {picked && isInside && !loading && !snapFail && (!snapDist || snapDist <= 5) && name &&
             `✅ 已選：${name}`}
         </div>
         <div className="map-picker-map">
@@ -285,6 +303,8 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
               />
             )}
             <MapClicker onPick={handlePick} />
+
+            {/* 另一個已選點（綠色＝起點，紅色＝終點），加永久標籤避免混淆 */}
             {otherCoord && (
               <CircleMarker
                 center={otherCoord}
@@ -293,7 +313,13 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
                   fillColor:   target === 'end' ? '#2e7d32' : '#c62828',
                   color: '#fff', weight: 2.5, fillOpacity: 1,
                 }}
-              />
+              >
+                <Tooltip permanent direction="top" offset={[0, -12]} opacity={1}>
+                  <span style={{ fontSize: 11, fontWeight: 700 }}>
+                    {target === 'end' ? '起點' : '終點'}
+                  </span>
+                </Tooltip>
+              </CircleMarker>
             )}
 
             {/* 虛線：從原始點擊位置指向吸附後的路面位置 */}
@@ -313,19 +339,28 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
               />
             )}
 
-            {/* 吸附後的確認點（實心大圓） */}
+            {/* 吸附後的確認點（實心大圓），加永久標籤 */}
             {picked && (
               <CircleMarker
                 center={picked}
                 radius={9}
                 pathOptions={{
                   color:       '#fff',
-                  fillColor:   isInside
-                    ? (target === 'start' ? '#2e7d32' : '#c62828')
-                    : '#e74c3c',
+                  fillColor:   !isInside   ? '#e74c3c'   // 範圍外：紅
+                    : snapFail             ? '#ff6b35'   // snap 失敗：橘（無道路）
+                    : target === 'start'   ? '#2e7d32'   // 起點：綠
+                    :                        '#c62828',  // 終點：紅
                   fillOpacity: 0.95, weight: 2.5,
                 }}
-              />
+              >
+                {isInside && !snapFail && (
+                  <Tooltip permanent direction="top" offset={[0, -12]} opacity={1}>
+                    <span style={{ fontSize: 11, fontWeight: 700 }}>
+                      {target === 'start' ? '起點' : '終點'}
+                    </span>
+                  </Tooltip>
+                )}
+              </CircleMarker>
             )}
           </MapContainer>
         </div>
@@ -333,7 +368,7 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
           <button className="map-picker-cancel" onClick={onClose}>取消</button>
           <button
             className="map-picker-confirm"
-            disabled={!picked || !isInside || loading}
+            disabled={!picked || !isInside || loading || snapFail}
             onClick={() => { onConfirm(name, picked); onClose() }}
           >
             確認選點
@@ -377,7 +412,8 @@ function RoutePlanner() {
   }, [])
 
   // ── GPS 一鍵定位起點 ──────────────────────────────────────────────────────
-  async function handleGPS() {
+  // 取得 GPS 後直接開地圖 Modal，讓使用者在地圖上看到並確認吸附後的位置
+  function handleGPS() {
     if (!navigator.geolocation) {
       setErrMsg('此裝置或瀏覽器不支援 GPS 定位')
       return
@@ -385,7 +421,7 @@ function RoutePlanner() {
     setGpsStatus('loading')
     setErrMsg('')
     navigator.geolocation.getCurrentPosition(
-      async pos => {
+      pos => {
         const lat = pos.coords.latitude
         const lng = pos.coords.longitude
         if (lat < 24.97 || lat > 25.07 || lng < 121.27 || lng > 121.43) {
@@ -393,25 +429,10 @@ function RoutePlanner() {
           setErrMsg('目前位置不在龜山區範圍內，無法作為練習起點')
           return
         }
-        try {
-          const url = new URL('https://nominatim.openstreetmap.org/reverse')
-          url.searchParams.set('lat', lat)
-          url.searchParams.set('lon', lng)
-          url.searchParams.set('format', 'json')
-          url.searchParams.set('accept-language', 'zh-TW,zh')
-          url.searchParams.set('addressdetails', '1')
-          const res  = await fetch(url.toString(), { headers: { 'User-Agent': 'driving-route-database/1.0' } })
-          const data = await res.json()
-          const addr = data.address || {}
-          const name = data.name || addr.road || addr.pedestrian ||
-            addr.footway || addr.suburb || `${lat.toFixed(5)}, ${lng.toFixed(5)}`
-          setStart(name)
-          setStartCoord([lat, lng])
-        } catch {
-          setStart(`${lat.toFixed(5)}, ${lng.toFixed(5)}`)
-          setStartCoord([lat, lng])
-        }
+        // 打開地圖 Modal，GPS 座標會在 Modal 裡自動吸附到最近道路並顯示標記
         setGpsStatus('done')
+        setMapPickerInit([lat, lng])
+        setMapPicker('start')
       },
       err => {
         setGpsStatus('error')

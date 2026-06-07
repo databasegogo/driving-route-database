@@ -1,5 +1,62 @@
 # Changelog
 
+## [v1.3.1] - 2026-06-07
+
+### 路網橋接（Database — 新 SQL 腳本）
+
+#### 新增 `sql/10_bridge_gaps.sql`
+
+龜山區 OSM 資料中，部分區域（如體育大學周邊、山區聚落）因幾何間距超出 pgr_createTopology tolerance 而形成孤立路網島，導致路線規劃回傳 `NO_PATH_FOUND`。
+
+此腳本插入虛擬橋接邊將孤立分量連接至主路網：
+- 橋接閾值：孤立節點到主分量最近節點 ≤ **80 公尺**
+- 每個孤立分量只建一條橋接邊（最近節點對）
+- 虛擬道路：`road_id = 9000001`，name = `(路網連通補丁)`，road_class = residential
+- 虛擬邊：`edge_id ≥ 9000000`，cost = 節點間實際距離（公尺）
+- 執行後 `main_component_nodes` 由 **1,082** 節點增至 **~4,196** 節點
+- 腳本 idempotent：先清除前一次橋接資料再重建
+
+#### `sql/09_routing_helpers.sql` 調整
+
+`main_component_nodes` 改為保留所有**節點數 ≥ 5** 的連通分量（原本只保留最大單一分量），確保被橋接後合併的小分量也在可路由範圍內。
+
+---
+
+### 路由引擎修正（Backend）
+
+#### `backend/routers/route.py`
+
+**ksp_sql COALESCE 修正**：
+- 部分 OSM 邊的 `road_edge.geom` 為 NULL，`ST_AsGeoJSON(NULL)` 讓前端跳過該路段渲染，路線圖出現視覺斷點
+- 修正：`COALESCE(re.geom, ST_MakeLine(vsrc.the_geom, vtgt.the_geom))` 自動以頂點座標補全直線幾何
+
+**snap LIMIT 50 → 200**：
+- 步道/行人路密集地區，最近 50 條邊可能全為不可路由邊（非機動車道），導致 snap 回傳 422
+- 但該地點實際上可被路由到（路線規劃成功）
+- 修正：掃描候選邊數從 50 提升至 **200**，確保在更大範圍內能找到可路由車道
+
+---
+
+### 地圖選點 UX 改善（Frontend）
+
+#### `frontend/src/pages/RoutePlanner.jsx`
+
+**GPS 按鈕流程改寫**：
+- 舊行為：取得 GPS 座標後直接做 Nominatim 反地理編碼，將結果填入文字欄位
+- 新行為：取得 GPS 座標後開啟 MapPickerModal，讓使用者在地圖上確認並微調位置
+
+**snapFail 狀態**：
+- snap API 回傳 422 時（此處真的無可路由道路），CircleMarker 轉橙色（`#ff6b35`）
+- Tooltip 隱藏（不顯示「起點」/「終點」），確認按鈕 disabled
+- 提示文字：「🚫 此位置附近沒有道路，無法作為起終點，請點選靠近道路的位置」
+- 重新點選時自動重置 snapFail 狀態
+
+**Marker Tooltip**：CircleMarker 新增永久 Tooltip 顯示「起點」/「終點」文字標籤
+
+**ERR_MSG 更新**：`NODE_NOT_FOUND`、`NO_PATH_FOUND`、`ALL_ROUTES_EXCEED_DISTANCE_LIMIT` 等錯誤訊息改為更友善的中文說明
+
+---
+
 ## [v1.3.0] - 2026-06-07
 
 ### 前端全面重設計（UI Redesign — merge feature/ui-redesign）

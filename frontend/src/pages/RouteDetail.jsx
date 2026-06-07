@@ -93,6 +93,53 @@ function fmtDuration(sec) {
 const DIFF_STARS  = { BEGINNER: 1, NORMAL: 2, EXPERIENCED: 3 }
 const DIFF_WEIGHT = { BEGINNER: 1, NORMAL: 2, EXPERIENCED: 3 }
 
+// GeoJSON segments → coordsMulti（各 edge 分開的 [[lat,lng],...][]）
+// 不壓平成單一陣列，避免不同 edge 方向不同造成鋸齒路線
+function extractCoordsMultiFromSegments(segments) {
+  if (!segments?.features) return []
+  const multi = []
+  for (const feat of segments.features) {
+    const g = feat.geometry
+    if (!g) continue
+    if (g.type === 'LineString') {
+      multi.push(g.coordinates.map(([lng, lat]) => [lat, lng]))
+    } else if (g.type === 'MultiLineString') {
+      for (const line of g.coordinates)
+        multi.push(line.map(([lng, lat]) => [lat, lng]))
+    }
+  }
+  return multi
+}
+
+// 完成練習後把完整資料存進 localStorage，讓 Records 頁面可以顯示起終點與縮圖
+function saveCompletedToLocal(practiceId, route, startTime, endTime) {
+  const coordsMulti = extractCoordsMultiFromSegments(route.segments)
+  const record = {
+    id:          practiceId,
+    route_id:    route.route_id,
+    start:       route.start,
+    end:         route.end,
+    startCoord:  route.startCoord  ?? null,
+    endCoord:    route.endCoord    ?? null,
+    time:        route.time        ?? null,
+    diffCode:    route.diffCode    ?? 'BEGINNER',
+    coordsMulti,                           // 各 edge 分開，縮圖與地圖才正確
+    coords:      coordsMulti.flat(),       // 壓平備援（SVG toSVG 用）
+    date:        startTime
+      ? `${String(startTime.getMonth()+1).padStart(2,'0')}/${String(startTime.getDate()).padStart(2,'0')}`
+      : null,
+    startTime:   startTime
+      ? `${String(startTime.getHours()).padStart(2,'0')}:${String(startTime.getMinutes()).padStart(2,'0')}`
+      : null,
+    endTime:     endTime
+      ? `${String(endTime.getHours()).padStart(2,'0')}:${String(endTime.getMinutes()).padStart(2,'0')}`
+      : null,
+  }
+  const existing = JSON.parse(localStorage.getItem('practiceRecords') || '[]')
+  const filtered = existing.filter(e => e.id !== practiceId)
+  localStorage.setItem('practiceRecords', JSON.stringify([record, ...filtered]))
+}
+
 export default function RouteDetail() {
   const { state }  = useLocation()
   const navigate   = useNavigate()
@@ -204,6 +251,8 @@ export default function RouteDetail() {
         was_off_route:       wasOffRouteRef.current,
       })
       setResult(res.data)
+      // 存練習紀錄到 localStorage（供 Records 頁面顯示起終點、縮圖）
+      saveCompletedToLocal(res.data.practice_id, route, startRef.current, endRef.current)
       // 同步更新 localStorage 分數
       const user = JSON.parse(localStorage.getItem('currentUser') || '{}')
       localStorage.setItem('currentUser', JSON.stringify({
@@ -234,6 +283,8 @@ export default function RouteDetail() {
         was_off_route:       wasOffRouteRef.current,
       })
       setResult(res.data)
+      // 存練習紀錄到 localStorage（供 Records 頁面顯示起終點、縮圖）
+      saveCompletedToLocal(res.data.practice_id, route, startRef.current, endRef.current)
       const user = JSON.parse(localStorage.getItem('currentUser') || '{}')
       localStorage.setItem('currentUser', JSON.stringify({
         ...user, score: res.data.new_total_score,
@@ -274,13 +325,21 @@ export default function RouteDetail() {
   return (
     <div className="detail-page">
       <header className="route-header">
-        <button className="back-btn" onClick={() => navigate('/route-select', {
-          state: {
-            routes:         state.routes,
-            shortest_route: state.shortest_route,
-            prefs:          state.prefs,
+        <button className="back-btn" onClick={() => {
+          // 從 RouteSelect 進來（有 routes）→ 還原 RouteSelect 狀態
+          // 從 Records/Dashboard 再練習一次進來（沒有 routes）→ 直接回上一頁
+          if (state.routes) {
+            navigate('/route-select', {
+              state: {
+                routes:         state.routes,
+                shortest_route: state.shortest_route,
+                prefs:          state.prefs,
+              }
+            })
+          } else {
+            navigate(-1)
           }
-        })}>
+        }}>
           ← 返回
         </button>
         <span className="route-title">{route.start} — {route.end}</span>

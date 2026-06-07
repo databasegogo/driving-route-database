@@ -10,7 +10,7 @@
 **新手路徑王** — 龜山區新手駕駛練習路線系統  
 提供台灣桃園市龜山區的駕駛練習路線規劃、風險評估與練習紀錄管理。
 
-**目前版本：v1.3.0（main 分支）**
+**目前版本：v1.3.1（main 分支）**
 
 ---
 
@@ -28,7 +28,7 @@
 ```
 frontend/    React 18 + Vite + Leaflet（使用者介面）
 backend/     FastAPI + psycopg2（API 伺服器，port 8000）
-sql/         PostgreSQL 14 + PostGIS + pgRouting（01~09 按順序執行）
+sql/         PostgreSQL 14 + PostGIS + pgRouting（01~10 按順序執行）
 Docker       容器名稱 driving_route_db，port 5433，DB 名稱 gisdb
 ```
 
@@ -64,7 +64,7 @@ npm run dev
 
 | 分支 | 主要貢獻者 | 狀態 |
 |------|-----------|------|
-| `main` | Smaxoi（Sam）| **v1.3.0，最新版本** |
+| `main` | Smaxoi（Sam）| **v1.3.1，最新版本** |
 | `feature/ui-redesign` | Nina Hsieh | ✅ 已合併進 main（v1.3.0 的前端重設計來源）|
 | `feature/admin` | Sophie | ⚠️ 落後 main，包含 admin 功能（role-based login）|
 | `feature/frontend` | b1329031 | ⚠️ 落後 main，包含早期前端調整 |
@@ -82,6 +82,55 @@ git log --oneline HEAD..origin/main # 看 main 有哪些你沒有的 commit
 
 再根據差異決定是否需要 rebase 或 merge main。  
 **不要直接 push，務必先問 Sam。**
+
+---
+
+## v1.3.1 主要變動（相對於 v1.3.0）
+
+### 路網橋接 + 路由修正（此版最重要）
+
+#### 新增 `sql/10_bridge_gaps.sql`
+
+龜山區 OSM 資料存在許多因幾何間距 > pgr_createTopology tolerance 而形成的孤立路網島，
+導致部分地點（如體育大學周邊）回傳 `NO_PATH_FOUND`。
+此腳本為孤立分量插入虛擬橋接邊：
+
+| 項目 | 說明 |
+|------|------|
+| 橋接閾值 | 孤立節點到主分量最近節點 ≤ **80 公尺** |
+| 虛擬道路 | `road_id = 9000001`，name = `(路網連通補丁)` |
+| 虛擬邊 id | `edge_id ≥ 9000000` |
+| 執行後可路由節點 | **~4,196**（原 1,082）|
+| idempotent | ✅ 可重複執行（先 DELETE WHERE edge_id ≥ 9000000 再重建）|
+
+**⚠️ 09_routing_helpers.sql 執行後還必須再執行 10_bridge_gaps.sql**，  
+因為 10 會重建 `main_component_nodes`，納入所有 ≥ 5 個節點的連通分量。
+
+#### `sql/09_routing_helpers.sql` 修正
+
+`main_component_nodes` 改為保留所有節點數 ≥ 5 的連通分量（原本只保留最大分量），  
+配合 10_bridge_gaps.sql 橋接後重建，確保被橋接的小分量也包含在內。
+
+#### `backend/routers/route.py` 兩處修正
+
+**1. ksp_sql COALESCE 補 NULL geom**  
+部分 OSM 邊的 `road_edge.geom` 為 NULL（資料缺漏），`ST_AsGeoJSON(NULL)` 讓前端無法渲染路段造成視覺斷點。  
+改用 `COALESCE(re.geom, ST_MakeLine(vsrc.the_geom, vtgt.the_geom))` 以 source/target 頂點拉直線補全。
+
+**2. snap LIMIT 50 → 200**  
+snap 端點（`/route/snap`）原本只掃最近 50 條邊再篩選可路由邊。  
+某些區域（步道/行人路密集地）近鄰 50 條邊全不在 `main_component_nodes`，  
+導致 snap 回 422 而前端誤判「此處無道路」，但路由實際上可以到達。  
+改為 LIMIT 200，讓 snap 能在更大範圍內找到可路由的車道。
+
+#### `frontend/src/pages/RoutePlanner.jsx` UX 修正
+
+| 項目 | 說明 |
+|------|------|
+| GPS 按鈕 | 改為取得定位後直接開啟 MapPickerModal（不再做反地理編碼），讓使用者在地圖上確認位置 |
+| snapFail 狀態 | snap 回傳 422 時：標記變橙色、Tooltip 隱藏、確認按鈕 disabled、顯示「附近沒有道路」提示 |
+| 標記 Tooltip | 已選起點/終點的 CircleMarker 顯示永久 Tooltip 標示「起點」/「終點」 |
+| ERR_MSG | 更新所有錯誤文字為更友善的中文說明 |
 
 ---
 
@@ -149,7 +198,8 @@ ALTER TABLE user_practice_history
 | 檔案 | 說明 |
 |------|------|
 | `08_create_user_route_tables.sql` | app_user、user_level（閾值 0/150/300）、user_practice_history（含 gps_verified、terminated_early）|
-| `09_routing_helpers.sql` | pgRouting 輔助函數 |
+| `09_routing_helpers.sql` | 建立 `main_component_nodes`（≥5 節點的連通分量，供路由起終點篩選）|
+| `10_bridge_gaps.sql` | **v1.3.1 新增**：孤立路段橋接，插入虛擬邊（edge_id ≥ 9000000）並重建 main_component_nodes；idempotent |
 
 ---
 
@@ -182,6 +232,12 @@ haversine 距離 < 30 公尺視為到達終點，觸發完成 Modal，`gps_verif
 - 從 `/district/boundary` 取得龜山區多邊形
 - `pointInPolygon` + `pointInRing` 驗證點擊位置在龜山區內
 - Nominatim 反地理編碼加 `viewbox: '121.27,25.07,121.43,24.97'` + `bounded: '1'` 限制搜尋範圍
+- 點擊後呼叫 `/route/snap` 吸附到最近可路由道路；snap 失敗（422）時：標記轉橙色、顯示「附近沒有道路」、確認按鈕 disabled
+
+### snap 端點邏輯（`routers/route.py`）
+
+snap 從 `road_edges_guishan` 掃最近 **200** 條邊，篩選 source/target 都在 `main_component_nodes` 的可路由邊，再計算點到邊幾何的垂足返回。  
+**一定要用 200（不要改回 50）**：步道/行人路密集的區域近鄰常常全是不可路由的邊。
 
 ---
 
@@ -189,6 +245,7 @@ haversine 距離 < 30 公尺視為到達終點，觸發完成 Modal，`gps_verif
 
 | 文件 | 說明 |
 |------|------|
+| `docs/upgrade_v1.3.0_to_v1.3.1.md` | **v1.3.0 → v1.3.1 升級指南**（執行 10_bridge_gaps.sql）|
 | `docs/upgrade_v1.2_to_v1.3.md` | v1.2.0 → v1.3.0 升級指南（git pull + SQL + npm install）|
 | `docs/upgrade_v1.1_to_v1.2.md` | v1.1.0 → v1.2.0 升級指南 |
 | `docs/database_schema.md` | 完整 DB schema 文件 |
@@ -235,4 +292,17 @@ WHERE table_name = 'user_practice_history'
 -- 確認等級閾值
 SELECT level_code, min_score FROM user_level ORDER BY min_score;
 -- BEGINNER 0 / NORMAL 150 / EXPERIENCED 300
+
+-- 確認橋接邊與可路由節點（v1.3.1）
+SELECT COUNT(*) FROM road_edge WHERE edge_id >= 9000000;
+-- 應有數百筆（約 895）
+
+SELECT COUNT(*) FROM main_component_nodes;
+-- 應有約 4,196 筆（舊版為 1,082）
 ```
+
+### 橋接腳本問題排除（`10_bridge_gaps.sql`）
+
+- 腳本設計為 **idempotent**：執行前會先 `DELETE WHERE edge_id >= 9000000`，可安全重複執行
+- 若執行後 `main_component_nodes` 節點數偏少，確認 `09_routing_helpers.sql` 已先執行過一次
+- psql 使用 autocommit 模式，腳本中不使用 `ON COMMIT DROP` 暫存表（已改為 `DROP TABLE IF EXISTS ... ; CREATE TEMP TABLE ...`）
