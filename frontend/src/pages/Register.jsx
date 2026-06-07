@@ -138,7 +138,7 @@ function Register() {
                 <div className="auth-input-group">
                   <label htmlFor="reg-password">密碼</label>
                   <input id="reg-password" name="password" type="password" className="auth-field"
-                    value={form.password} onChange={handleChange} placeholder="設定密碼" required />
+                    value={form.password} onChange={handleChange} placeholder="設定密碼（至少六位數）" required />
                 </div>
 
                 <div className="auth-input-group">
