@@ -36,24 +36,31 @@
 .rec-sidebar-wrap {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 20px;
 }
 
 /* 外部返回按鈕（米色底色上）*/
 .rec-nav-back-outer {
-  background: none;
-  border: none;
+  display: inline-flex;
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
   color: var(--rec-gray);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
-  padding: 2px 4px;
+  padding: 8px 14px;
   text-align: left;
-  transition: color 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
   align-self: flex-start;
 }
-.rec-nav-back-outer:hover { color: var(--rec-orange); }
+.rec-nav-back-outer:hover {
+  background: rgba(255, 107, 53, 0.08);
+  border-color: rgba(255, 107, 53, 0.3);
+  color: var(--rec-orange);
+}
 
 /* ══════════════════════════════════
    左側欄（圓角卡片）
@@ -117,20 +124,22 @@
   color: #ffffff;
 }
 
-.rec-stat-done .rec-stat-num { color: #4dd6c8; }
-.rec-stat-ing  .rec-stat-num { color: var(--rec-orange); }
-.rec-stat-none .rec-stat-num { color: rgba(255,255,255,0.4); }
+.rec-stat-done       .rec-stat-num { color: #4dd6c8; }
+.rec-stat-ing        .rec-stat-num { color: var(--rec-orange); }
+.rec-stat-none       .rec-stat-num { color: rgba(255,255,255,0.4); }
+.rec-stat-terminated .rec-stat-num { color: #e65100; }
 
 /* 點選篩選中的 active 狀態 */
-.rec-stat-done.rec-stat-active  { background: rgba(77, 214, 200, 0.15); border-color: #4dd6c8; }
-.rec-stat-ing.rec-stat-active   { background: rgba(255, 107, 53, 0.15); border-color: var(--rec-orange); }
-.rec-stat-none.rec-stat-active  { background: rgba(255, 255, 255, 0.1); border-color: rgba(255,255,255,0.3); }
+.rec-stat-done.rec-stat-active        { background: rgba(77, 214, 200, 0.15); border-color: #4dd6c8; }
+.rec-stat-ing.rec-stat-active         { background: rgba(255, 107, 53, 0.15); border-color: var(--rec-orange); }
+.rec-stat-none.rec-stat-active        { background: rgba(255, 255, 255, 0.1); border-color: rgba(255,255,255,0.3); }
+.rec-stat-terminated.rec-stat-active  { background: rgba(230, 81, 0, 0.15);  border-color: #e65100; }
 
 /* 進度條 */
 .rec-prog-header {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.5);
   font-weight: 600;
   margin-bottom: 6px;
@@ -158,7 +167,7 @@
 
 /* 日期篩選 */
 .rec-filter-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   color: rgba(255, 255, 255, 0.35);
   letter-spacing: 1px;
@@ -229,7 +238,7 @@
 .rec-date-trigger-clear:hover { opacity: 1; }
 
 .rec-date-result-hint {
-  font-size: 12px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.45);
   margin: 6px 0 16px;
   font-weight: 600;
@@ -412,7 +421,7 @@
 }
 
 .rec-newest-tag {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   padding: 2px 8px;
   border-radius: 20px;
@@ -496,7 +505,7 @@
   gap: 6px;
   padding: 8px 14px;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;

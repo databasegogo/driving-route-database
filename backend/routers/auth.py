@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, EmailStr, Field
+from typing import Optional
 import bcrypt
+import json
 
 from database import get_db
 from utils.auth import create_access_token
@@ -11,11 +13,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # ── Request schemas ──────────────────────────────────────────────
 
 class RegisterRequest(BaseModel):
-    username:     str      = Field(min_length=1,  max_length=26)
+    username:     str            = Field(min_length=1,  max_length=26)
     email:        EmailStr
-    password:     str      = Field(min_length=6,  max_length=26)
-    birth_date:   str      = Field(pattern=r'^\d{4}-\d{2}-\d{2}$')
-    license_date: str      = Field(pattern=r'^\d{4}-\d{2}-\d{2}$')
+    password:     str            = Field(min_length=6,  max_length=26)
+    birth_date:   str            = Field(pattern=r'^\d{4}-\d{2}-\d{2}$')
+    license_date: str            = Field(pattern=r'^\d{4}-\d{2}-\d{2}$')
+    address:      Optional[str]  = None   # JSON 字串，如 '{"city":"台北市",...}'
 
 
 class LoginRequest(BaseModel):
@@ -45,9 +48,9 @@ def register(req: RegisterRequest):
 
         cur.execute("""
             INSERT INTO app_user
-              (username, email, password_hash, birth_date, license_date,
+              (username, email, password_hash, birth_date, license_date, address,
                user_level_id, total_score, role)
-            VALUES (%s, %s, %s, %s, %s, 1, 0, 'user')
+            VALUES (%s, %s, %s, %s, %s, %s, 1, 0, 'user')
             RETURNING user_id, username, user_level_id
         """, (
             req.username,
@@ -55,6 +58,7 @@ def register(req: RegisterRequest):
             hash_password(req.password),
             req.birth_date,
             req.license_date,
+            req.address,   # JSON 字串，None 則存 NULL
         ))
 
         user_id, username, user_level_id = cur.fetchone()

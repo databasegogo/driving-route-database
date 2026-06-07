@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { User, MapPin, ArrowRight, Zap, Navigation, BookOpen } from 'lucide-react'
-import { MapContainer, TileLayer, Polyline, useMap } from 'react-leaflet'
+import { User, MapPin, ArrowRight, Zap, Navigation, BookOpen, Map } from 'lucide-react'
+import { MapContainer, TileLayer, Polyline, useMap, GeoJSON, CircleMarker, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api'
 import '../styles/dashboard.css'
+import '../styles/route.css'
 
 /* ── 可愛小車 SVG ── */
 function CarSVG() {
@@ -141,7 +142,7 @@ function LevelRoad({ score, level, gapToNext }) {
 
       {/* 底部提示 */}
       <p className="dash-level-hint">
-        <Zap size={12} className="hint-zap" />
+        <Zap size={14} className="hint-zap" />
         {score} pts
         {level.next ? ` · 距升至${level.next}還差 ${Math.max(0, gapToNext)} pts` : ' · 已達最高等級！'}
       </p>
@@ -209,7 +210,7 @@ function FitBounds({ coords }) {
 }
 
 // coordsMulti = [[seg1], [seg2], ...]；coords = flat（備援）
-function MiniMap({ coords, coordsMulti }) {
+function MiniMap({ coords, coordsMulti, startCoord, endCoord }) {
   const hasCoords = coords?.length > 0
   if (!hasCoords) {
     return (
@@ -219,6 +220,9 @@ function MiniMap({ coords, coordsMulti }) {
     )
   }
   const center = coords[Math.floor(coords.length / 2)]
+  // 若無明確起終點座標，fallback 用路線首末點
+  const sCoord = startCoord ?? coords[0]
+  const eCoord = endCoord   ?? coords[coords.length - 1]
   return (
     <MapContainer
       center={center} zoom={14}
@@ -235,11 +239,160 @@ function MiniMap({ coords, coordsMulti }) {
           ))
         : <Polyline positions={coords} color="#ff6b35" weight={3} opacity={0.9} />
       }
+      {sCoord && (
+        <CircleMarker center={sCoord} radius={7}
+          pathOptions={{ fillColor: '#22c55e', color: '#fff', weight: 2, fillOpacity: 1 }}
+        />
+      )}
+      {eCoord && (
+        <CircleMarker center={eCoord} radius={7}
+          pathOptions={{ fillColor: '#ef4444', color: '#fff', weight: 2, fillOpacity: 1 }}
+        />
+      )}
     </MapContainer>
   )
 }
 
-function LocationInput({ value, coord, onChange, onSelect, placeholder, label, dotClass }) {
+// ── 地圖點擊器 ─────────────────────────────────────────────────────────────
+function MapClicker({ onPick }) {
+  useMapEvents({ click(e) { onPick([e.latlng.lat, e.latlng.lng]) } })
+  return null
+}
+
+// Ray-casting：判斷點是否在單一環內
+function pointInRing(lat, lng, ring) {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]
+    const [xj, yj] = ring[j]
+    const intersect = ((yi > lat) !== (yj > lat)) &&
+      (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)
+    if (intersect) inside = !inside
+  }
+  return inside
+}
+
+// 支援 Polygon 和 MultiPolygon
+function pointInPolygon(lat, lng, geojson) {
+  if (!geojson) return false
+  const { type, coordinates } = geojson.geometry
+  if (type === 'Polygon') return pointInRing(lat, lng, coordinates[0])
+  if (type === 'MultiPolygon') return coordinates.some(p => pointInRing(lat, lng, p[0]))
+  return false
+}
+
+// ── 地圖選點 Modal ──────────────────────────────────────────────────────────
+function MapPickerModal({ target, otherCoord, onConfirm, onClose }) {
+  const [picked,   setPicked]   = useState(null)
+  const [name,     setName]     = useState('')
+  const [loading,  setLoading]  = useState(false)
+  const [boundary, setBoundary] = useState(null)
+
+  useEffect(() => {
+    api.get('/district/boundary')
+      .then(res => setBoundary(res.data))
+      .catch(() => setBoundary(null))
+  }, [])
+
+  const isInside = picked ? pointInPolygon(picked[0], picked[1], boundary) : false
+
+  async function handlePick(coord) {
+    setPicked(coord)
+    const inside = pointInPolygon(coord[0], coord[1], boundary)
+    if (!inside) { setName(''); return }
+    setLoading(true)
+    setName('定位中...')
+    try {
+      const url = new URL('https://nominatim.openstreetmap.org/reverse')
+      url.searchParams.set('lat', coord[0])
+      url.searchParams.set('lon', coord[1])
+      url.searchParams.set('format', 'json')
+      url.searchParams.set('accept-language', 'zh-TW,zh')
+      url.searchParams.set('addressdetails', '1')
+      const res  = await fetch(url.toString(), { headers: { 'User-Agent': 'driving-route-database/1.0' } })
+      const data = await res.json()
+      const addr = data.address || {}
+      const label = data.name ||
+        addr.road || addr.pedestrian || addr.footway || addr.path ||
+        addr.suburb || addr.village ||
+        `${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}`
+      setName(label)
+    } catch {
+      setName(`${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="map-picker-overlay">
+      <div className="map-picker-modal">
+        <div className="map-picker-header">
+          <span>📍 選擇{target === 'start' ? '起點' : '終點'}位置</span>
+          <button className="map-picker-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="map-picker-hint">
+          {!picked && !otherCoord && '點擊橘色區域內的龜山區範圍來選取位置'}
+          {!picked &&  otherCoord && target === 'end'   && '📌 綠點為已選起點，請在地圖上點選終點位置'}
+          {!picked &&  otherCoord && target === 'start' && '📌 紅點為已選終點，請在地圖上點選起點位置'}
+          {picked && !isInside && '⚠️ 所選位置超出龜山區範圍，請重新點選'}
+          {picked && isInside && (loading ? '⏳ 定位中...' : `✅ 已選：${name}`)}
+        </div>
+        <div className="map-picker-map">
+          <MapContainer
+            center={[25.02, 121.35]} zoom={13}
+            maxBounds={[[24.88, 121.18], [25.16, 121.52]]}
+            maxBoundsViscosity={0.8} minZoom={11}
+            style={{ width: '100%', height: 'min(420px, 55vh)' }}
+            zoomControl
+          >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="© OpenStreetMap contributors"
+            />
+            {boundary && (
+              <GeoJSON key="guishan" data={boundary}
+                style={{ color: '#ff6b35', weight: 2.5, dashArray: '8,5', fillOpacity: 0.06 }}
+              />
+            )}
+            <MapClicker onPick={handlePick} />
+            {otherCoord && (
+              <CircleMarker center={otherCoord} radius={9}
+                pathOptions={{
+                  fillColor: target === 'end' ? '#22c55e' : '#ef4444',
+                  color: '#fff', weight: 2.5, fillOpacity: 1,
+                }}
+              />
+            )}
+            {picked && (
+              <CircleMarker center={picked} radius={9}
+                pathOptions={{
+                  color:       '#fff',
+                  fillColor:   isInside
+                    ? (target === 'start' ? '#22c55e' : '#ef4444')
+                    : '#e74c3c',
+                  fillOpacity: 0.95, weight: 2.5,
+                }}
+              />
+            )}
+          </MapContainer>
+        </div>
+        <div className="map-picker-footer">
+          <button className="map-picker-cancel" onClick={onClose}>取消</button>
+          <button
+            className="map-picker-confirm"
+            disabled={!picked || !isInside || loading}
+            onClick={() => { onConfirm(name, picked); onClose() }}
+          >
+            確認選點
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function LocationInput({ value, coord, onChange, onSelect, placeholder, label, dotClass, extraButtons }) {
   const [suggestions, setSuggestions] = useState([])
   const [show, setShow] = useState(false)
   const timerRef = useRef(null)
@@ -283,28 +436,45 @@ function LocationInput({ value, coord, onChange, onSelect, placeholder, label, d
         <span className={`dash-dot ${dotClass}`} />
         <label className="dash-input-label">{label}</label>
       </div>
-      <div className="dash-input-body">
-        <input
-          className="dash-input-box" type="text" value={value}
-          onChange={handleChange}
-          onFocus={() => suggestions.length > 0 && setShow(true)}
-          onBlur={() => setTimeout(() => setShow(false), 200)}
-          placeholder={placeholder}
-        />
-        {coord && <MapPin size={13} className="dash-coord-ok" />}
-        {show && suggestions.length > 0 && (
-          <ul className="dash-suggest-list">
-            {suggestions.map((item, i) => (
-              <li key={i} onMouseDown={() => handleSelect(item)}>
-                <span className="dash-suggest-name">{item.display_name.split(',')[0].trim()}</span>
-                <span className="dash-suggest-addr">{shortName(item.display_name)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+      <div className="dash-input-body" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ flex: 1, position: 'relative' }}>
+          <input
+            className="dash-input-box" type="text" value={value}
+            onChange={handleChange}
+            onFocus={() => suggestions.length > 0 && setShow(true)}
+            onBlur={() => setTimeout(() => setShow(false), 200)}
+            placeholder={placeholder}
+          />
+          {coord && <MapPin size={13} className="dash-coord-ok" />}
+          {show && suggestions.length > 0 && (
+            <ul className="dash-suggest-list">
+              {suggestions.map((item, i) => (
+                <li key={i} onMouseDown={() => handleSelect(item)}>
+                  <span className="dash-suggest-name">{item.display_name.split(',')[0].trim()}</span>
+                  <span className="dash-suggest-addr">{shortName(item.display_name)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {extraButtons}
       </div>
     </div>
   )
+}
+
+// 地圖/GPS 按鈕共用樣式
+const mapIconBtnStyle = {
+  width: '34px', height: '34px',
+  borderRadius: '9px',
+  border: '1.5px solid rgba(38,70,83,0.12)',
+  background: '#f4f5f7',
+  color: '#7e8b9b',
+  cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  flexShrink: 0,
+  transition: 'all 0.15s',
+  padding: 0,
 }
 
 export default function Dashboard() {
@@ -317,7 +487,41 @@ export default function Dashboard() {
   const [endText, setEndText]         = useState('')
   const [endCoord, setEndCoord]       = useState(null)
   const [detailRec, setDetailRec]     = useState(null)
+  const [mapPicker, setMapPicker]     = useState(null)   // 'start' | 'end' | null
+  const [gpsStatus, setGpsStatus]     = useState('idle') // 'idle' | 'loading' | 'done' | 'error'
   const navigate = useNavigate()
+
+  // ── GPS 一鍵定位起點 ────────────────────────────────────────────────────────
+  async function handleGPS() {
+    if (!navigator.geolocation) return
+    setGpsStatus('loading')
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
+        const lat = pos.coords.latitude
+        const lng = pos.coords.longitude
+        try {
+          const url = new URL('https://nominatim.openstreetmap.org/reverse')
+          url.searchParams.set('lat', lat)
+          url.searchParams.set('lon', lng)
+          url.searchParams.set('format', 'json')
+          url.searchParams.set('accept-language', 'zh-TW,zh')
+          const res  = await fetch(url.toString(), { headers: { 'User-Agent': 'driving-route-database/1.0' } })
+          const data = await res.json()
+          const addr = data.address || {}
+          const name = data.name || addr.road || addr.pedestrian ||
+            addr.suburb || `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+          setStartText(name)
+          setStartCoord([lat, lng])
+        } catch {
+          setStartText(`${lat.toFixed(5)}, ${lng.toFixed(5)}`)
+          setStartCoord([lat, lng])
+        }
+        setGpsStatus('done')
+      },
+      () => setGpsStatus('error'),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+    )
+  }
 
   function buildSegmentsFromRecord(r) {
     if (r.coordsMulti?.length) {
@@ -456,7 +660,7 @@ export default function Dashboard() {
         <section className="dash-left">
           <div className="dash-route-card">
             <div className="dash-greeting">
-              <p className="dash-hi">Hi {user.name} ›</p>
+              <p className="dash-hi">Hi {user.name} </p>
               <h2 className="dash-heading">今天要去哪裡練習？</h2>
               <p className="dash-sub">輸入起終點，為你規劃屬於你的練習路線</p>
             </div>
@@ -464,21 +668,68 @@ export default function Dashboard() {
             <div className="dash-inputs">
               <LocationInput
                 value={startText} coord={startCoord}
-                onChange={(t, c) => { setStartText(t); setStartCoord(c) }}
+                onChange={(t, c) => { setStartText(t); setStartCoord(c); if (!c) setGpsStatus('idle') }}
                 onSelect={c => setStartCoord(c)}
-                placeholder="輸入起點地址" label="起點" dotClass="dot-start"
+                placeholder="輸入起點地址（例如：長庚大學）" label="起點" dotClass="dot-start"
+                extraButtons={
+                  <>
+                    <button
+                      type="button"
+                      style={{
+                        ...mapIconBtnStyle,
+                        ...(mapPicker === 'start' ? { background: '#ff6b35', color: '#fff', borderColor: '#ff6b35' } : {}),
+                      }}
+                      onClick={() => setMapPicker('start')}
+                      title="在地圖上選取起點"
+                    >
+                      <Map size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        ...mapIconBtnStyle,
+                        ...(gpsStatus === 'done'    ? { color: '#2a9d8f', borderColor: '#2a9d8f' } : {}),
+                        ...(gpsStatus === 'error'   ? { color: '#e76f51', borderColor: '#e76f51' } : {}),
+                        ...(gpsStatus === 'loading' ? { opacity: 0.6, cursor: 'not-allowed' } : {}),
+                      }}
+                      onClick={handleGPS}
+                      disabled={gpsStatus === 'loading'}
+                      title={
+                        gpsStatus === 'loading' ? '定位中...' :
+                        gpsStatus === 'done'    ? '已定位，點擊重新定位' :
+                        gpsStatus === 'error'   ? '定位失敗，點擊重試' :
+                                                  '使用目前位置作為起點'
+                      }
+                    >
+                      <Navigation size={15} />
+                    </button>
+                  </>
+                }
               />
               <div className="dash-input-connector" />
               <LocationInput
                 value={endText} coord={endCoord}
                 onChange={(t, c) => { setEndText(t); setEndCoord(c) }}
                 onSelect={c => setEndCoord(c)}
-                placeholder="輸入終點地址" label="終點" dotClass="dot-end"
+                placeholder="輸入終點地址（例如：林口長庚醫院）" label="終點" dotClass="dot-end"
+                extraButtons={
+                  <button
+                    type="button"
+                    style={{
+                      ...mapIconBtnStyle,
+                      ...(mapPicker === 'end' ? { background: '#ff6b35', color: '#fff', borderColor: '#ff6b35' } : {}),
+                    }}
+                    onClick={() => setMapPicker('end')}
+                    title="在地圖上選取終點"
+                  >
+                    <Map size={15} />
+                  </button>
+                }
               />
             </div>
 
             <button className="dash-cta-btn" onClick={handleGoRoute}>
-              <MapPin size={15} /> 生成練習路徑 <ArrowRight size={15} />
+              <MapPin size={17} /> 生成練習路徑 <ArrowRight size={17} />
             </button>
           </div>
         </section>
@@ -498,7 +749,7 @@ export default function Dashboard() {
               {/* 右：累計積分 */}
               <div className="dash-user-header-right">
                 <div className="dash-user-score-num">
-                  <Zap size={14} className="dash-user-score-zap" />
+                  <Zap size={16} className="dash-user-score-zap" />
                   {user.score}
                 </div>
                 <span className="dash-user-score-label">累計積分</span>
@@ -509,7 +760,7 @@ export default function Dashboard() {
             <div className="dash-user-body">
               <div className="dash-stats-row">
                 <div className="dash-stat">
-                  <BookOpen size={16} className="dash-stat-icon orange" />
+                  <BookOpen size={18} className="dash-stat-icon orange" />
                   <div>
                     <p className="dash-stat-label">練習次數</p>
                     <p className="dash-stat-num">{totalCount} <span>次</span></p>
@@ -517,7 +768,7 @@ export default function Dashboard() {
                 </div>
                 <div className="dash-stat-divider" />
                 <div className="dash-stat">
-                  <Navigation size={16} className="dash-stat-icon teal" />
+                  <Navigation size={18} className="dash-stat-icon teal" />
                   <div>
                     <p className="dash-stat-label">累計里程</p>
                     <p className="dash-stat-num">{totalKm} <span>km</span></p>
@@ -526,7 +777,7 @@ export default function Dashboard() {
               </div>
 
               <button className="dash-white-profile-btn" onClick={() => navigate('/profile')}>
-                <User size={14} /> 個人檔案
+                <User size={16} /> 個人檔案
               </button>
             </div>
           </div>
@@ -538,21 +789,54 @@ export default function Dashboard() {
       </main>
 
       {/* ── 最近練習紀錄（橫向滑動）── */}
-      {recentRecs.length > 0 && (
-        <section className="dash-rec-section">
-          <div className="dash-rec-section-hd">
-            <h3 className="dash-rec-section-title">最近練習紀錄</h3>
-            <button className="dash-rec-see-all" onClick={() => navigate('/records')}>
-              查看全部 <ArrowRight size={13} />
+      <section className="dash-rec-section">
+        <div className="dash-rec-section-hd">
+          <h3 className="dash-rec-section-title">最近練習紀錄</h3>
+          <button className="dash-rec-see-all" onClick={() => navigate('/records')}>
+            查看全部 <ArrowRight size={15} />
+          </button>
+        </div>
+
+        {recentRecs.length === 0 ? (
+          /* 空狀態 */
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            padding: '36px 20px', gap: '10px',
+          }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '16px',
+              background: 'rgba(255,107,53,0.08)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <BookOpen size={26} color="#ff6b35" strokeWidth={1.8} />
+            </div>
+            <p style={{ fontSize: '14px', fontWeight: '700', color: '#264653', margin: 0 }}>
+              還沒有練習紀錄
+            </p>
+            <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
+              輸入起終點，生成路徑開始你的第一次練習吧！
+            </p>
+            <button
+              onClick={() => navigate('/route')}
+              style={{
+                marginTop: '4px', padding: '9px 20px',
+                background: '#ff6b35', color: '#fff',
+                border: 'none', borderRadius: '10px',
+                fontSize: '13px', fontWeight: '700',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+              }}
+            >
+              <Navigation size={15} /> 立即生成路徑
             </button>
           </div>
+        ) : (
           <div className="dash-rec-scroll">
             {recentRecs.map(r => {
               const sm = STATUS_META[r.status] ?? STATUS_META.incomplete
               return (
                 <div key={r.id} className="dash-rec-card" onClick={() => setDetailRec(r)} style={{ cursor: 'pointer' }}>
                   <div className="dash-rec-map-wrap">
-                    <MiniMap coords={r.coords} coordsMulti={r.coordsMulti} />
+                    <MiniMap coords={r.coords} coordsMulti={r.coordsMulti} startCoord={r.startCoord} endCoord={r.endCoord} />
                   </div>
                   <div className="dash-rec-body">
                     <div className="dash-rec-top-row">
@@ -564,16 +848,16 @@ export default function Dashboard() {
                     </p>
                     <div className="dash-rec-divider" />
                     <div className="dash-rec-foot">
-                      <span className="dash-rec-km"><Navigation size={12} /> {r.distance} km</span>
-                      <span className="dash-rec-score"><Zap size={12} /> +{r.score} 分</span>
+                      <span className="dash-rec-km"><Navigation size={14} /> {r.distance} km</span>
+                      <span className="dash-rec-score"><Zap size={14} /> +{r.score} 分</span>
                     </div>
                   </div>
                 </div>
               )
             })}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       {/* ── 紀錄詳細 Modal ── */}
       {detailRec && (
@@ -585,7 +869,7 @@ export default function Dashboard() {
             {/* 地圖 */}
             {detailRec.coords?.length > 0 && (
               <div className="dash-modal-map-wrap">
-                <MiniMap key={detailRec.id} coords={detailRec.coords} coordsMulti={detailRec.coordsMulti} />
+                <MiniMap key={detailRec.id} coords={detailRec.coords} coordsMulti={detailRec.coordsMulti} startCoord={detailRec.startCoord} endCoord={detailRec.endCoord} />
               </div>
             )}
 
@@ -615,12 +899,37 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <button className="dash-modal-repeat-btn" onClick={() => { setDetailRec(null); handleRepeat(detailRec) }}>
-              再練習一次
-            </button>
+            <div className="dash-modal-btn-row">
+              <button
+                className="dash-modal-more-btn"
+                onClick={() => {
+                  const id = detailRec.id
+                  setDetailRec(null)
+                  navigate('/records', { state: { openId: id } })
+                }}
+              >
+                查看更多
+              </button>
+              <button className="dash-modal-repeat-btn" onClick={() => { setDetailRec(null); handleRepeat(detailRec) }}>
+                再練習一次
+              </button>
+            </div>
             <button className="dash-modal-close-btn" onClick={() => setDetailRec(null)}>關閉</button>
           </div>
         </div>
+      )}
+
+      {/* ── 地圖選點 Modal ── */}
+      {mapPicker && (
+        <MapPickerModal
+          target={mapPicker}
+          otherCoord={mapPicker === 'end' ? startCoord : endCoord}
+          onConfirm={(name, coord) => {
+            if (mapPicker === 'start') { setStartText(name); setStartCoord(coord); setGpsStatus('idle') }
+            else                       { setEndText(name);   setEndCoord(coord)   }
+          }}
+          onClose={() => setMapPicker(null)}
+        />
       )}
     </div>
   )

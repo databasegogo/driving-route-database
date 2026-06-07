@@ -123,8 +123,8 @@ body {
 }
 .rail-node-block { display: flex; align-items: flex-start; gap: 16px; width: 100%; }
 .rail-dot { width: 8px; height: 8px; border-radius: 50%; border: 2px solid #ffffff; margin-top: 32px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex-shrink: 0; }
-.rail-dot.dot-start { background: var(--nordic-orange); box-shadow: 0 0 6px var(--nordic-orange); }
-.rail-dot.dot-end { background: #2a9d8f; box-shadow: 0 0 6px #2a9d8f; }
+.rail-dot.dot-start { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+.rail-dot.dot-end   { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
 
 /* 🤝 融合優化：防止方框超出底層白框的防線 */
 .location-wrap {
@@ -141,7 +141,7 @@ body {
   text-align: left;
   width: 100%;
 }
-.premium-input-box label { font-size: 0.65rem; font-weight: 800; color: var(--nordic-gray); letter-spacing: 0.5px; }
+.premium-input-box label { font-size: 13px; font-weight: 800; color: var(--nordic-gray); letter-spacing: 0.5px; }
 
 .input-with-marker {
   position: relative;
@@ -232,7 +232,7 @@ body {
 .pref-tile-card input { position: absolute; opacity: 0; width: 0; height: 0; }
 .tile-emoji { font-size: 1.4rem; opacity: 0.5; }
 .tile-text h4 { margin: 0 0 2px 0; font-size: 0.9rem; font-weight: 800; color: var(--nordic-dark); }
-.tile-text p { margin: 0; font-size: 0.75rem; color: var(--nordic-gray); }
+.tile-text p { margin: 0; font-size: 15px; color: var(--nordic-gray); }
 
 .pref-tile-card.is-selected { 
   background: rgba(255, 111, 67, 0.04) !important; 
@@ -242,7 +242,7 @@ body {
 .pref-tile-card.is-selected .tile-emoji { opacity: 1; }
 
 .pref-row { display: flex; align-items: center; margin-bottom: 4px; }
-.cockpit-lbl { width: 90px; font-size: 0.95rem; font-weight: 800; color: var(--nordic-dark); text-align: left; }
+.cockpit-lbl { width: 90px; font-size: 0.95rem; font-weight: 800; color: var(--nordic-dark); text-align: left; white-space: nowrap; }
 
 /* 📊 距離膠囊晶片 */
 .pill-group { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -311,6 +311,21 @@ body {
 
 .route-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; width: 100%; }
 @media (max-width: 640px) { .route-cards { grid-template-columns: 1fr; } }
+
+/* 統計方塊：桌機左右排、手機上下排 */
+.shortest-stat-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+@media (max-width: 640px) {
+  .shortest-stat-card {
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+}
 
 /* ── Carousel 路線選擇 ── */
 .route-slider-wrap {
@@ -396,10 +411,10 @@ body {
   top: 12px; left: 12px;
   background: #264653;
   color: #fff;
-  font-size: 11px; font-weight: 800;
+  font-size: 13px; font-weight: 800;
   padding: 4px 10px;
   border-radius: 20px;
-  z-index: 1;
+  z-index: 1000;
   letter-spacing: 0.5px;
 }
 .slide-map-loading {
@@ -407,9 +422,9 @@ body {
   height: 100%; color: #aaa; font-size: 13px;
 }
 .slide-info { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 10px; }
-.slide-route-name { font-size: 14px; font-weight: 700; color: #264653; line-height: 1.4; }
+.slide-route-name { font-size: 15px; font-weight: 700; color: #264653; line-height: 1.4; }
 .slide-stars { display: flex; align-items: center; gap: 4px; }
-.slide-diff-label { font-size: 12px; color: #7e8b9b; margin-left: 4px; }
+.slide-diff-label { font-size: 13px; color: #7e8b9b; margin-left: 4px; }
 .slide-stats { display: flex; gap: 14px; }
 .slide-stat { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: #264653; }
 .slide-stat svg { color: #7e8b9b; }
@@ -417,7 +432,7 @@ body {
 .slide-stat.score svg { color: var(--nordic-orange); }
 .slide-warning {
   display: flex; align-items: center; gap: 6px;
-  font-size: 11px; color: #e76f51; font-weight: 600;
+  font-size: 12px; color: #e76f51; font-weight: 600;
   background: rgba(231, 111, 81, 0.06);
   padding: 6px 10px; border-radius: 8px;
 }
@@ -584,7 +599,7 @@ body {
 .arrived-score-num   { font-size: 28px; font-weight: 900; color: var(--nordic-orange); }
 .arrived-score-unit  { font-size: 14px; font-weight: 800; color: var(--nordic-orange); }
 .arrived-score-tag   {
-  font-size: 11px; font-weight: 800; background: #dcfce7; color: #14532d;
+  font-size: 12px; font-weight: 800; background: #dcfce7; color: #14532d;
   padding: 3px 9px; border-radius: 20px;
 }
 
@@ -603,7 +618,7 @@ body {
 .term-row span:first-child { color: var(--nordic-gray); font-weight: 700; }
 .term-row.highlight { background: #fff5f0; }
 .term-discount-note {
-  font-size: 11px; color: #c0392b; font-weight: 700; text-align: center; margin: 4px 0 0;
+  font-size: 12px; color: #c0392b; font-weight: 700; text-align: center; margin: 4px 0 0;
 }
 
 /* ── GPS 驗證徽章（完成 Modal）── */
@@ -673,11 +688,11 @@ body {
 .rec-dest-zone { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
 .rec-dest-label {
   display: flex; align-items: center; gap: 5px;
-  font-size: 11px; color: var(--nordic-gray); font-weight: 600; letter-spacing: 0.5px;
+  font-size: 14px; color: var(--nordic-gray); font-weight: 600; letter-spacing: 0.5px;
 }
 .rec-refresh-btn {
   background: none; border: none; cursor: pointer; color: var(--nordic-gray);
-  font-size: 14px; padding: 0 2px; margin-left: 2px;
+  font-size: 18px; padding: 0 2px; margin-left: 2px;
   transition: transform 0.3s; line-height: 1;
 }
 .rec-refresh-btn:hover { transform: rotate(180deg); color: var(--nordic-orange); }

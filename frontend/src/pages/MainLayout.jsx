@@ -52,6 +52,10 @@ function MainLayout() {
   }, [menuOpen])
 
   const handleLogout = () => {
+    // 記下目前的 user_id，讓下次登入時判斷是否換了帳號
+    const current = JSON.parse(localStorage.getItem('currentUser') || '{}')
+    if (current.user_id) localStorage.setItem('lastUserId', String(current.user_id))
+    // 只清登入憑證，保留本地資料（頭貼、練習地圖座標）
     localStorage.removeItem('token')
     localStorage.removeItem('currentUser')
     setMenuOpen(false)

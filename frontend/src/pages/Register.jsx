@@ -27,9 +27,32 @@ function Register() {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
+  // 今天的日期（yyyy-mm-dd），用作 max 屬性
+  const today = new Date().toISOString().split('T')[0]
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+
+    // ── 日期防呆驗證 ──
+    if (form.birthday > today) {
+      setError('生日不能是未來的日期 ❌')
+      return
+    }
+    if (form.licenseDate > today) {
+      setError('駕照取得日期不能是未來的日期 ❌')
+      return
+    }
+    if (form.birthday && form.licenseDate) {
+      const bDay = new Date(form.birthday)
+      const lDay = new Date(form.licenseDate)
+      bDay.setFullYear(bDay.getFullYear() + 18)
+      if (lDay < bDay) {
+        setError('駕照取得日期須在生日後滿 18 年 ❌')
+        return
+      }
+    }
+
     setLoading(true)
 
     try {
@@ -70,8 +93,8 @@ function Register() {
   if (success) {
     return (
       <div className="auth-page-container">
-        <div className="auth-glass-card" style={{ maxWidth: '440px', padding: '48px 40px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+        <div className="auth-glass-card" style={{ maxWidth: '360px', padding: '48px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', width: '100%' }}>
             <CheckCircle size={56} color="#264653" style={{ opacity: 0.9 }} />
             <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#264653', margin: 0 }}>註冊成功！</h2>
             <p style={{ fontSize: '14px', color: '#7e8b9b', margin: '0 0 12px 0', textAlign: 'center' }}>
@@ -144,14 +167,14 @@ function Register() {
                 <div className="auth-input-group">
                   <label htmlFor="birthday">生日</label>
                   <input id="birthday" name="birthday" type="date" className="auth-field"
-                    value={form.birthday} onChange={handleChange} required />
+                    value={form.birthday} onChange={handleChange} max={today} required />
                 </div>
               </div>
 
               <div className="auth-input-group">
                 <label htmlFor="licenseDate">駕照取得日期</label>
                 <input id="licenseDate" name="licenseDate" type="date" className="auth-field"
-                  value={form.licenseDate} onChange={handleChange} required />
+                  value={form.licenseDate} onChange={handleChange} max={today} required />
               </div>
             </div>
 

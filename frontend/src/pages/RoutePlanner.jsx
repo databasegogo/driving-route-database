@@ -310,7 +310,7 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
                 center={otherCoord}
                 radius={9}
                 pathOptions={{
-                  fillColor:   target === 'end' ? '#2e7d32' : '#c62828',
+                  fillColor:   target === 'end' ? '#22c55e' : '#ef4444',
                   color: '#fff', weight: 2.5, fillOpacity: 1,
                 }}
               >
@@ -348,8 +348,8 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
                   color:       '#fff',
                   fillColor:   !isInside   ? '#e74c3c'   // 範圍外：紅
                     : snapFail             ? '#ff6b35'   // snap 失敗：橘（無道路）
-                    : target === 'start'   ? '#2e7d32'   // 起點：綠
-                    :                        '#c62828',  // 終點：紅
+                    : target === 'start'   ? '#22c55e'   // 起點：綠
+                    :                        '#ef4444',  // 終點：紅
                   fillOpacity: 0.95, weight: 2.5,
                 }}
               >
@@ -503,7 +503,7 @@ function RoutePlanner() {
         <div className="cockpit-top-bar">
           <button className="back-btn" onClick={() => navigate('/dashboard')}>
             <ArrowLeft size={14} />
-            <span>返回主控台</span>
+            <span>返回首頁</span>
           </button>
         </div>
 
@@ -574,7 +574,7 @@ function RoutePlanner() {
               {/* 推薦終點 */}
               <div className="rec-dest-zone">
                 <div className="rec-dest-label">
-                  <MapPin size={12} />
+                  <MapPin size={14} />
                   <span>推薦終點</span>
                   <button
                     type="button"

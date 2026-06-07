@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Milestone, Clock, Zap, Star, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
-import { MapContainer, TileLayer, GeoJSON, CircleMarker, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, Polyline, CircleMarker, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api'
@@ -10,52 +10,83 @@ import '../styles/route.css'
 const DIFF_CODE  = { 1: 'BEGINNER', 2: 'NORMAL', 3: 'EXPERIENCED' }
 const DIFF_LABEL = { 1: '新手', 2: '一般', 3: '熟練' }
 
-// GeoJSON FeatureCollection → SVG path 字串
-// 每條邊獨立 M...L，邊之間不連線，避免方向不一致造成鋸齒
-function toSVG(segments, w = 320, h = 180, pad = 20) {
-  if (!segments?.features?.length) return null
+// ── 統一起終點顏色 ────────────────────────────────────────────────
+const START_COLOR = '#22c55e'   // 綠
+const END_COLOR   = '#ef4444'   // 紅
 
-  // 取每條邊的 [lat, lng][] 陣列
-  const edgeCoords = []
+// ── 從 GeoJSON segments 展開座標 ─────────────────────────────────
+function flatCoords(segments) {
+  if (!segments?.features?.length) return []
+  const all = []
   for (const feat of segments.features) {
     const geom = feat?.geometry
     if (!geom) continue
-    if (geom.type === 'LineString') {
-      edgeCoords.push(geom.coordinates.map(([lng, lat]) => [lat, lng]))
-    } else if (geom.type === 'MultiLineString') {
+    if (geom.type === 'LineString')
+      all.push(...geom.coordinates.map(([lng, lat]) => [lat, lng]))
+    else if (geom.type === 'MultiLineString')
       for (const line of geom.coordinates)
-        edgeCoords.push(line.map(([lng, lat]) => [lat, lng]))
-    }
+        all.push(...line.map(([lng, lat]) => [lat, lng]))
   }
-  if (!edgeCoords.length) return null
+  return all
+}
 
-  // 計算全域邊界框
-  const all  = edgeCoords.flat()
-  const lats = all.map(c => c[0])
-  const lngs = all.map(c => c[1])
-  const minLat = Math.min(...lats), maxLat = Math.max(...lats)
-  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
-  const lr  = maxLat - minLat || 0.001
-  const lgr = maxLng - minLng || 0.001
+// ── 路線卡迷你地圖 ────────────────────────────────────────────────
+function FitSegBounds({ segments }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!segments?.features?.length) return
+    try {
+      const bounds = L.geoJSON(segments).getBounds()
+      if (bounds.isValid()) map.fitBounds(bounds, { padding: [14, 14] })
+    } catch {}
+  }, [map, segments])
+  return null
+}
 
-  const toXY = ([lat, lng]) => ({
-    x: pad + ((lng - minLng) / lgr) * (w - pad * 2),
-    y: (h - pad) - ((lat - minLat) / lr) * (h - pad * 2),
-  })
+function RouteCardMap({ segments }) {
+  // 每個 segment 獨立成一條 Polyline，避免跨 segment 連接產生錯誤斜線
+  const segLines = useMemo(() => {
+    if (!segments?.features?.length) return []
+    return segments.features.flatMap(feat => {
+      const geom = feat?.geometry
+      if (!geom) return []
+      if (geom.type === 'LineString')
+        return [geom.coordinates.map(([lng, lat]) => [lat, lng])]
+      if (geom.type === 'MultiLineString')
+        return geom.coordinates.map(line => line.map(([lng, lat]) => [lat, lng]))
+      return []
+    }).filter(line => line.length > 1)
+  }, [segments])
 
-  // 每條邊獨立畫（M 移動 + L 連線；邊之間不連線）
-  const pathData = edgeCoords
-    .map(edge => {
-      const pts = edge.map(toXY)
-      return 'M' + pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')
-    })
-    .join(' ')
+  const allCoords = useMemo(() => flatCoords(segments), [segments])
 
-  // 起終點：第一條邊的起頭 / 最後一條邊的結尾
-  const start = toXY(edgeCoords[0][0])
-  const end   = toXY(edgeCoords.at(-1).at(-1))
-
-  return { path: pathData, start, end }
+  if (!allCoords.length || !segLines.length) return (
+    <div style={{ width: '100%', height: '100%', background: '#eef2f7',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 13, color: '#94a3b8' }}>載入中…</div>
+  )
+  const startC = allCoords[0]
+  const endC   = allCoords[allCoords.length - 1]
+  return (
+    <MapContainer center={[25.02, 121.35]} zoom={13}
+      zoomControl={false} attributionControl={false}
+      dragging={false} scrollWheelZoom={false} doubleClickZoom={false} keyboard={false}
+      style={{ width: '100%', height: '100%' }}>
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      <FitSegBounds segments={segments} />
+      {segLines.map((line, i) => (
+        <Polyline key={i} positions={line} color="#ff6b35" weight={3.5} opacity={0.9} />
+      ))}
+      {startC && (
+        <CircleMarker center={startC} radius={8}
+          pathOptions={{ fillColor: START_COLOR, color: '#fff', weight: 2.5, fillOpacity: 1 }} />
+      )}
+      {endC && (
+        <CircleMarker center={endC} radius={8}
+          pathOptions={{ fillColor: END_COLOR, color: '#fff', weight: 2.5, fillOpacity: 1 }} />
+      )}
+    </MapContainer>
+  )
 }
 
 // ── 地圖自動縮放 ────────────────────────────────────────────────
@@ -139,73 +170,106 @@ function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endC
   }
 
   return (
-    <section style={{ marginTop: 28 }}>
-      <div style={{ fontSize: 15, fontWeight: 800, color: '#264653', marginBottom: 6 }}>
-        🗺️ 為什麼不走最短路線？
+    <section style={{ marginTop: 32 }}>
+      <div style={{ borderRadius: 18, overflow: 'hidden', boxShadow: '0 4px 24px rgba(38,70,83,0.13)' }}>
+
+        {/* ── 深色標題帶 ── */}
+        <div style={{
+          background: 'linear-gradient(135deg, #1d3a47 0%, #264653 100%)',
+          padding: '18px 20px 16px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <span style={{ fontSize: 20 }}>🗺️</span>
+            <div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
+                為什麼不走最短路線？
+              </div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 2 }}>
+                最短路徑含高風險路段，推薦路線已自動繞開危險區域
+              </div>
+            </div>
+          </div>
+
+          {/* 三個統計數字 */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[
+              { label: '最短路徑', value: `${distKm} km`,      accent: '#ffffff',                                  border: 'rgba(255,255,255,0.35)' },
+              { label: '危險路段', value: `${dangerCount} 段`,  accent: dangerCount > 0 ? '#fc8181' : '#68d391',   border: dangerCount > 0 ? 'rgba(252,129,129,0.55)' : 'rgba(104,211,145,0.55)' },
+              { label: '風險總分', value: riskScore,             accent: '#fbbf24',                                 border: 'rgba(251,191,36,0.55)' },
+            ].map(({ label, value, accent, border }) => (
+              <div key={label} className="shortest-stat-card" style={{
+                flex: 1, background: 'rgba(255,255,255,0.07)',
+                borderRadius: 10, padding: '9px 10px',
+                border: `1.5px solid ${border}`,
+              }}>
+                <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: '0.02em' }}>{label}</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: accent, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>{value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── 地圖（全寬，無 padding）── */}
+        <MapContainer center={[25.038, 121.305]} zoom={13}
+          style={{ height: 'clamp(260px, 42vw, 360px)', borderRadius: 0 }}>
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <FitBounds segments={fitFeatures} />
+          {recommendedSegments && (
+            <GeoJSON key="rec" data={recommendedSegments} style={styleRecommended} />
+          )}
+          {normalFeatures.features.length > 0 && (
+            <GeoJSON key="norm" data={normalFeatures} style={styleNormal} onEachFeature={onEachNormal} />
+          )}
+          {sharedDangerFeatures.features.length > 0 && (
+            <GeoJSON key="shared" data={sharedDangerFeatures} style={styleShared} onEachFeature={onEachShared} />
+          )}
+          {avoidedDangerFeatures.features.length > 0 && (
+            <GeoJSON key="avoided" data={avoidedDangerFeatures} style={styleAvoided} onEachFeature={onEachAvoided} />
+          )}
+          {startCoord && (
+            <CircleMarker center={startCoord} radius={10}
+              pathOptions={{ fillColor: START_COLOR, color: '#fff', weight: 2.5, fillOpacity: 1 }} />
+          )}
+          {endCoord && (
+            <CircleMarker center={endCoord} radius={10}
+              pathOptions={{ fillColor: END_COLOR, color: '#fff', weight: 2.5, fillOpacity: 1 }} />
+          )}
+        </MapContainer>
+
+        {/* ── 底部圖例 ── */}
+        <div style={{
+          background: '#f8fafc', padding: '10px 16px',
+          display: 'flex', gap: '8px 16px', flexWrap: 'wrap', alignItems: 'center',
+          borderTop: '1px solid rgba(38,70,83,0.06)',
+        }}>
+          {[
+            { color: '#22c55e', label: '推薦路線' },
+            { color: '#ef4444', label: '危險（已繞開）' },
+            { color: '#f97316', label: '危險（無替代）', dash: true },
+            { color: '#475569', label: '最短路徑', dash: true },
+          ].map(({ color, label, dash }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#64748b' }}>
+              <div style={{
+                width: 18, height: 3, borderRadius: 2, flexShrink: 0,
+                background: dash
+                  ? `repeating-linear-gradient(90deg,${color} 0,${color} 4px,transparent 4px,transparent 7px)`
+                  : color,
+              }} />
+              {label}
+            </div>
+          ))}
+          {[{ c: START_COLOR, t: '起點' }, { c: END_COLOR, t: '終點' }].map(({ c, t }) => (
+            <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#64748b' }}>
+              <div style={{ width: 9, height: 9, borderRadius: '50%', background: c, border: '1.5px solid #fff', boxShadow: `0 0 0 1.5px ${c}` }} />
+              {t}
+            </div>
+          ))}
+        </div>
+
       </div>
-      <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>
-        最短路徑含高風險路段（紅色），系統推薦路線（綠色）已自動繞開危險區域
-      </p>
-      <div style={{ display: 'flex', gap: 16, marginBottom: 10, fontSize: 13, flexWrap: 'wrap' }}>
-        <span>📏 最短路徑 {distKm} km</span>
-        <span style={{ color: '#ef4444', fontWeight: 700 }}>🔴 危險路段：{dangerCount} 段</span>
-        <span>⚠️ 風險總分：{riskScore}</span>
-      </div>
-      <div style={{ display: 'flex', gap: 16, marginBottom: 10, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
-        <span>
-          <span style={{ display: 'inline-block', width: 20, height: 4, background: '#22c55e', borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
-          系統推薦路線
-        </span>
-        <span>
-          <span style={{ display: 'inline-block', width: 20, height: 4, background: '#ef4444', borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
-          危險路段（已繞開）
-        </span>
-        <span>
-          <span style={{ display: 'inline-block', width: 20, height: 4, background: '#f97316', borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
-          危險路段（無替代道路）
-        </span>
-        <span>
-          <span style={{ display: 'inline-block', width: 20, height: 3, background: '#475569', borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
-          最短路徑一般路段
-        </span>
-        <span>
-          <span style={{ display: 'inline-block', width: 10, height: 10, background: '#1d4ed8', borderRadius: '50%', verticalAlign: 'middle', marginRight: 4, border: '2px solid #fff', outline: '1px solid #1d4ed8' }} />
-          起點
-        </span>
-        <span>
-          <span style={{ display: 'inline-block', width: 10, height: 10, background: '#7c3aed', borderRadius: '50%', verticalAlign: 'middle', marginRight: 4, border: '2px solid #fff', outline: '1px solid #7c3aed' }} />
-          終點
-        </span>
-      </div>
-      <MapContainer center={[25.038, 121.305]} zoom={13}
-        style={{ height: 300, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        <FitBounds segments={fitFeatures} />
-        {recommendedSegments && (
-          <GeoJSON key="rec" data={recommendedSegments} style={styleRecommended} />
-        )}
-        {normalFeatures.features.length > 0 && (
-          <GeoJSON key="norm" data={normalFeatures} style={styleNormal} onEachFeature={onEachNormal} />
-        )}
-        {sharedDangerFeatures.features.length > 0 && (
-          <GeoJSON key="shared" data={sharedDangerFeatures} style={styleShared} onEachFeature={onEachShared} />
-        )}
-        {avoidedDangerFeatures.features.length > 0 && (
-          <GeoJSON key="avoided" data={avoidedDangerFeatures} style={styleAvoided} onEachFeature={onEachAvoided} />
-        )}
-        {startCoord && (
-          <CircleMarker center={startCoord} radius={10}
-            pathOptions={{ fillColor: '#1d4ed8', color: '#fff', weight: 2.5, fillOpacity: 1 }} />
-        )}
-        {endCoord && (
-          <CircleMarker center={endCoord} radius={10}
-            pathOptions={{ fillColor: '#7c3aed', color: '#fff', weight: 2.5, fillOpacity: 1 }} />
-        )}
-      </MapContainer>
     </section>
   )
 }
-
 // ── 主頁面 ────────────────────────────────────────────────────────
 function RouteSelect() {
   const { state } = useLocation()
@@ -297,25 +361,28 @@ function RouteSelect() {
     <>
       <main className="route-main">
         {/* 頂部控制列 */}
-        <div className="cockpit-top-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <button className="back-btn" onClick={() => navigate('/route')}>
+        <div className="cockpit-top-bar" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '16px', flexWrap: 'nowrap' }}>
+          <button className="back-btn" style={{ flexShrink: 0, whiteSpace: 'nowrap' }} onClick={() => navigate('/route')}>
             <ArrowLeft size={14} />
-            <span>重新設定條件</span>
+            <span>重新設定</span>
           </button>
-          <span className="route-title-pills" style={{ fontSize: '15px', fontWeight: '800', color: '#264653', background: '#f1f5f9', padding: '6px 16px', borderRadius: '30px', letterSpacing: '0.3px' }}>
+          <span className="route-title-pills" style={{
+            fontSize: 'clamp(12px, 3.5vw, 15px)', fontWeight: '800', color: '#264653',
+            background: '#f1f5f9', padding: '6px 12px', borderRadius: '30px',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, textAlign: 'center',
+          }}>
             🧭 選擇今日練習路徑
           </span>
-          <span style={{ width: '120px' }} />
         </div>
 
-        {/* 偏好摘要列 */}
-        <div className="pref-summary">
-          {start} → {end}
-          <span style={{ color: '#264653', fontWeight: '700' }}>
+        {/* 偏好摘要列（橫向捲動，不換行）*/}
+        <div className="pref-summary" style={{ whiteSpace: 'nowrap', overflowX: 'auto', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap' }}>
+          <span style={{ flexShrink: 0 }}>{start} → {end}</span>
+          <span style={{ color: '#264653', fontWeight: '700', flexShrink: 0 }}>
             {maxDist ? `${maxDist} km 以內` : '不限距離'}
           </span>
-          {bridge ? '　橋樑避開 🌉' : ''}
-          {tunnel ? '　隧道避開 🚇' : ''}
+          {bridge && <span style={{ flexShrink: 0 }}>橋樑避開 🌉</span>}
+          {tunnel && <span style={{ flexShrink: 0 }}>隧道避開 🚇</span>}
         </div>
 
         {routes.length === 0 ? (
@@ -343,7 +410,6 @@ function RouteSelect() {
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}>
               {routes.map((r, idx) => {
-                const svg = toSVG(r.segments)
                 const distKm  = +(r.total_distance_m / 1000).toFixed(2)
                 const timeMin = Math.ceil(r.estimated_duration_sec / 60)
                 const label   = String.fromCharCode(65 + idx)
@@ -353,28 +419,10 @@ function RouteSelect() {
                     className={`route-slide-card ${idx === active ? 'is-active' : 'is-side'}`}
                     onClick={() => idx !== active && setActive(idx)}>
 
-                    {/* SVG 路線預覽 */}
+                    {/* Leaflet 迷你地圖預覽 */}
                     <div className="slide-map-preview">
                       <div className="slide-label-badge">路線 {label}</div>
-                      {svg ? (
-                        <svg viewBox="0 0 320 180" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
-                          <rect width="320" height="180" fill="#eef2f7" />
-                          {[40, 80, 120, 160].map(y => (
-                            <line key={y} x1="0" y1={y} x2="320" y2={y} stroke="#dde3ec" strokeWidth="0.5" />
-                          ))}
-                          {[80, 160, 240].map(x => (
-                            <line key={x} x1={x} y1="0" x2={x} y2="180" stroke="#dde3ec" strokeWidth="0.5" />
-                          ))}
-                          <path d={svg.path} fill="none" stroke="#264653" strokeWidth="3.5"
-                            strokeLinecap="round" strokeLinejoin="round" />
-                          <circle cx={svg.start.x} cy={svg.start.y} r="7" fill="#ff6b35" stroke="#fff" strokeWidth="2" />
-                          <circle cx={svg.end.x}   cy={svg.end.y}   r="7" fill="#1d3557" stroke="#fff" strokeWidth="2" />
-                          <text x={svg.start.x + 10} y={svg.start.y + 4} fontSize="10" fill="#ff6b35" fontWeight="700">起</text>
-                          <text x={svg.end.x + 10}   y={svg.end.y + 4}   fontSize="10" fill="#1d3557" fontWeight="700">終</text>
-                        </svg>
-                      ) : (
-                        <div className="slide-map-loading">載入中…</div>
-                      )}
+                      <RouteCardMap segments={r.segments} />
                     </div>
 
                     {/* 路線資訊 */}

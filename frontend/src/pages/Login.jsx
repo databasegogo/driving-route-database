@@ -21,6 +21,14 @@ function Login() {
       const res = await api.post('/auth/login', { email, password })
       localStorage.setItem('token', res.data.token)
 
+      // 比對上次登出的帳號，換帳號時才清除本地資料
+      const lastId = localStorage.getItem('lastUserId')
+      if (!lastId || lastId !== String(res.data.user_id)) {
+        localStorage.removeItem('practiceRecords')
+        localStorage.removeItem('user_avatar_base64')
+      }
+      localStorage.setItem('lastUserId', String(res.data.user_id))
+
       const pendingAddr = JSON.parse(localStorage.getItem('pendingAddr') || '{}')
       localStorage.removeItem('pendingAddr')
       localStorage.setItem('currentUser', JSON.stringify({

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from 'react-leaflet'
-import { RotateCcw, ChevronRight, Heart, CalendarDays, X } from 'lucide-react'
+import { RotateCcw, ChevronRight, Heart, CalendarDays, X, ArrowLeft } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 import api from '../api'
 import '../styles/records.css'
@@ -129,6 +129,7 @@ function groupByDate(records) {
 
 export default function Records() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [records,    setRecords]    = useState([])
   const [selected,   setSelected]   = useState(null)
   const [mapOpen,    setMapOpen]    = useState(false)
@@ -137,6 +138,8 @@ export default function Records() {
   const [dateFilter,   setDateFilter]   = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [user,         setUser]         = useState(null)
+  // 從 Dashboard「查看更多」跳過來時，自動開啟對應紀錄的 modal
+  const [autoOpenId, setAutoOpenId] = useState(location.state?.openId ?? null)
 
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem('currentUser') || '{}')
@@ -187,6 +190,17 @@ export default function Records() {
       setRecords(s)
     }
   }, [])
+
+  // 當 records 載入後，若有 autoOpenId 就自動展開對應的詳情 modal
+  useEffect(() => {
+    if (!autoOpenId || records.length === 0) return
+    const rec = records.find(r => r.id === autoOpenId)
+    if (rec) {
+      setSelected(rec)
+      setMapOpen(false)
+      setAutoOpenId(null)
+    }
+  }, [records, autoOpenId])
 
   function toggleFav(id) {
     const updated = records.map(r => r.id === id ? { ...r, favorited: !r.favorited } : r)
@@ -299,6 +313,7 @@ export default function Records() {
   let filtered = favOnly ? records.filter(r => r.favorited) : records
   if (statusFilter !== 'all') filtered = filtered.filter(r => {
     if (statusFilter === 'in-progress') return ['in-progress', 'in_progress'].includes(r.status)
+    if (statusFilter === 'incomplete')  return r.status === 'incomplete' || r.status === 'terminated'
     return r.status === statusFilter
   })
   if (dateFilter !== 'all') filtered = filtered.filter(r => r.date === dateFilter)
@@ -320,7 +335,8 @@ export default function Records() {
       {/* ── 左側欄包裝（含外部返回按鈕）── */}
       <div className="rec-sidebar-wrap">
         <button className="rec-nav-back-outer" onClick={() => navigate('/dashboard')}>
-          ‹ 返回首頁
+          <ArrowLeft size={14} />
+          <span>返回首頁</span>
         </button>
 
       <aside className="rec-sidebar">

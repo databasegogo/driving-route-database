@@ -24,26 +24,29 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  background: none;
-  border: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
   color: var(--pf-gray);
   cursor: pointer;
   font-family: inherit;
-  padding: 0;
-  transition: color 0.2s;
+  padding: 8px 14px;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
   align-self: flex-start;
-  margin-left: -12px;
-  margin-top: 12px;
 }
-.pf-back-btn:hover { color: var(--pf-orange); }
+.pf-back-btn:hover {
+  background: rgba(255, 107, 53, 0.08);
+  border-color: rgba(255, 107, 53, 0.3);
+  color: var(--pf-orange);
+}
 
 /* ── 主內容 ── */
 .pf-main {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 0 28px 60px;
+  padding: 24px 28px 60px;
   display: flex;
   flex-direction: column;
   gap: 24px;

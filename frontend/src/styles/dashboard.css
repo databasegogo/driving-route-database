@@ -57,7 +57,7 @@ body {
 
 .dash-hi {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--nordic-gray);
   font-weight: 500;
 }
@@ -89,11 +89,11 @@ body {
 .dash-field-header { display: flex; align-items: center; gap: 10px; }
 
 .dash-dot { width: 10px; height: 10px; flex-shrink: 0; }
-.dot-start { background: var(--nordic-orange); border-radius: 50%; }
-.dot-end   { background: #2a9d8f; border-radius: 50%; }
+.dot-start { background: #22c55e; border-radius: 50%; }
+.dot-end   { background: #ef4444; border-radius: 50%; }
 
 .dash-input-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--nordic-gray);
   text-transform: uppercase;
@@ -223,7 +223,7 @@ body {
 }
 
 .dash-user-level-tag {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   color: rgba(255, 255, 255, 0.55);
   letter-spacing: 2.5px;
@@ -231,7 +231,7 @@ body {
 }
 
 .dash-user-level-name {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 900;
   color: #ffffff;
   letter-spacing: -0.5px;
@@ -264,7 +264,7 @@ body {
 }
 
 .dash-user-score-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.50);
   letter-spacing: 0.5px;
@@ -297,7 +297,7 @@ body {
 
 .dash-stat-label {
   margin: 0 0 2px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--nordic-gray);
   font-weight: 600;
   text-transform: uppercase;
@@ -334,7 +334,7 @@ body {
   border: none;
   border-radius: 12px;
   color: var(--nordic-dark);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
@@ -384,7 +384,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--nordic-dark);
 }
@@ -411,7 +411,7 @@ body {
   font-weight: 700;
   color: var(--nordic-gray);
 }
-.dlm-pts { font-size: 12px; color: #b0b8c1; font-weight: 600; }
+.dlm-pts { font-size: 13px; color: #b0b8c1; font-weight: 600; }
 
 .dash-level-marker.active .dlm-name { color: var(--nordic-orange); }
 .dash-level-marker.active .dlm-pts  { color: var(--nordic-orange); }
@@ -469,17 +469,22 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: none;
-  border: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
   font-size: 13px;
   font-weight: 700;
   color: var(--nordic-gray);
   cursor: pointer;
   font-family: inherit;
-  padding: 0;
-  transition: color 0.2s;
+  padding: 7px 13px;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
-.dash-rec-see-all:hover { color: var(--nordic-orange); }
+.dash-rec-see-all:hover {
+  background: rgba(255, 107, 53, 0.08);
+  border-color: rgba(255, 107, 53, 0.3);
+  color: var(--nordic-orange);
+}
 
 /* 橫向滑動容器 */
 .dash-rec-scroll {
@@ -554,7 +559,7 @@ body {
 }
 
 .dash-rec-badge {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   padding: 3px 10px;
   border-radius: 20px;
@@ -568,7 +573,7 @@ body {
 
 .dash-rec-route {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--nordic-dark);
   line-height: 1.4;
@@ -679,7 +684,7 @@ body {
 .dash-modal-row:last-child { border-bottom: none; }
 
 .dash-modal-key {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--nordic-gray);
   font-weight: 700;
   text-transform: uppercase;
@@ -687,14 +692,38 @@ body {
 }
 
 .dash-modal-status {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   padding: 3px 10px;
   border-radius: 20px;
 }
 
+/* 雙按鈕列：查看更多 + 再練習一次 */
+.dash-modal-btn-row {
+  display: flex;
+  gap: 10px;
+}
+.dash-modal-more-btn {
+  flex: 1;
+  padding: 13px;
+  background: #f0f4f3;
+  color: var(--nordic-dark);
+  border: 1.5px solid rgba(38, 70, 83, 0.15);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s, border-color 0.2s;
+}
+.dash-modal-more-btn:hover {
+  background: rgba(42, 157, 143, 0.12);
+  border-color: #2a9d8f;
+  color: #2a9d8f;
+}
 .dash-modal-repeat-btn {
-  width: 100%;
+  flex: 1;
+  width: auto;
   padding: 13px;
   background: var(--nordic-dark);
   color: #fff;
