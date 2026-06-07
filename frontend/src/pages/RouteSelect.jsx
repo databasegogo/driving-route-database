@@ -214,9 +214,7 @@ function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endC
           style={{ height: 'clamp(260px, 42vw, 360px)', borderRadius: 0 }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <FitBounds segments={fitFeatures} />
-          {recommendedSegments && (
-            <GeoJSON key="rec" data={recommendedSegments} style={styleRecommended} />
-          )}
+          {/* 圖層由下到上：灰（最短路徑一般段）→ 橘（共用危險段）→ 紅（已繞開危險段）→ 綠（推薦路線，最上層）*/}
           {normalFeatures.features.length > 0 && (
             <GeoJSON key="norm" data={normalFeatures} style={styleNormal} onEachFeature={onEachNormal} />
           )}
@@ -225,6 +223,9 @@ function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endC
           )}
           {avoidedDangerFeatures.features.length > 0 && (
             <GeoJSON key="avoided" data={avoidedDangerFeatures} style={styleAvoided} onEachFeature={onEachAvoided} />
+          )}
+          {recommendedSegments && (
+            <GeoJSON key="rec" data={recommendedSegments} style={styleRecommended} />
           )}
           {startCoord && (
             <CircleMarker center={startCoord} radius={10}

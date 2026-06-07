@@ -70,6 +70,8 @@ CREATE TABLE route_request (
   avoid_bridge    BOOLEAN NOT NULL DEFAULT false,
   avoid_tunnel    BOOLEAN NOT NULL DEFAULT false,
   max_distance_m  INTEGER DEFAULT NULL,  -- 快照當下設定，NULL = 不限制
+  start_name      TEXT    DEFAULT NULL,  -- 起點地名（使用者輸入）
+  end_name        TEXT    DEFAULT NULL,  -- 終點地名（使用者輸入）
   created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
