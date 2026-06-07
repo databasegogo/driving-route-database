@@ -93,6 +93,17 @@ function fmtDuration(sec) {
 const DIFF_STARS  = { BEGINNER: 1, NORMAL: 2, EXPERIENCED: 3 }
 const DIFF_WEIGHT = { BEGINNER: 1, NORMAL: 2, EXPERIENCED: 3 }
 
+// 計算危險門檻：有風險分數的路段平均值 × 1.5
+function calcDangerThreshold(segments) {
+  if (!segments?.features) return 0
+  const scores = segments.features
+    .map(f => f.properties?.risk_score ?? 0)
+    .filter(s => s > 0)
+  if (!scores.length) return 0
+  const avg = scores.reduce((a, b) => a + b, 0) / scores.length
+  return avg * 1.5
+}
+
 // GeoJSON segments → coordsMulti（各 edge 分開的 [[lat,lng],...][]）
 // 不壓平成單一陣列，避免不同 edge 方向不同造成鋸齒路線
 function extractCoordsMultiFromSegments(segments) {
@@ -148,6 +159,7 @@ export default function RouteDetail() {
   const [modal,  setModal]  = useState(null)
   const [result, setResult] = useState(null)     // 後端回傳的完成結果
   const [terminateStats, setTerminateStats] = useState(null)
+  const [selected, setSelected] = useState(null) // 點擊路段的資訊
   const startRef = useRef(null)
   const endRef   = useRef(null)
 
@@ -210,6 +222,44 @@ export default function RouteDetail() {
 
   const estimatedSec = (route.time ?? 0) * 60   // 預估秒數
   const stars        = DIFF_STARS[route.diffCode] ?? route.difficulty ?? 1
+
+  // ── 危險路段計算 ─────────────────────────────────────────────────────
+  const dangerThreshold = calcDangerThreshold(route.segments)
+  const dangerSegments  = route.segments?.features?.filter(
+    f => (f.properties?.risk_score ?? 0) > dangerThreshold
+  ) ?? []
+  const mostDangerous = dangerSegments.reduce(
+    (max, f) => (f.properties?.risk_score ?? 0) > (max?.properties?.risk_score ?? 0) ? f : max,
+    null
+  )
+
+  // GeoJSON 路段顏色（高風險 → 紅，一般 → 藍）
+  function styleSegment(feature) {
+    const dangerous = (feature.properties?.risk_score ?? 0) > dangerThreshold
+    return {
+      color:   dangerous ? '#ef4444' : '#4f7cff',
+      weight:  dangerous ? 6 : 4,
+      opacity: dangerous ? 1 : 0.85,
+    }
+  }
+
+  // Tooltip + 點擊事件
+  function onEachFeature(feature, layer) {
+    const { road_name, risk_score, distance_m } = feature.properties ?? {}
+    const dangerous = (risk_score ?? 0) > dangerThreshold
+    layer.bindTooltip(
+      `<b>${road_name ?? '未知路段'}</b><br/>` +
+      `風險分數：${risk_score ?? 0}` +
+      (dangerous ? '<br/><span style="color:#ef4444">⚠️ 高風險路段</span>' : ''),
+      { sticky: true }
+    )
+    layer.on('click', () => setSelected({
+      road_name:  road_name  ?? '未知路段',
+      risk_score: risk_score ?? 0,
+      distance_m: distance_m ?? 0,
+      dangerous,
+    }))
+  }
 
   // ── 工具函式 ────────────────────────────────────────────────────────
 
@@ -346,6 +396,28 @@ export default function RouteDetail() {
         <span />
       </header>
 
+      {/* 危險路段統計欄（有高風險路段才顯示）*/}
+      {dangerSegments.length > 0 && (
+        <div style={{
+          background: '#1a1d27', borderBottom: '1px solid #2d3148',
+          padding: '8px 16px', display: 'flex', gap: 16,
+          fontSize: 12, alignItems: 'center', flexWrap: 'wrap',
+        }}>
+          <span style={{ color: '#ef4444' }}>
+            🔴 高風險路段：{dangerSegments.length} 段
+          </span>
+          {mostDangerous && (
+            <span style={{ color: '#f97316' }}>
+              ⚠️ 最危險：{mostDangerous.properties.road_name}
+              （風險分數 {mostDangerous.properties.risk_score}）
+            </span>
+          )}
+          <span style={{ color: '#64748b', marginLeft: 'auto' }}>
+            點擊路段可查看詳細資訊
+          </span>
+        </div>
+      )}
+
       {/* 地圖 */}
       <div className="map-wrap">
         <MapContainer
@@ -363,7 +435,8 @@ export default function RouteDetail() {
               <FitBoundsGeoJSON segments={route.segments} />
               <GeoJSON
                 data={route.segments}
-                style={{ color: '#4f7cff', weight: 5, opacity: 0.85 }}
+                style={styleSegment}
+                onEachFeature={onEachFeature}
               />
             </>
           )}
@@ -389,6 +462,52 @@ export default function RouteDetail() {
           {/* 練習開始時自動飛到使用者位置 */}
           <FlyToUser pos={userPos} active={status === 'active'} />
         </MapContainer>
+      </div>
+
+      {/* 點擊路段後的資訊面板 */}
+      {selected && (
+        <div style={{
+          background: '#222536', borderBottom: '1px solid #2d3148',
+          padding: '10px 16px', display: 'flex', justifyContent: 'space-between',
+          alignItems: 'center', fontSize: 13,
+        }}>
+          <div>
+            <span style={{ fontWeight: 'bold', color: '#e2e8f0' }}>
+              {selected.road_name}
+            </span>
+            <span style={{ color: '#94a3b8', marginLeft: 12 }}>
+              {selected.distance_m} m
+            </span>
+            <span style={{ marginLeft: 12, color: selected.dangerous ? '#ef4444' : '#22c55e' }}>
+              風險分數：{selected.risk_score}
+              {selected.dangerous ? ' ⚠️ 高風險' : ' ✅ 安全'}
+            </span>
+          </div>
+          <button
+            onClick={() => setSelected(null)}
+            style={{ background: 'none', border: 'none', color: '#64748b',
+                     cursor: 'pointer', fontSize: 16 }}>
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* 圖例 */}
+      <div style={{
+        padding: '6px 16px', display: 'flex', gap: 16,
+        fontSize: 11, color: '#64748b', background: '#1a1d27',
+        borderBottom: '1px solid #2d3148',
+      }}>
+        <span>
+          <span style={{ display: 'inline-block', width: 16, height: 3,
+            background: '#4f7cff', borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
+          一般路段
+        </span>
+        <span>
+          <span style={{ display: 'inline-block', width: 16, height: 3,
+            background: '#ef4444', borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
+          高風險路段
+        </span>
       </div>
 
       {/* 資訊列 */}
