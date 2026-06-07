@@ -17,6 +17,7 @@ class PracticeRequest(BaseModel):
     actual_duration_sec: int | None = None  # 實際練習秒數（None = 不計時）
     gps_verified:        bool       = False # GPS 偵測到達終點為 True（全程完成）
     terminated_early:    bool       = False # 使用者主動終止練習（提前結束）
+    was_off_route:       bool       = False # 練習中曾偏離路線超過 100m
 
     @property
     def validated_duration(self) -> int | None:
@@ -103,6 +104,10 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
 
         score_earned = base_score + time_bonus
 
+        # 4c. 偏離路線扣分（× 0.9），與 terminated_early 可同時疊加
+        if req.was_off_route:
+            score_earned = int(score_earned * 0.9)
+
         # 5. 新增練習紀錄
         cur.execute("""
             INSERT INTO user_practice_history
@@ -153,6 +158,7 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
             "new_level":        LEVEL_CODE[new_level_id],
             "terminated_early": req.terminated_early,
             "gps_verified":     req.gps_verified,
+            "was_off_route":    req.was_off_route,
         }
 
     except HTTPException:

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Compass, Sliders, Star, Shield, ArrowRight, MapPin, AlertCircle, Map, Navigation } from 'lucide-react'
-import { MapContainer, TileLayer, useMapEvents, GeoJSON, CircleMarker } from 'react-leaflet'
+import { MapContainer, TileLayer, useMapEvents, GeoJSON, CircleMarker, Polyline } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api'
 import '../styles/route.css'
@@ -141,22 +141,33 @@ function pointInPolygon(lat, lng, geojson) {
 
 // ── 地圖選點 Modal ───────────────────────────────────────────────────────────
 function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }) {
-  const [picked,   setPicked]   = useState(null)
-  const [name,     setName]     = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [boundary, setBoundary] = useState(null)
-  const [snapDist, setSnapDist] = useState(null)   // 距離最近道路幾公尺
+  const [picked,    setPicked]    = useState(null)   // 吸附後的確認點
+  const [rawPicked, setRawPicked] = useState(null)   // 原始點擊位置（虛線起點）
+  const [snapLine,  setSnapLine]  = useState(null)   // [[lat,lng],[lat,lng]] 虛線導引
+  const [name,      setName]      = useState('')
+  const [loading,   setLoading]   = useState(false)
+  const [boundary,  setBoundary]  = useState(null)
+  const [snapDist,  setSnapDist]  = useState(null)   // 距離最近道路幾公尺
+  const snapTimerRef = useRef(null)                  // 0.5s 延遲的 timer
 
-  // 載入龜山區邊界；如果有 initialCoord，邊界載完後自動選點
+  // 載入龜山區邊界；如果有 initialCoord，邊界載完後自動選點（不延遲、不畫虛線）
   useEffect(() => {
     api.get('/district/boundary')
       .then(res => {
         setBoundary(res.data)
-        if (initialCoord) handlePickWithBoundary(initialCoord, res.data)
+        if (initialCoord) {
+          setRawPicked(initialCoord)
+          setPicked(initialCoord)
+          doSnapFlow(initialCoord, res.data, false)
+        }
       })
       .catch(() => {
         setBoundary(null)
-        if (initialCoord) handlePickWithBoundary(initialCoord, null)
+        if (initialCoord) {
+          setRawPicked(initialCoord)
+          setPicked(initialCoord)
+          doSnapFlow(initialCoord, null, false)
+        }
       })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -164,18 +175,15 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
     ? (boundary ? pointInPolygon(picked[0], picked[1], boundary) : true)
     : false
 
-  // 核心選點邏輯：snap → geocode
-  async function handlePickWithBoundary(coord, bnd) {
-    setPicked(coord)
-    setSnapDist(null)
-
+  // 執行 snap + 地理編碼（不含延遲計時）
+  async function doSnapFlow(coord, bnd, showLine = true) {
     const inside = bnd ? pointInPolygon(coord[0], coord[1], bnd) : true
-    if (!inside) { setName(''); return }
+    if (!inside) { setLoading(false); setName(''); return }
 
     setLoading(true)
     setName('定位中...')
 
-    // 1. Snap 到最近路網節點
+    // 1. Snap 到最近道路垂足點
     let finalCoord = coord
     try {
       const snapRes = await api.get('/route/snap', {
@@ -184,7 +192,11 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
       const { snap_lat, snap_lng, dist_m } = snapRes.data
       finalCoord = [snap_lat, snap_lng]
       setPicked(finalCoord)
-      if (dist_m > 5) setSnapDist(Math.round(dist_m))
+      if (dist_m > 5) {
+        setSnapDist(Math.round(dist_m))
+        // 只有使用者點擊時才畫虛線（initialCoord 預填不畫）
+        if (showLine) setSnapLine([coord, finalCoord])
+      }
     } catch { /* snap 失敗就用原座標 */ }
 
     // 2. 反地理編碼取得名稱
@@ -208,8 +220,29 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
     }
   }
 
+  // 使用者點擊地圖：立即顯示原始點，0.5s 後執行 snap
   function handlePick(coord) {
-    handlePickWithBoundary(coord, boundary)
+    // 清除上一次的 timer 與虛線
+    if (snapTimerRef.current) clearTimeout(snapTimerRef.current)
+    setSnapLine(null)
+    setSnapDist(null)
+    setName('')
+
+    // 立即把 marker 放在點擊位置
+    setRawPicked(coord)
+    setPicked(coord)
+
+    const bnd = boundary
+    const inside = bnd ? pointInPolygon(coord[0], coord[1], bnd) : true
+    if (!inside) { setLoading(false); setName(''); return }
+
+    setLoading(true)
+    setName('定位中...')
+
+    // 0.5s 後才執行 snap（讓使用者先看到點擊位置）
+    snapTimerRef.current = setTimeout(() => {
+      doSnapFlow(coord, bnd, true)
+    }, 500)
   }
 
   return (
@@ -224,10 +257,10 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
           {!picked &&  otherCoord && target === 'end'   && '📌 綠點為已選起點，請在地圖上點選終點位置'}
           {!picked &&  otherCoord && target === 'start' && '📌 紅點為已選終點，請在地圖上點選起點位置'}
           {picked && !isInside && '⚠️ 所選位置超出龜山區範圍，請重新點選'}
-          {picked && isInside && loading && '⏳ 定位中，已吸附到最近道路節點...'}
+          {picked && isInside && loading && '⏳ 即將吸附到最近道路...'}
           {picked && isInside && !loading && snapDist && snapDist > 5 &&
             `✅ 已選：${name}　（已自動調整 ${snapDist} 公尺至最近道路）`}
-          {picked && isInside && !loading && (!snapDist || snapDist <= 5) &&
+          {picked && isInside && !loading && (!snapDist || snapDist <= 5) && name &&
             `✅ 已選：${name}`}
         </div>
         <div className="map-picker-map">
@@ -262,6 +295,25 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
                 }}
               />
             )}
+
+            {/* 虛線：從原始點擊位置指向吸附後的路面位置 */}
+            {snapLine && (
+              <Polyline
+                positions={snapLine}
+                pathOptions={{ color: '#f59e0b', weight: 2, dashArray: '6,5', opacity: 0.85 }}
+              />
+            )}
+
+            {/* 原始點擊位置（空心小圓，虛線起點標記） */}
+            {rawPicked && snapLine && (
+              <CircleMarker
+                center={rawPicked}
+                radius={5}
+                pathOptions={{ color: '#f59e0b', fillColor: '#fff7ed', weight: 2, fillOpacity: 1 }}
+              />
+            )}
+
+            {/* 吸附後的確認點（實心大圓） */}
             {picked && (
               <CircleMarker
                 center={picked}

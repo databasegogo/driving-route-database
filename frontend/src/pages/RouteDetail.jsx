@@ -17,6 +17,36 @@ function haversine(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
+// ── 點到線段距離（公尺）──────────────────────────────────────────────
+function distToSegment(lat, lng, lat1, lng1, lat2, lng2) {
+  const dx = lat2 - lat1, dy = lng2 - lng1
+  if (dx === 0 && dy === 0) return haversine(lat, lng, lat1, lng1)
+  const t = Math.max(0, Math.min(1,
+    ((lat - lat1) * dx + (lng - lng1) * dy) / (dx * dx + dy * dy)
+  ))
+  return haversine(lat, lng, lat1 + t * dx, lng1 + t * dy)
+}
+
+// ── 點到整條 GeoJSON 路線的最近距離（公尺）──────────────────────────
+function distToRoute(lat, lng, segments) {
+  if (!segments?.features) return Infinity
+  let min = Infinity
+  for (const feat of segments.features) {
+    const coords = feat.geometry?.coordinates
+    if (!coords || coords.length < 2) continue
+    for (let i = 0; i < coords.length - 1; i++) {
+      // GeoJSON 座標格式：[lng, lat]
+      const d = distToSegment(
+        lat, lng,
+        coords[i][1],   coords[i][0],
+        coords[i+1][1], coords[i+1][0]
+      )
+      if (d < min) min = d
+    }
+  }
+  return min
+}
+
 // ── 練習開始時，地圖自動飛到使用者位置（只飛一次）──────────────────
 function FlyToUser({ pos, active }) {
   const map   = useMap()
@@ -75,10 +105,13 @@ export default function RouteDetail() {
   const endRef   = useRef(null)
 
   // ── GPS 追蹤狀態（所有 hook 必須在 early return 之前）──────────────
-  const [userPos,   setUserPos]   = useState(null)   // [lat, lng]
-  const [gpsError,  setGpsError]  = useState(false)
-  const [distToEnd, setDistToEnd] = useState(null)   // 公尺
-  const [arrived,   setArrived]   = useState(false)
+  const [userPos,     setUserPos]     = useState(null)   // [lat, lng]
+  const [gpsError,    setGpsError]    = useState(false)
+  const [distToEnd,   setDistToEnd]   = useState(null)   // 公尺
+  const [arrived,     setArrived]     = useState(false)
+  const [offRoute,    setOffRoute]    = useState(false)  // 偏離路線 > 100m
+  const [offRouteDist,setOffRouteDist]= useState(null)   // 目前偏離距離（m）
+  const wasOffRouteRef = useRef(false)                   // 曾偏離（送出時用）
   const watchIdRef = useRef(null)
 
   // 開始 GPS watchPosition（mount 時啟動，unmount 時清除）
@@ -105,6 +138,25 @@ export default function RouteDetail() {
       setModal(prev => prev === null ? 'arrived' : prev)
     }
   }, [userPos, status, arrived, state])
+
+  // 偏離路線偵測：距路線 > 100m 時顯示警告並標記曾偏離
+  useEffect(() => {
+    if (!userPos || status !== 'active') {
+      setOffRoute(false)
+      setOffRouteDist(null)
+      return
+    }
+    const segments = state?.route?.segments
+    const d = distToRoute(userPos[0], userPos[1], segments)
+    if (d > 100) {
+      setOffRoute(true)
+      setOffRouteDist(Math.round(d))
+      wasOffRouteRef.current = true
+    } else {
+      setOffRoute(false)
+      setOffRouteDist(null)
+    }
+  }, [userPos, status, state])
 
   if (!state?.route) { navigate('/route'); return null }
   const { route, prefs } = state
@@ -149,6 +201,7 @@ export default function RouteDetail() {
         actual_duration_sec: actualSec,
         gps_verified:        arrived,
         terminated_early:    false,
+        was_off_route:       wasOffRouteRef.current,
       })
       setResult(res.data)
       // 同步更新 localStorage 分數
@@ -178,6 +231,7 @@ export default function RouteDetail() {
         actual_duration_sec: actualSec,
         gps_verified:        false,
         terminated_early:    true,
+        was_off_route:       wasOffRouteRef.current,
       })
       setResult(res.data)
       const user = JSON.parse(localStorage.getItem('currentUser') || '{}')
@@ -306,6 +360,13 @@ export default function RouteDetail() {
           ) : (
             '⏳ 等待 GPS 訊號...'
           )}
+        </div>
+      )}
+
+      {/* 偏離路線警告（練習中且距路線 > 100m） */}
+      {status === 'active' && offRoute && (
+        <div className="off-route-warning">
+          ⚠️ 您已偏離路線 {offRouteDist} 公尺，完成後分數將 × 0.9
         </div>
       )}
 
