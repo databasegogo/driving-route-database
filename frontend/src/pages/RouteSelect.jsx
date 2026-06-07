@@ -68,7 +68,7 @@ function FitSegBounds({ segments }) {
   return null
 }
 
-function RouteCardMap({ segments }) {
+function RouteCardMap({ segments, startCoord, endCoord }) {
   // 每個 segment 獨立成一條 Polyline，避免跨 segment 連接產生錯誤斜線
   const segLines = useMemo(() => {
     if (!segments?.features?.length) return []
@@ -83,7 +83,10 @@ function RouteCardMap({ segments }) {
     }).filter(line => line.length > 1)
   }, [segments])
 
-  const [startC, endC] = useMemo(() => segmentEndpoints(segments), [segments])
+  // 優先用傳入的 snap 座標；沒有才 fallback 到路線端點
+  const [segStart, segEnd] = useMemo(() => segmentEndpoints(segments), [segments])
+  const startC = startCoord ?? segStart
+  const endC   = endCoord   ?? segEnd
 
   if (!segLines.length) return (
     <div style={{ width: '100%', height: '100%', background: '#eef2f7',
@@ -449,7 +452,7 @@ function RouteSelect() {
                     {/* Leaflet 迷你地圖預覽 */}
                     <div className="slide-map-preview">
                       <div className="slide-label-badge">路線 {label}</div>
-                      <RouteCardMap segments={r.segments} />
+                      <RouteCardMap segments={r.segments} startCoord={startCoord} endCoord={endCoord} />
                     </div>
 
                     {/* 路線資訊 */}
