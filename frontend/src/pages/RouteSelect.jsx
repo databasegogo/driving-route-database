@@ -126,18 +126,15 @@ function FitBounds({ segments }) {
 }
 
 // ── 最短路徑 vs 推薦路線比較地圖 ─────────────────────────────────
-function ShortestRouteMap({ shortestRoute, recommendedSegments }) {
+function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endCoord }) {
   if (!shortestRoute?.segments?.features?.length) return null
 
   const distKm    = +(shortestRoute.total_distance_m / 1000).toFixed(2)
   const riskScore = shortestRoute.total_risk_score?.toFixed(1) ?? '—'
   const allFeatures = shortestRoute.segments.features
-
-  // 起終點標記：從推薦路線的實際座標抓（而非 snap 吸附點）
-  const [startCoord, endCoord] = useMemo(
-    () => segmentEndpoints(recommendedSegments),
-    [recommendedSegments]
-  )
+  // 起終點標記使用 snap 垂足點（prefs.startCoord/endCoord）
+  // 理由：山區/住宅區路網稀疏，路由節點可能離使用者選點 300–500m 以上，
+  //       snap 垂足點才是「最接近使用者意圖的道路位置」
 
   const recEdgeSet = new Set(
     (recommendedSegments?.features ?? [])
@@ -510,6 +507,8 @@ function RouteSelect() {
         <ShortestRouteMap
           shortestRoute={shortest_route}
           recommendedSegments={routes[active]?.segments}
+          startCoord={startCoord}
+          endCoord={endCoord}
         />
       </main>
     </>
