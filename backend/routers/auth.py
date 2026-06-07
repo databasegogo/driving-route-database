@@ -85,7 +85,7 @@ def login(req: LoginRequest):
     cur  = conn.cursor()
     try:
         cur.execute("""
-            SELECT user_id, username, password_hash, user_level_id
+            SELECT user_id, username, password_hash, user_level_id, role
             FROM app_user WHERE email = %s
         """, (str(req.email),))
 
@@ -95,7 +95,7 @@ def login(req: LoginRequest):
         if not row or not verify_password(req.password, row[2]):
             raise HTTPException(status_code=401, detail="INVALID_CREDENTIALS")
 
-        user_id, username, _, user_level_id = row
+        user_id, username, _, user_level_id, role = row
         token = create_access_token(user_id, username)
 
         return {
@@ -103,7 +103,8 @@ def login(req: LoginRequest):
             "token":         token,
             "user_id":       user_id,
             "username":      username,
-            "user_level_id": user_level_id
+            "user_level_id": user_level_id,
+            "role":          role,
         }
 
     except HTTPException:

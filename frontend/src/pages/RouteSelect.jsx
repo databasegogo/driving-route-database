@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Milestone, Clock, Zap, Star, AlertTriangle } from 'lucide-react' // 👈 額外導入 AlertTriangle 作為高質感警告圖示
+import { ArrowLeft, Milestone, Clock, Zap, Star, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { MapContainer, TileLayer, GeoJSON, CircleMarker, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -26,8 +26,8 @@ function extractCoords(segments) {
   return coords
 }
 
-// 座標陣列 → SVG path 字串 (鎖定妳最精準的 w=160, h=76)
-function toSVG(coords, w = 160, h = 76, pad = 14) {
+// 座標陣列 → SVG path 字串
+function toSVG(coords, w = 320, h = 180, pad = 20) {
   if (!coords.length) return null
   const lats = coords.map(c => c[0])
   const lngs = coords.map(c => c[1])
@@ -46,58 +46,7 @@ function toSVG(coords, w = 160, h = 76, pad = 14) {
   }
 }
 
-// 🌿 完美合併版路線小卡片組件
-function RouteCard({ route, label, start, end, difficulty, onSelect }) {
-  const coords = extractCoords(route.segments)
-  const svg    = toSVG(coords)
-  const distKm = +(route.total_distance_m / 1000).toFixed(2)
-  const timeMin = Math.ceil(route.estimated_duration_sec / 60)
-
-  return (
-    <div className="route-card" onClick={onSelect}>
-      <div className="rc-top">
-        <span className="rc-label">推薦路線 {label}</span>
-        <div className="star-row">
-          {Array.from({ length: difficulty }).map((_, i) => (
-            <Star key={i} size={13} className="star-btn on" style={{ cursor: 'default' }} />
-          ))}
-        </div>
-      </div>
-
-      <div className="rc-preview">
-        {svg ? (
-          <svg viewBox="0 0 160 76" width="100%" height="76" preserveAspectRatio="none">
-            <rect width="160" height="76" fill="#f8fafc" />
-            <path d={svg.path} fill="none" stroke="#264653" strokeWidth="2.5"
-              strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
-            <circle cx={svg.start.x} cy={svg.start.y} r="4" fill="#ff6b35" stroke="#fff" strokeWidth="1.2" />
-            <circle cx={svg.end.x}   cy={svg.end.y}   r="4" fill="#1d3557" stroke="#fff" strokeWidth="1.2" />
-          </svg>
-        ) : (
-          <div className="rc-map-loading">分析中…</div>
-        )}
-      </div>
-
-      <div className="rc-name">{start} — {end}</div>
-      
-      <div className="rc-stats">
-        <span><Milestone size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /><strong>{distKm}</strong> km</span>
-        <span><Clock size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /><strong>{timeMin}</strong> 分</span>
-        <span className="score-val"><Zap size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /><strong>+{route.estimated_score}</strong> 積分</span>
-      </div>
-
-      {/* 🤝 縫合亮點：完美保留朋友新寫的「強制限放替代路線警告」，並套上妳的高級排版樣式 */}
-      {route.constraint_relaxed && (
-        <div className="rc-warning" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '10px', padding: '8px 12px', background: 'rgba(231, 111, 81, 0.06)', borderRadius: '8px', color: '#e76f51', fontSize: '12px', fontWeight: '600' }}>
-          <AlertTriangle size={13} />
-          <span>此路線含 {route.has_bridge ? '橋樑 ' : ''}{route.has_tunnel ? '隧道 ' : ''}(無替代路線)</span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── 地圖自動縮放 ───────────────────────────────────────────────
+// ── 地圖自動縮放 ────────────────────────────────────────────────
 function FitBounds({ segments }) {
   const map = useMap()
   useEffect(() => {
@@ -110,36 +59,30 @@ function FitBounds({ segments }) {
   return null
 }
 
-// ── 最短路徑 vs 推薦路線比較地圖 ────────────────────────────
+// ── 最短路徑 vs 推薦路線比較地圖 ─────────────────────────────────
 function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endCoord }) {
   if (!shortestRoute?.segments?.features?.length) return null
 
-  const distKm      = +(shortestRoute.total_distance_m / 1000).toFixed(2)
-  const riskScore   = shortestRoute.total_risk_score?.toFixed(1) ?? '—'
+  const distKm    = +(shortestRoute.total_distance_m / 1000).toFixed(2)
+  const riskScore = shortestRoute.total_risk_score?.toFixed(1) ?? '—'
   const allFeatures = shortestRoute.segments.features
 
-  // 推薦路線已使用的 edge_id（用來判斷「真正被繞開」的路段）
   const recEdgeSet = new Set(
     (recommendedSegments?.features ?? [])
       .map(f => f.properties?.edge_id)
       .filter(id => id != null)
   )
 
-  // 一般路段（非危險）
   const normalFeatures = {
     type: 'FeatureCollection',
     features: allFeatures.filter(f => !f.properties?.is_dangerous),
   }
-
-  // 危險路段 — 只標記推薦路線「真正沒走」的路段
   const avoidedDangerFeatures = {
     type: 'FeatureCollection',
     features: allFeatures.filter(
       f => f.properties?.is_dangerous && !recEdgeSet.has(f.properties?.edge_id)
     ),
   }
-
-  // 危險但推薦路線也用到（無法繞開）→ 橘色提示
   const sharedDangerFeatures = {
     type: 'FeatureCollection',
     features: allFeatures.filter(
@@ -149,14 +92,10 @@ function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endC
 
   const dangerCount = avoidedDangerFeatures.features.length
 
-  // 灰虛線：最短路徑一般路段
-  const styleNormal    = () => ({ color: '#475569', weight: 3, opacity: 0.75, dashArray: '7 4' })
-  // 綠線：系統推薦路線
+  const styleNormal      = () => ({ color: '#475569', weight: 3, opacity: 0.75, dashArray: '7 4' })
   const styleRecommended = () => ({ color: '#22c55e', weight: 5, opacity: 0.9 })
-  // 紅粗線：已繞開的危險路段
-  const styleAvoided   = () => ({ color: '#ef4444', weight: 7, opacity: 1 })
-  // 橘線：危險但無法繞開（推薦路線也走這裡）
-  const styleShared    = () => ({ color: '#f97316', weight: 5, opacity: 0.9, dashArray: '10 4' })
+  const styleAvoided     = () => ({ color: '#ef4444', weight: 7, opacity: 1 })
+  const styleShared      = () => ({ color: '#f97316', weight: 5, opacity: 0.9, dashArray: '10 4' })
 
   function onEachAvoided(feature, layer) {
     const { road_name, risk_score } = feature.properties ?? {}
@@ -166,7 +105,6 @@ function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endC
       { sticky: true }
     )
   }
-
   function onEachShared(feature, layer) {
     const { road_name, risk_score } = feature.properties ?? {}
     layer.bindTooltip(
@@ -175,7 +113,6 @@ function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endC
       { sticky: true }
     )
   }
-
   function onEachNormal(feature, layer) {
     const { road_name, risk_score } = feature.properties ?? {}
     layer.bindTooltip(
@@ -184,13 +121,9 @@ function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endC
     )
   }
 
-  // 縮放範圍涵蓋兩條路線
   const fitFeatures = {
     type: 'FeatureCollection',
-    features: [
-      ...allFeatures,
-      ...(recommendedSegments?.features ?? []),
-    ]
+    features: [...allFeatures, ...(recommendedSegments?.features ?? [])],
   }
 
   return (
@@ -201,57 +134,41 @@ function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endC
       <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>
         最短路徑含高風險路段（紅色），系統推薦路線（綠色）已自動繞開危險區域
       </p>
-
       <div style={{ display: 'flex', gap: 16, marginBottom: 10, fontSize: 13, flexWrap: 'wrap' }}>
         <span>📏 最短路徑 {distKm} km</span>
         <span style={{ color: '#ef4444', fontWeight: 700 }}>🔴 危險路段：{dangerCount} 段</span>
         <span>⚠️ 風險總分：{riskScore}</span>
       </div>
-
       <div style={{ display: 'flex', gap: 16, marginBottom: 10, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
         <span>
-          <span style={{ display: 'inline-block', width: 20, height: 4, background: '#22c55e',
-            borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
+          <span style={{ display: 'inline-block', width: 20, height: 4, background: '#22c55e', borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
           系統推薦路線
         </span>
         <span>
-          <span style={{ display: 'inline-block', width: 20, height: 4, background: '#ef4444',
-            borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
+          <span style={{ display: 'inline-block', width: 20, height: 4, background: '#ef4444', borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
           危險路段（已繞開）
         </span>
         <span>
-          <span style={{ display: 'inline-block', width: 20, height: 4, background: '#f97316',
-            borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
+          <span style={{ display: 'inline-block', width: 20, height: 4, background: '#f97316', borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
           危險路段（無替代道路）
         </span>
         <span>
-          <span style={{ display: 'inline-block', width: 20, height: 3, background: '#475569',
-            borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
+          <span style={{ display: 'inline-block', width: 20, height: 3, background: '#475569', borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
           最短路徑一般路段
         </span>
         <span>
-          <span style={{ display: 'inline-block', width: 10, height: 10, background: '#1d4ed8',
-            borderRadius: '50%', verticalAlign: 'middle', marginRight: 4, border: '2px solid #fff', outline: '1px solid #1d4ed8' }} />
+          <span style={{ display: 'inline-block', width: 10, height: 10, background: '#1d4ed8', borderRadius: '50%', verticalAlign: 'middle', marginRight: 4, border: '2px solid #fff', outline: '1px solid #1d4ed8' }} />
           起點
         </span>
         <span>
-          <span style={{ display: 'inline-block', width: 10, height: 10, background: '#7c3aed',
-            borderRadius: '50%', verticalAlign: 'middle', marginRight: 4, border: '2px solid #fff', outline: '1px solid #7c3aed' }} />
+          <span style={{ display: 'inline-block', width: 10, height: 10, background: '#7c3aed', borderRadius: '50%', verticalAlign: 'middle', marginRight: 4, border: '2px solid #fff', outline: '1px solid #7c3aed' }} />
           終點
         </span>
       </div>
-
       <MapContainer center={[25.038, 121.305]} zoom={13}
         style={{ height: 300, borderRadius: 10, border: '1px solid #e2e8f0' }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <FitBounds segments={fitFeatures} />
-
-        {/* 渲染順序：
-            1. 推薦路線（綠，底層）
-            2. 最短路徑一般路段（灰虛線）
-            3. 危險但無法繞開的路段（橘，提示）
-            4. 真正被繞開的危險路段（紅，最上層）
-        */}
         {recommendedSegments && (
           <GeoJSON key="rec" data={recommendedSegments} style={styleRecommended} />
         )}
@@ -264,8 +181,6 @@ function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endC
         {avoidedDangerFeatures.features.length > 0 && (
           <GeoJSON key="avoided" data={avoidedDangerFeatures} style={styleAvoided} onEachFeature={onEachAvoided} />
         )}
-
-        {/* 起終點標記：顏色與路線顏色區隔（藍=起、紫=終） */}
         {startCoord && (
           <CircleMarker center={startCoord} radius={10}
             pathOptions={{ fillColor: '#1d4ed8', color: '#fff', weight: 2.5, fillOpacity: 1 }} />
@@ -279,20 +194,57 @@ function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endC
   )
 }
 
-// 🧭 主要的路線選擇主頁面
+// ── 主頁面 ────────────────────────────────────────────────────────
 function RouteSelect() {
   const { state } = useLocation()
   const navigate  = useNavigate()
+  const [active, setActive]  = useState(0)
+  const touchStartX          = useRef(null)
+
+  function handleTouchStart(e) {
+    touchStartX.current = e.touches[0].clientX
+  }
+  function handleTouchEnd(e) {
+    if (touchStartX.current === null) return
+    const diff = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(diff) > 40) {
+      if (diff > 0) setActive(i => Math.min((routes?.length ?? 1) - 1, i + 1))
+      else          setActive(i => Math.max(0, i - 1))
+    }
+    touchStartX.current = null
+  }
 
   if (!state?.routes) { navigate('/route'); return null }
 
   const { routes, shortest_route, prefs } = state
   const { start, end, startCoord, endCoord, bridge, tunnel, maxDist, difficulty } = prefs
 
+  function goToDetail(r) {
+    navigate('/route-detail', {
+      state: {
+        route: {
+          route_id:       r.route_id,
+          start,          end,
+          startCoord,     endCoord,
+          distanceM:      r.total_distance_m,
+          distance:       +(r.total_distance_m / 1000).toFixed(2),
+          time:           Math.ceil(r.estimated_duration_sec / 60),
+          difficulty,
+          diffCode:       DIFF_CODE[difficulty],
+          estimatedScore: r.estimated_score,
+          segments:       r.segments,
+        },
+        prefs,
+        routes,          // 退回鍵需要
+        shortest_route,  // 退回鍵需要
+      }
+    })
+  }
+
   return (
     <>
       <main className="route-main">
-        {/* ⚡ 頂部控制列：保留妳美觀的 Cockpit 控制列 */}
+        {/* 頂部控制列 */}
         <div className="cockpit-top-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
           <button className="back-btn" onClick={() => navigate('/route')}>
             <ArrowLeft size={14} />
@@ -304,9 +256,9 @@ function RouteSelect() {
           <span style={{ width: '120px' }} />
         </div>
 
-        {/* 🤝 縫合亮點：完美相容朋友新寫的「不限距離」與「避橋/避隧道」文字顯示 */}
+        {/* 偏好摘要列 */}
         <div className="pref-summary">
-          {start} → {end}　
+          {start} → {end}
           <span style={{ color: '#264653', fontWeight: '700' }}>
             {maxDist ? `${maxDist} km 以內` : '不限距離'}
           </span>
@@ -320,43 +272,112 @@ function RouteSelect() {
             <button className="generate-btn" onClick={() => navigate('/route')}>重新設定條件</button>
           </div>
         ) : (
-          <div className="route-cards">
-            {routes.map((r, idx) => (
-              <RouteCard
-                key={r.route_id}
-                route={r}
-                label={String.fromCharCode(65 + idx)}  // A, B, C
-                start={start}
-                end={end}
-                difficulty={difficulty}
-                onSelect={() => navigate('/route-detail', {
-                  state: {
-                    route: {
-                      route_id:       r.route_id,
-                      start,          end,
-                      startCoord,     endCoord,
-                      distanceM:      r.total_distance_m,
-                      distance:       +(r.total_distance_m / 1000).toFixed(2),
-                      time:           Math.ceil(r.estimated_duration_sec / 60),
-                      difficulty,
-                      diffCode:       DIFF_CODE[difficulty],
-                      estimatedScore: r.estimated_score,
-                      segments:       r.segments,
-                    },
-                    prefs,
-                    // 回上一頁需要的資料
-                    routes,
-                    shortest_route,
-                  }
-                })}
-              />
-            ))}
+          <div className="route-slider-wrap">
+            {/* 左右箭頭 */}
+            <button className="carousel-arrow left"
+              onClick={() => setActive(i => Math.max(0, i - 1))}
+              disabled={active === 0}>
+              <ChevronLeft size={22} />
+            </button>
+            <button className="carousel-arrow right"
+              onClick={() => setActive(i => Math.min(routes.length - 1, i + 1))}
+              disabled={active === routes.length - 1}>
+              <ChevronRight size={22} />
+            </button>
+
+            {/* 滑動軌道（觸控支援） */}
+            <div className="route-slider"
+              style={{ transform: `translateX(calc(-${active * 100}% - ${active * 20}px))` }}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}>
+              {routes.map((r, idx) => {
+                const coords  = extractCoords(r.segments)
+                const svg     = toSVG(coords)
+                const distKm  = +(r.total_distance_m / 1000).toFixed(2)
+                const timeMin = Math.ceil(r.estimated_duration_sec / 60)
+                const label   = String.fromCharCode(65 + idx)
+
+                return (
+                  <div key={r.route_id}
+                    className={`route-slide-card ${idx === active ? 'is-active' : 'is-side'}`}
+                    onClick={() => idx !== active && setActive(idx)}>
+
+                    {/* SVG 路線預覽 */}
+                    <div className="slide-map-preview">
+                      <div className="slide-label-badge">路線 {label}</div>
+                      {svg ? (
+                        <svg viewBox="0 0 320 180" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+                          <rect width="320" height="180" fill="#eef2f7" />
+                          {[40, 80, 120, 160].map(y => (
+                            <line key={y} x1="0" y1={y} x2="320" y2={y} stroke="#dde3ec" strokeWidth="0.5" />
+                          ))}
+                          {[80, 160, 240].map(x => (
+                            <line key={x} x1={x} y1="0" x2={x} y2="180" stroke="#dde3ec" strokeWidth="0.5" />
+                          ))}
+                          <path d={svg.path} fill="none" stroke="#264653" strokeWidth="3.5"
+                            strokeLinecap="round" strokeLinejoin="round" />
+                          <circle cx={svg.start.x} cy={svg.start.y} r="7" fill="#ff6b35" stroke="#fff" strokeWidth="2" />
+                          <circle cx={svg.end.x}   cy={svg.end.y}   r="7" fill="#1d3557" stroke="#fff" strokeWidth="2" />
+                          <text x={svg.start.x + 10} y={svg.start.y + 4} fontSize="10" fill="#ff6b35" fontWeight="700">起</text>
+                          <text x={svg.end.x + 10}   y={svg.end.y + 4}   fontSize="10" fill="#1d3557" fontWeight="700">終</text>
+                        </svg>
+                      ) : (
+                        <div className="slide-map-loading">載入中…</div>
+                      )}
+                    </div>
+
+                    {/* 路線資訊 */}
+                    <div className="slide-info">
+                      <div className="slide-route-name">{start} → {end}</div>
+                      <div className="slide-stars">
+                        {Array.from({ length: difficulty }).map((_, i) => (
+                          <Star key={i} size={14} style={{ fill: '#fbbf24', stroke: '#fbbf24' }} />
+                        ))}
+                        <span className="slide-diff-label">{DIFF_LABEL[difficulty]}駕駛</span>
+                      </div>
+                      <div className="slide-stats">
+                        <div className="slide-stat">
+                          <Milestone size={16} /><span>{distKm} km</span>
+                        </div>
+                        <div className="slide-stat">
+                          <Clock size={16} /><span>{timeMin} 分鐘</span>
+                        </div>
+                        <div className="slide-stat score">
+                          <Zap size={16} /><span>+{r.estimated_score} 分</span>
+                        </div>
+                      </div>
+
+                      {r.constraint_relaxed && (
+                        <div className="slide-warning">
+                          <AlertTriangle size={13} />
+                          <span>含 {r.has_bridge ? '橋樑 ' : ''}{r.has_tunnel ? '隧道' : ''}（無替代）</span>
+                        </div>
+                      )}
+
+                      <button className="slide-select-btn" onClick={() => goToDetail(r)}>
+                        選擇此路線 →
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* 圓點指示器 */}
+            <div className="carousel-dots">
+              {routes.map((_, i) => (
+                <button key={i}
+                  className={`carousel-dot ${i === active ? 'active' : ''}`}
+                  onClick={() => setActive(i)} />
+              ))}
+            </div>
           </div>
         )}
 
+        {/* 最短路徑 vs 推薦路線比較地圖 */}
         <ShortestRouteMap
           shortestRoute={shortest_route}
-          recommendedSegments={routes[0]?.segments}
+          recommendedSegments={routes[active]?.segments}
           startCoord={startCoord}
           endCoord={endCoord}
         />
