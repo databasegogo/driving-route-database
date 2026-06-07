@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
+from datetime import date
 import bcrypt
 import json
 
@@ -34,11 +35,22 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
+def validate_license_age(birth_date_str: str, license_date_str: str):
+    """取得駕照時是否已滿 18 歲，否則拋 400"""
+    birth   = date.fromisoformat(birth_date_str)
+    lic     = date.fromisoformat(license_date_str)
+    age_at_license = (lic - birth).days / 365.25
+    if age_at_license < 18:
+        raise HTTPException(status_code=400, detail="LICENSE_AGE_INVALID")
+
 
 # ── 端點 ──────────────────────────────────────────────────────────
 
 @router.post("/register")
 def register(req: RegisterRequest):
+    # 驗證取得駕照時年齡是否已滿 18 歲
+    validate_license_age(req.birth_date, req.license_date)
+
     conn = get_db()
     cur  = conn.cursor()
     try:

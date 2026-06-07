@@ -4,6 +4,16 @@ import { UserPlus, CheckCircle, User, MapPin } from 'lucide-react'
 import api from '../api'
 import '../styles/auth.css'
 
+// 驗證取得駕照時是否已滿 18 歲
+function validateLicenseAge(birthday, licenseDate) {
+  if (!birthday || !licenseDate) return null
+  const bDay = new Date(birthday)
+  const lDay = new Date(licenseDate)
+  bDay.setFullYear(bDay.getFullYear() + 18)
+  if (lDay < bDay) return '駕照取得日期須在生日後滿 18 歲 ❌'
+  return null
+}
+
 function Register() {
   const [form, setForm] = useState({
     name:         '',
@@ -24,7 +34,15 @@ function Register() {
   const navigate = useNavigate()
 
   function handleChange(e) {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
+    const updated = { ...form, [e.target.name]: e.target.value }
+    setForm(updated)
+    // 即時驗證駕照年齡（只要生日或駕照日期其中一個改動就檢查）
+    if (e.target.name === 'birthday' || e.target.name === 'licenseDate') {
+      const b = e.target.name === 'birthday'    ? e.target.value : form.birthday
+      const l = e.target.name === 'licenseDate' ? e.target.value : form.licenseDate
+      const warning = validateLicenseAge(b, l)
+      setError(warning ?? '')
+    }
   }
 
   // 今天的日期（yyyy-mm-dd），用作 max 屬性
@@ -43,15 +61,8 @@ function Register() {
       setError('駕照取得日期不能是未來的日期 ❌')
       return
     }
-    if (form.birthday && form.licenseDate) {
-      const bDay = new Date(form.birthday)
-      const lDay = new Date(form.licenseDate)
-      bDay.setFullYear(bDay.getFullYear() + 18)
-      if (lDay < bDay) {
-        setError('駕照取得日期須在生日後滿 18 年 ❌')
-        return
-      }
-    }
+    const ageErr = validateLicenseAge(form.birthday, form.licenseDate)
+    if (ageErr) { setError(ageErr); return }
 
     setLoading(true)
 
@@ -78,6 +89,8 @@ function Register() {
       const detail = err.response?.data?.detail
       if (detail === 'EMAIL_ALREADY_EXISTS') {
         setError('此 Email 已被使用 ❌')
+      } else if (detail === 'LICENSE_AGE_INVALID') {
+        setError('取得駕照時必須已滿 18 歲，請確認出生日期與駕照日期 ❌')
       } else if (status === 422) {
         const errs = err.response?.data?.detail
         const msg  = Array.isArray(errs) ? errs.map(e => e.msg).join('、') : '輸入格式錯誤'
