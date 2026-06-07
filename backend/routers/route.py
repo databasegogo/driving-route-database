@@ -15,6 +15,8 @@ SCORE_WEIGHT = {"BEGINNER": 1,  "NORMAL": 2,  "EXPERIENCED": 3}
 LEVEL_ORDER  = {"BEGINNER": 1,  "NORMAL": 2,  "EXPERIENCED": 3}
 LEVEL_CODE   = {1: "BEGINNER",  2: "NORMAL",  3: "EXPERIENCED"}
 
+DANGER_THRESHOLD_MULTIPLIER = 1.5
+
 
 # ── Request schema ────────────────────────────────────────────────
 
@@ -45,6 +47,19 @@ def build_cost_expr(base_expr: str, avoid_bridge: bool, avoid_tunnel: bool) -> s
         when_clause = " OR ".join(conditions)
         return f"CASE WHEN {when_clause} THEN 999999 ELSE {base_expr} END"
     return base_expr
+
+
+def mark_dangerous_segments(segments: list) -> list:
+    scores = [s["risk_score"] for s in segments if s["risk_score"] > 0]
+    if not scores:
+        for s in segments:
+            s["is_dangerous"] = False
+        return segments
+    avg = sum(scores) / len(scores)
+    threshold = avg * DANGER_THRESHOLD_MULTIPLIER
+    for s in segments:
+        s["is_dangerous"] = s["risk_score"] > threshold
+    return segments
 
 
 # ── 端點 ──────────────────────────────────────────────────────────
@@ -153,6 +168,27 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         if not all_rows:
             raise HTTPException(422, "NO_PATH_FOUND")
 
+        # 最短路徑（純距離 Dijkstra，不加風險權重）
+        shortest_inner_sql = """
+            SELECT re.edge_id AS id, re.source, re.target,
+                   re.cost, re.reverse_cost
+            FROM road_edge re
+        """
+        shortest_sql = """
+            SELECT d.seq, d.edge,
+                   r.name AS road_name, re.length, re.cost,
+                   COALESCE(ers.risk_score, 0) AS risk_score,
+                   ST_AsGeoJSON(re.geom)
+            FROM pgr_dijkstra(%s, %s, %s, directed := false) d
+            JOIN road_edge re ON d.edge = re.edge_id
+            JOIN road r ON re.road_id = r.road_id
+            LEFT JOIN edge_risk_score ers ON re.edge_id = ers.edge_id
+            WHERE d.edge > 0
+            ORDER BY d.seq
+        """
+        cur.execute(shortest_sql, (shortest_inner_sql, start_node, end_node))
+        shortest_rows = cur.fetchall()
+
         # 6. 按 path_id 分組 → {1: [rows...], 2: [rows...], ...}
         paths = defaultdict(list)
         for row in all_rows:
@@ -255,6 +291,7 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                     "type": "Feature",
                     "geometry": geom,
                     "properties": {
+                        "edge_id":    seg[2],
                         "seq":        seg[1],
                         "road_name":  seg[3],
                         "distance_m": round(seg[4], 2),
@@ -280,17 +317,112 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         if not routes_result:
             raise HTTPException(422, "ALL_ROUTES_EXCEED_DISTANCE_LIMIT")
 
+        # 整理最短路徑（含危險路段標記）
+        shortest_route = None
+        if shortest_rows:
+            seg_dicts = []
+            for seg in shortest_rows:
+                geom = json.loads(seg[6]) if seg[6] else None
+                seg_dicts.append({
+                    "edge_id":    seg[1],   # d.edge
+                    "seq":        seg[0],
+                    "road_name":  seg[2],
+                    "distance_m": round(seg[3], 2),
+                    "risk_score": round(seg[5], 2),
+                    "geom":       geom,
+                })
+            seg_dicts = mark_dangerous_segments(seg_dicts)
+            danger_scores = [s["risk_score"] for s in seg_dicts if s["risk_score"] > 0]
+            avg_danger = sum(danger_scores) / len(danger_scores) if danger_scores else 0
+            shortest_route = {
+                "route_type":       "shortest",
+                "total_distance_m": round(sum(s["distance_m"] for s in seg_dicts), 2),
+                "total_risk_score": round(sum(s["risk_score"] for s in seg_dicts), 2),
+                "danger_threshold": round(avg_danger * DANGER_THRESHOLD_MULTIPLIER, 2),
+                "segments": {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "geometry": s["geom"],
+                            "properties": {
+                                "edge_id":      s["edge_id"],
+                                "seq":          s["seq"],
+                                "road_name":    s["road_name"],
+                                "distance_m":   s["distance_m"],
+                                "risk_score":   s["risk_score"],
+                                "is_dangerous": s["is_dangerous"],
+                            }
+                        }
+                        for s in seg_dicts
+                    ]
+                }
+            }
+
         conn.commit()
 
         return {
-            "request_id": request_id,
-            "routes":     routes_result   # 最多 3 條，前端顯示供使用者選擇
+            "request_id":    request_id,
+            "routes":        routes_result,
+            "shortest_route": shortest_route,
         }
 
     except HTTPException:
         raise
     except Exception as e:
         conn.rollback()
+        raise HTTPException(500, "INTERNAL_SERVER_ERROR")
+    finally:
+        cur.close()
+        conn.close()
+
+
+@router.get("/snap")
+def snap_to_road(lat: float, lng: float, current_user: dict = Depends(get_current_user)):
+    """
+    將座標吸附到最近道路幾何上的垂足點（ST_ClosestPoint）。
+    不跳到 node，而是找最近 edge 上的最近點，
+    讓 marker 永遠顯示在路線上，不會跳到遠處的交叉口。
+    """
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
+        cur.execute("""
+            WITH nearest_edge AS (
+                -- 用 GiST 索引找距離最近的 edge（pgRouting 原生表）
+                SELECT re.geom
+                FROM road_edges_guishan re
+                ORDER BY re.geom <-> ST_SetSRID(ST_Point(%s, %s), 4326)
+                LIMIT 1
+            ),
+            foot AS (
+                -- 計算點擊點在 edge 幾何線上的垂足（最近投影點）
+                SELECT ST_ClosestPoint(
+                    ne.geom,
+                    ST_SetSRID(ST_Point(%s, %s), 4326)
+                ) AS closest_pt
+                FROM nearest_edge ne
+            )
+            SELECT
+                ST_Y(foot.closest_pt)  AS snap_lat,
+                ST_X(foot.closest_pt)  AS snap_lng,
+                ST_Distance(
+                    foot.closest_pt::geography,
+                    ST_SetSRID(ST_Point(%s, %s), 4326)::geography
+                ) AS dist_m
+            FROM foot
+        """, (lng, lat, lng, lat, lng, lat))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(422, "NODE_NOT_FOUND")
+        return {
+            "snap_lat": float(row[0]),
+            "snap_lng": float(row[1]),
+            "dist_m":   round(float(row[2]), 1),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(500, "INTERNAL_SERVER_ERROR")
     finally:
         cur.close()

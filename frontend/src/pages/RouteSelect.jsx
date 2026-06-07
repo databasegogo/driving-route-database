@@ -1,5 +1,9 @@
+import { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Milestone, Clock, Zap, Star, AlertTriangle } from 'lucide-react' // 👈 額外導入 AlertTriangle 作為高質感警告圖示
+import { MapContainer, TileLayer, GeoJSON, CircleMarker, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import '../styles/route.css'
 
 const DIFF_CODE  = { 1: 'BEGINNER', 2: 'NORMAL', 3: 'EXPERIENCED' }
@@ -93,6 +97,188 @@ function RouteCard({ route, label, start, end, difficulty, onSelect }) {
   )
 }
 
+// ── 地圖自動縮放 ───────────────────────────────────────────────
+function FitBounds({ segments }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!segments) return
+    try {
+      const bounds = L.geoJSON(segments).getBounds()
+      if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20] })
+    } catch {}
+  }, [map, segments])
+  return null
+}
+
+// ── 最短路徑 vs 推薦路線比較地圖 ────────────────────────────
+function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endCoord }) {
+  if (!shortestRoute?.segments?.features?.length) return null
+
+  const distKm      = +(shortestRoute.total_distance_m / 1000).toFixed(2)
+  const riskScore   = shortestRoute.total_risk_score?.toFixed(1) ?? '—'
+  const allFeatures = shortestRoute.segments.features
+
+  // 推薦路線已使用的 edge_id（用來判斷「真正被繞開」的路段）
+  const recEdgeSet = new Set(
+    (recommendedSegments?.features ?? [])
+      .map(f => f.properties?.edge_id)
+      .filter(id => id != null)
+  )
+
+  // 一般路段（非危險）
+  const normalFeatures = {
+    type: 'FeatureCollection',
+    features: allFeatures.filter(f => !f.properties?.is_dangerous),
+  }
+
+  // 危險路段 — 只標記推薦路線「真正沒走」的路段
+  const avoidedDangerFeatures = {
+    type: 'FeatureCollection',
+    features: allFeatures.filter(
+      f => f.properties?.is_dangerous && !recEdgeSet.has(f.properties?.edge_id)
+    ),
+  }
+
+  // 危險但推薦路線也用到（無法繞開）→ 橘色提示
+  const sharedDangerFeatures = {
+    type: 'FeatureCollection',
+    features: allFeatures.filter(
+      f => f.properties?.is_dangerous && recEdgeSet.has(f.properties?.edge_id)
+    ),
+  }
+
+  const dangerCount = avoidedDangerFeatures.features.length
+
+  // 灰虛線：最短路徑一般路段
+  const styleNormal    = () => ({ color: '#475569', weight: 3, opacity: 0.75, dashArray: '7 4' })
+  // 綠線：系統推薦路線
+  const styleRecommended = () => ({ color: '#22c55e', weight: 5, opacity: 0.9 })
+  // 紅粗線：已繞開的危險路段
+  const styleAvoided   = () => ({ color: '#ef4444', weight: 7, opacity: 1 })
+  // 橘線：危險但無法繞開（推薦路線也走這裡）
+  const styleShared    = () => ({ color: '#f97316', weight: 5, opacity: 0.9, dashArray: '10 4' })
+
+  function onEachAvoided(feature, layer) {
+    const { road_name, risk_score } = feature.properties ?? {}
+    layer.bindTooltip(
+      `<b>${road_name ?? '未知路段'}</b><br/>風險分數：${risk_score ?? 0}` +
+      '<br/><span style="color:#ef4444">🔴 高風險路段（推薦路線已繞開此處）</span>',
+      { sticky: true }
+    )
+  }
+
+  function onEachShared(feature, layer) {
+    const { road_name, risk_score } = feature.properties ?? {}
+    layer.bindTooltip(
+      `<b>${road_name ?? '未知路段'}</b><br/>風險分數：${risk_score ?? 0}` +
+      '<br/><span style="color:#f97316">⚠️ 高風險路段（此處無替代道路）</span>',
+      { sticky: true }
+    )
+  }
+
+  function onEachNormal(feature, layer) {
+    const { road_name, risk_score } = feature.properties ?? {}
+    layer.bindTooltip(
+      `<b>${road_name ?? '未知路段'}</b><br/>風險分數：${risk_score ?? 0}`,
+      { sticky: true }
+    )
+  }
+
+  // 縮放範圍涵蓋兩條路線
+  const fitFeatures = {
+    type: 'FeatureCollection',
+    features: [
+      ...allFeatures,
+      ...(recommendedSegments?.features ?? []),
+    ]
+  }
+
+  return (
+    <section style={{ marginTop: 28 }}>
+      <div style={{ fontSize: 15, fontWeight: 800, color: '#264653', marginBottom: 6 }}>
+        🗺️ 為什麼不走最短路線？
+      </div>
+      <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>
+        最短路徑含高風險路段（紅色），系統推薦路線（綠色）已自動繞開危險區域
+      </p>
+
+      <div style={{ display: 'flex', gap: 16, marginBottom: 10, fontSize: 13, flexWrap: 'wrap' }}>
+        <span>📏 最短路徑 {distKm} km</span>
+        <span style={{ color: '#ef4444', fontWeight: 700 }}>🔴 危險路段：{dangerCount} 段</span>
+        <span>⚠️ 風險總分：{riskScore}</span>
+      </div>
+
+      <div style={{ display: 'flex', gap: 16, marginBottom: 10, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
+        <span>
+          <span style={{ display: 'inline-block', width: 20, height: 4, background: '#22c55e',
+            borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
+          系統推薦路線
+        </span>
+        <span>
+          <span style={{ display: 'inline-block', width: 20, height: 4, background: '#ef4444',
+            borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
+          危險路段（已繞開）
+        </span>
+        <span>
+          <span style={{ display: 'inline-block', width: 20, height: 4, background: '#f97316',
+            borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
+          危險路段（無替代道路）
+        </span>
+        <span>
+          <span style={{ display: 'inline-block', width: 20, height: 3, background: '#475569',
+            borderRadius: 2, verticalAlign: 'middle', marginRight: 4 }} />
+          最短路徑一般路段
+        </span>
+        <span>
+          <span style={{ display: 'inline-block', width: 10, height: 10, background: '#1d4ed8',
+            borderRadius: '50%', verticalAlign: 'middle', marginRight: 4, border: '2px solid #fff', outline: '1px solid #1d4ed8' }} />
+          起點
+        </span>
+        <span>
+          <span style={{ display: 'inline-block', width: 10, height: 10, background: '#7c3aed',
+            borderRadius: '50%', verticalAlign: 'middle', marginRight: 4, border: '2px solid #fff', outline: '1px solid #7c3aed' }} />
+          終點
+        </span>
+      </div>
+
+      <MapContainer center={[25.038, 121.305]} zoom={13}
+        style={{ height: 300, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <FitBounds segments={fitFeatures} />
+
+        {/* 渲染順序：
+            1. 推薦路線（綠，底層）
+            2. 最短路徑一般路段（灰虛線）
+            3. 危險但無法繞開的路段（橘，提示）
+            4. 真正被繞開的危險路段（紅，最上層）
+        */}
+        {recommendedSegments && (
+          <GeoJSON key="rec" data={recommendedSegments} style={styleRecommended} />
+        )}
+        {normalFeatures.features.length > 0 && (
+          <GeoJSON key="norm" data={normalFeatures} style={styleNormal} onEachFeature={onEachNormal} />
+        )}
+        {sharedDangerFeatures.features.length > 0 && (
+          <GeoJSON key="shared" data={sharedDangerFeatures} style={styleShared} onEachFeature={onEachShared} />
+        )}
+        {avoidedDangerFeatures.features.length > 0 && (
+          <GeoJSON key="avoided" data={avoidedDangerFeatures} style={styleAvoided} onEachFeature={onEachAvoided} />
+        )}
+
+        {/* 起終點標記：顏色與路線顏色區隔（藍=起、紫=終） */}
+        {startCoord && (
+          <CircleMarker center={startCoord} radius={10}
+            pathOptions={{ fillColor: '#1d4ed8', color: '#fff', weight: 2.5, fillOpacity: 1 }} />
+        )}
+        {endCoord && (
+          <CircleMarker center={endCoord} radius={10}
+            pathOptions={{ fillColor: '#7c3aed', color: '#fff', weight: 2.5, fillOpacity: 1 }} />
+        )}
+      </MapContainer>
+    </section>
+  )
+}
+
 // 🧭 主要的路線選擇主頁面
 function RouteSelect() {
   const { state } = useLocation()
@@ -100,7 +286,7 @@ function RouteSelect() {
 
   if (!state?.routes) { navigate('/route'); return null }
 
-  const { routes, prefs } = state
+  const { routes, shortest_route, prefs } = state
   const { start, end, startCoord, endCoord, bridge, tunnel, maxDist, difficulty } = prefs
 
   return (
@@ -158,12 +344,22 @@ function RouteSelect() {
                       segments:       r.segments,
                     },
                     prefs,
+                    // 回上一頁需要的資料
+                    routes,
+                    shortest_route,
                   }
                 })}
               />
             ))}
           </div>
         )}
+
+        <ShortestRouteMap
+          shortestRoute={shortest_route}
+          recommendedSegments={routes[0]?.segments}
+          startCoord={startCoord}
+          endCoord={endCoord}
+        />
       </main>
     </>
   )

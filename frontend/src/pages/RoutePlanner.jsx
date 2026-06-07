@@ -140,46 +140,76 @@ function pointInPolygon(lat, lng, geojson) {
 }
 
 // ── 地圖選點 Modal ───────────────────────────────────────────────────────────
-function MapPickerModal({ target, otherCoord, onConfirm, onClose }) {
+function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }) {
   const [picked,   setPicked]   = useState(null)
   const [name,     setName]     = useState('')
   const [loading,  setLoading]  = useState(false)
   const [boundary, setBoundary] = useState(null)
+  const [snapDist, setSnapDist] = useState(null)   // 距離最近道路幾公尺
 
+  // 載入龜山區邊界；如果有 initialCoord，邊界載完後自動選點
   useEffect(() => {
     api.get('/district/boundary')
-      .then(res => setBoundary(res.data))
-      .catch(() => setBoundary(null))
-  }, [])
+      .then(res => {
+        setBoundary(res.data)
+        if (initialCoord) handlePickWithBoundary(initialCoord, res.data)
+      })
+      .catch(() => {
+        setBoundary(null)
+        if (initialCoord) handlePickWithBoundary(initialCoord, null)
+      })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isInside = picked ? pointInPolygon(picked[0], picked[1], boundary) : false
+  const isInside = picked
+    ? (boundary ? pointInPolygon(picked[0], picked[1], boundary) : true)
+    : false
 
-  async function handlePick(coord) {
+  // 核心選點邏輯：snap → geocode
+  async function handlePickWithBoundary(coord, bnd) {
     setPicked(coord)
-    const inside = pointInPolygon(coord[0], coord[1], boundary)
+    setSnapDist(null)
+
+    const inside = bnd ? pointInPolygon(coord[0], coord[1], bnd) : true
     if (!inside) { setName(''); return }
+
     setLoading(true)
     setName('定位中...')
+
+    // 1. Snap 到最近路網節點
+    let finalCoord = coord
+    try {
+      const snapRes = await api.get('/route/snap', {
+        params: { lat: coord[0], lng: coord[1] }
+      })
+      const { snap_lat, snap_lng, dist_m } = snapRes.data
+      finalCoord = [snap_lat, snap_lng]
+      setPicked(finalCoord)
+      if (dist_m > 5) setSnapDist(Math.round(dist_m))
+    } catch { /* snap 失敗就用原座標 */ }
+
+    // 2. 反地理編碼取得名稱
     try {
       const url = new URL('https://nominatim.openstreetmap.org/reverse')
-      url.searchParams.set('lat', coord[0])
-      url.searchParams.set('lon', coord[1])
+      url.searchParams.set('lat', finalCoord[0])
+      url.searchParams.set('lon', finalCoord[1])
       url.searchParams.set('format', 'json')
       url.searchParams.set('accept-language', 'zh-TW,zh')
       url.searchParams.set('addressdetails', '1')
       const res  = await fetch(url.toString(), { headers: { 'User-Agent': 'driving-route-database/1.0' } })
       const data = await res.json()
       const addr = data.address || {}
-      const label = data.name ||
-        addr.road || addr.pedestrian || addr.footway || addr.path ||
-        addr.suburb || addr.village ||
-        `${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}`
-      setName(label)
+      setName(data.name || addr.road || addr.pedestrian || addr.footway ||
+        addr.path || addr.suburb || addr.village ||
+        `${finalCoord[0].toFixed(5)}, ${finalCoord[1].toFixed(5)}`)
     } catch {
-      setName(`${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}`)
+      setName(`${finalCoord[0].toFixed(5)}, ${finalCoord[1].toFixed(5)}`)
     } finally {
       setLoading(false)
     }
+  }
+
+  function handlePick(coord) {
+    handlePickWithBoundary(coord, boundary)
   }
 
   return (
@@ -194,7 +224,11 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose }) {
           {!picked &&  otherCoord && target === 'end'   && '📌 綠點為已選起點，請在地圖上點選終點位置'}
           {!picked &&  otherCoord && target === 'start' && '📌 紅點為已選終點，請在地圖上點選起點位置'}
           {picked && !isInside && '⚠️ 所選位置超出龜山區範圍，請重新點選'}
-          {picked && isInside && (loading ? '⏳ 定位中...' : `✅ 已選：${name}`)}
+          {picked && isInside && loading && '⏳ 定位中，已吸附到最近道路節點...'}
+          {picked && isInside && !loading && snapDist && snapDist > 5 &&
+            `✅ 已選：${name}　（已自動調整 ${snapDist} 公尺至最近道路）`}
+          {picked && isInside && !loading && (!snapDist || snapDist <= 5) &&
+            `✅ 已選：${name}`}
         </div>
         <div className="map-picker-map">
           <MapContainer
@@ -233,9 +267,11 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose }) {
                 center={picked}
                 radius={9}
                 pathOptions={{
-                  color:       isInside ? '#264653' : '#e74c3c',
-                  fillColor:   isInside ? '#ff6b35' : '#e74c3c',
-                  fillOpacity: 0.9, weight: 2,
+                  color:       '#fff',
+                  fillColor:   isInside
+                    ? (target === 'start' ? '#2e7d32' : '#c62828')
+                    : '#e74c3c',
+                  fillOpacity: 0.95, weight: 2.5,
                 }}
               />
             )}
@@ -274,8 +310,9 @@ function RoutePlanner() {
   const [errMsg,     setErrMsg]     = useState('')
   const [maxDiff,    setMaxDiff]    = useState(1)
   const [recs,       setRecs]       = useState(() => pickFour(ALL_RECOMMENDATIONS))
-  const [mapPicker,  setMapPicker]  = useState(null)
-  const [gpsStatus,  setGpsStatus]  = useState('idle')
+  const [mapPicker,      setMapPicker]      = useState(null)
+  const [mapPickerInit,  setMapPickerInit]  = useState(null)  // 推薦終點預填座標
+  const [gpsStatus,      setGpsStatus]      = useState('idle')
 
   const levelLabel = LEVEL_LABEL[maxDiff]
 
@@ -373,7 +410,8 @@ function RoutePlanner() {
 
       navigate('/route-select', {
         state: {
-          routes: res.data.routes,
+          routes:         res.data.routes,
+          shortest_route: res.data.shortest_route,
           prefs:  { start, end, startCoord: sCoord, endCoord: eCoord,
                     bridge, tunnel, maxDist, difficulty },
         }
@@ -478,7 +516,19 @@ function RoutePlanner() {
                       key={r.name}
                       type="button"
                       className={`rec-chip ${end === r.name ? 'active' : ''}`}
-                      onClick={() => { setEnd(r.name); setEndCoord(null) }}
+                      onClick={async () => {
+                        setEnd(r.name)
+                        setEndCoord(null)
+                        // Geocode 後自動開 modal 讓使用者確認地圖位置
+                        try {
+                          const coord = await geocodeText(r.name)
+                          setEndCoord(coord)
+                          setMapPickerInit(coord)
+                        } catch {
+                          setMapPickerInit(null)
+                        }
+                        setMapPicker('end')
+                      }}
                     >
                       {r.icon} {r.name}
                     </button>
@@ -585,11 +635,12 @@ function RoutePlanner() {
         <MapPickerModal
           target={mapPicker}
           otherCoord={mapPicker === 'end' ? startCoord : endCoord}
+          initialCoord={mapPickerInit}
           onConfirm={(name, coord) => {
             if (mapPicker === 'start') { setStart(name); setStartCoord(coord) }
             else                       { setEnd(name);   setEndCoord(coord)   }
           }}
-          onClose={() => setMapPicker(null)}
+          onClose={() => { setMapPicker(null); setMapPickerInit(null) }}
         />
       )}
     </>

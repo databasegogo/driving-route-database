@@ -220,7 +220,13 @@ export default function RouteDetail() {
   return (
     <div className="detail-page">
       <header className="route-header">
-        <button className="back-btn" onClick={() => navigate(-1)}>
+        <button className="back-btn" onClick={() => navigate('/route-select', {
+          state: {
+            routes:         state.routes,
+            shortest_route: state.shortest_route,
+            prefs:          state.prefs,
+          }
+        })}>
           ← 返回
         </button>
         <span className="route-title">{route.start} — {route.end}</span>
