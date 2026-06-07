@@ -190,12 +190,12 @@ function recFromBackend(h, localMap = {}) {
     coords:      loc?.coords      ?? null,
     coordsMulti: loc?.coordsMulti ?? null,
     time:        loc?.time        ?? (h.estimated_duration_sec ? Math.ceil(h.estimated_duration_sec / 60) : null),
-    start:       loc?.start       ?? null,
-    end:         loc?.end         ?? null,
+    start:       loc?.start       ?? h.start_name ?? null,
+    end:         loc?.end         ?? h.end_name   ?? null,
     startCoord:  loc?.startCoord  ?? null,
     endCoord:    loc?.endCoord    ?? null,
     diffCode:    loc?.diffCode    ?? null,
-    route_id:    loc?.route_id    ?? null,
+    route_id:    loc?.route_id    ?? h.route_id   ?? null,
   }
 }
 
