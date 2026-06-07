@@ -138,13 +138,14 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         #      c. 若無結果（理論上不會），回退至最近 vertex
         find_node_sql = """
             WITH near_routable AS (
-                -- GiST 掃描前 50 條最近邊，再篩選主連通分量內的可路由邊
+                -- GiST 掃描前 200 條最近邊，再篩選主連通分量內的可路由邊
+                -- (200 與 snap 端點一致；步道/行人路密集區前 50 條可能全不在主分量)
                 SELECT source, target, geom
                 FROM (
                     SELECT source, target, geom
                     FROM road_edges_guishan
                     ORDER BY geom <-> ST_SetSRID(ST_Point(%s, %s), 4326)
-                    LIMIT 50
+                    LIMIT 200
                 ) candidates
                 WHERE source IN (SELECT node FROM main_component_nodes)
                   AND target IN (SELECT node FROM main_component_nodes)
@@ -209,7 +210,7 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
             LEFT JOIN edge_risk_score ers ON re.edge_id = ers.edge_id
         """
 
-        # 5. pgr_ksp：回傳 3 條最短路徑
+        # 5. pgr_ksp：回傳 k=6 條最短路徑（去重後最多保留 3 條）
         # 回傳欄位：[0]path_id [1]path_seq [2]edge  [3]road_name
         #           [4]distance_m [5]base_cost [6]risk_score [7]final_cost
         #           [8]geom_json [9]bridge [10]tunnel
@@ -247,10 +248,13 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         """
 
         # 嘗試候選節點組合，找到第一個有路的配對
+        # ★ 外層先固定 end_node（最靠近終點 snap），再換 start_node
+        #   這樣當 start[0] == end[0] 時，保留 end[0] 不動，改用 start[1]
+        #   避免 end 跑到次近路口造成路線「在終點附近繞一圈」
         all_rows = []
         start_node, end_node = start_candidates[0], end_candidates[0]
-        for s_node in start_candidates:
-            for e_node in end_candidates:
+        for e_node in end_candidates:
+            for s_node in start_candidates:
                 if s_node == e_node:
                     continue
                 cur.execute(ksp_sql, (inner_sql, s_node, e_node))
@@ -443,11 +447,30 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                 }
             }
 
+        # 查詢實際路由節點座標（pgr_ksp 起/終點路口），供前端 marker 定位
+        # snap 點是「路段上的垂足」，routing node 是「路口交叉點」，兩者可能不同
+        # 前端用 node coord 當 marker 才能和 route 線條終點完全吻合
+        cur.execute("""
+            SELECT ST_Y(the_geom) AS lat, ST_X(the_geom) AS lng
+            FROM road_edges_guishan_vertices_pgr WHERE id = %s
+        """, (start_node,))
+        row = cur.fetchone()
+        start_node_coord = [row[0], row[1]] if row else None
+
+        cur.execute("""
+            SELECT ST_Y(the_geom) AS lat, ST_X(the_geom) AS lng
+            FROM road_edges_guishan_vertices_pgr WHERE id = %s
+        """, (end_node,))
+        row = cur.fetchone()
+        end_node_coord = [row[0], row[1]] if row else None
+
         conn.commit()
 
         return {
-            "routes":         routes_result,
-            "shortest_route": shortest_route,
+            "routes":           routes_result,
+            "shortest_route":   shortest_route,
+            "start_node_coord": start_node_coord,   # 實際起點路口 [lat, lng]
+            "end_node_coord":   end_node_coord,      # 實際終點路口 [lat, lng]
         }
 
     except HTTPException:

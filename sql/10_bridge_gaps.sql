@@ -39,7 +39,7 @@ GROUP BY component, comp_size
 ORDER BY comp_size DESC
 LIMIT 10;
 
--- ── 2. 找橋接節點對 ─────────────────────────────────────────────────────────
+-- ── 2. 找橋接節點對（一次掃描：孤立分量 → 最大分量）────────────────────────
 -- 策略：對每個「非最大分量」的節點，找最大分量中距離最近的節點
 -- 若距離 ≤ 80m → 建立橋接
 -- 每個孤立分量只橋接一條邊（最近的那對），以保持圖的簡潔
@@ -83,7 +83,7 @@ CROSS JOIN LATERAL (
 WHERE ST_Distance(iso.the_geom::geography, mn.the_geom::geography) <= 80
 ORDER BY iso.iso_comp, dist_m;
 
-SELECT '=== 找到橋接對數量 ===' AS info;
+SELECT '=== 第一次掃描橋接對數量 ===' AS info;
 SELECT COUNT(*) AS bridge_edges_to_insert FROM _bridge_pairs;
 
 -- ── 3. 插入虛擬道路紀錄（所有橋接邊共用一個 road） ─────────────────────────
@@ -120,8 +120,126 @@ SELECT
   ST_SetSRID(ST_MakeLine(from_geom, to_geom), 4326) AS geom
 FROM _bridge_pairs;
 
-SELECT '=== 橋接邊已插入 ===' AS info;
+SELECT '=== 第一次橋接邊已插入 ===' AS info;
 SELECT COUNT(*) AS inserted FROM road_edge WHERE edge_id >= 9000000;
+
+-- ── 4b. 二次掃描：補上 cascade 缺口 ──────────────────────────────────────────
+-- 問題：第一次掃描只橋接到「原本的最大分量」。
+-- 某些孤立節點 A 距原主分量 > 80m，但距「第一次掃描後新加入的橋接目標節點」< 80m。
+-- 例：1379 距 4523(原孤立) = 60m；4523 在第一次掃描才被橋接進主分量。
+-- → 第一次掃描時 4523 不是主分量，1379 找不到 80m 內的主分量節點 → 未橋接。
+-- → 第二次掃描（基於已插入橋接後的新分量）即可補上這類 cascade 缺口。
+DROP TABLE IF EXISTS _comp2;
+CREATE TEMP TABLE _comp2 AS
+SELECT node, component, COUNT(*) OVER (PARTITION BY component) AS comp_size
+FROM pgr_connectedComponents(
+  'SELECT edge_id AS id, source, target, cost, reverse_cost FROM road_edge'
+);
+
+DROP TABLE IF EXISTS _bridge_pairs2;
+CREATE TEMP TABLE _bridge_pairs2 AS
+WITH main_comp_id2 AS (
+  SELECT component FROM _comp2
+  GROUP BY component ORDER BY COUNT(*) DESC LIMIT 1
+),
+main_nodes2 AS (
+  SELECT c.node, v.the_geom
+  FROM _comp2 c
+  JOIN road_edges_guishan_vertices_pgr v ON v.id = c.node
+  WHERE c.component = (SELECT component FROM main_comp_id2)
+),
+isolated_nodes2 AS (
+  SELECT c.node, c.component AS iso_comp, v.the_geom
+  FROM _comp2 c
+  JOIN road_edges_guishan_vertices_pgr v ON v.id = c.node
+  WHERE c.component != (SELECT component FROM main_comp_id2)
+)
+SELECT DISTINCT ON (iso.iso_comp)
+  iso.node     AS from_node,
+  mn.node      AS to_node,
+  iso.the_geom AS from_geom,
+  mn.the_geom  AS to_geom,
+  ST_Distance(iso.the_geom::geography, mn.the_geom::geography) AS dist_m
+FROM isolated_nodes2 iso
+CROSS JOIN LATERAL (
+  SELECT m.node, m.the_geom FROM main_nodes2 m
+  ORDER BY iso.the_geom <-> m.the_geom LIMIT 1
+) mn
+WHERE ST_Distance(iso.the_geom::geography, mn.the_geom::geography) <= 80
+ORDER BY iso.iso_comp, dist_m;
+
+SELECT '=== 第二次掃描補充橋接對數量 ===' AS info;
+SELECT COUNT(*) AS cascade_bridge_edges FROM _bridge_pairs2;
+
+INSERT INTO road_edge (edge_id, road_id, source, target, cost, reverse_cost, length, geom)
+SELECT
+  (SELECT COALESCE(MAX(edge_id), 9000000) FROM road_edge WHERE edge_id >= 9000000)
+    + ROW_NUMBER() OVER (ORDER BY from_node) AS edge_id,
+  9000001,
+  from_node, to_node,
+  dist_m, dist_m, dist_m,
+  ST_SetSRID(ST_MakeLine(from_geom, to_geom), 4326)
+FROM _bridge_pairs2;
+
+SELECT '=== 橋接邊數量（一次 + 二次）===' AS info;
+SELECT COUNT(*) AS total_after_pass2 FROM road_edge WHERE edge_id >= 9000000;
+
+-- ── 4c. 第三步：把 <5 nodes 的小孤立群橋接到任何 ≥5 nodes 的可路由分量 ─────────
+-- 前兩次掃描只橋接到「最大分量」，若孤立節點靠近的是「次大但 ≥5 nodes 的分量」則未被橋接。
+-- 例：1379(2-node 孤立群) 距 4523(9-node 次大分量) = 60m → 前兩次掃描均錯過。
+-- 本步直接針對「<5 nodes 的小群」，找距離 ≤ 80m 的任何可路由節點（≥5 nodes 分量）橋接。
+DROP TABLE IF EXISTS _comp3;
+CREATE TEMP TABLE _comp3 AS
+SELECT node, component, COUNT(*) OVER (PARTITION BY component) AS comp_size
+FROM pgr_connectedComponents(
+  'SELECT edge_id AS id, source, target, cost, reverse_cost FROM road_edge'
+);
+
+DROP TABLE IF EXISTS _bridge_pairs3;
+CREATE TEMP TABLE _bridge_pairs3 AS
+WITH routable_nodes3 AS (
+  -- 任何 ≥5 nodes 分量中的節點（含非主分量）
+  SELECT c.node, v.the_geom
+  FROM _comp3 c
+  JOIN road_edges_guishan_vertices_pgr v ON v.id = c.node
+  WHERE c.comp_size >= 5
+),
+tiny_nodes AS (
+  -- <5 nodes 的孤立小群
+  SELECT c.node, c.component AS iso_comp, v.the_geom
+  FROM _comp3 c
+  JOIN road_edges_guishan_vertices_pgr v ON v.id = c.node
+  WHERE c.comp_size < 5
+)
+SELECT DISTINCT ON (iso.iso_comp)
+  iso.node     AS from_node,
+  mn.node      AS to_node,
+  iso.the_geom AS from_geom,
+  mn.the_geom  AS to_geom,
+  ST_Distance(iso.the_geom::geography, mn.the_geom::geography) AS dist_m
+FROM tiny_nodes iso
+CROSS JOIN LATERAL (
+  SELECT m.node, m.the_geom FROM routable_nodes3 m
+  ORDER BY iso.the_geom <-> m.the_geom LIMIT 1
+) mn
+WHERE ST_Distance(iso.the_geom::geography, mn.the_geom::geography) <= 80
+ORDER BY iso.iso_comp, dist_m;
+
+SELECT '=== 第三步補橋接數量（<5 nodes 小群 → 任意可路由分量）===' AS info;
+SELECT COUNT(*) AS small_cluster_bridges FROM _bridge_pairs3;
+
+INSERT INTO road_edge (edge_id, road_id, source, target, cost, reverse_cost, length, geom)
+SELECT
+  (SELECT COALESCE(MAX(edge_id), 9000000) FROM road_edge WHERE edge_id >= 9000000)
+    + ROW_NUMBER() OVER (ORDER BY from_node) AS edge_id,
+  9000001,
+  from_node, to_node,
+  dist_m, dist_m, dist_m,
+  ST_SetSRID(ST_MakeLine(from_geom, to_geom), 4326)
+FROM _bridge_pairs3;
+
+SELECT '=== 全部橋接邊數量（一次 + 二次 + 三次）===' AS info;
+SELECT COUNT(*) AS total_bridge_edges FROM road_edge WHERE edge_id >= 9000000;
 
 -- ── 5. 重建 main_component_nodes ──────────────────────────────────────────
 DROP TABLE IF EXISTS main_component_nodes;

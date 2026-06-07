@@ -135,9 +135,8 @@ function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endC
   const distKm    = +(shortestRoute.total_distance_m / 1000).toFixed(2)
   const riskScore = shortestRoute.total_risk_score?.toFixed(1) ?? '—'
   const allFeatures = shortestRoute.segments.features
-  // 起終點標記使用 snap 垂足點（prefs.startCoord/endCoord）
-  // 理由：山區/住宅區路網稀疏，路由節點可能離使用者選點 300–500m 以上，
-  //       snap 垂足點才是「最接近使用者意圖的道路位置」
+  // 起終點標記使用後端回傳的路口座標（start_node_coord / end_node_coord）
+  // 路口座標 = pgr_ksp 實際用的起終點路口，與 route 線條完全對齊，不會有視覺錯位
 
   const recEdgeSet = new Set(
     (recommendedSegments?.features ?? [])

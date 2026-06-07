@@ -8,6 +8,16 @@ import '../styles/route.css'
 
 const DIFF_CODE = { 1: 'BEGINNER', 2: 'NORMAL', 3: 'EXPERIENCED' }
 
+// 呼叫 /route/snap 把座標吸附到最近可路由道路；失敗時靜默回傳原始座標
+async function snapToRoad([lat, lng]) {
+  try {
+    const res = await api.get('/route/snap', { params: { lat, lng } })
+    return [res.data.snap_lat, res.data.snap_lng]
+  } catch {
+    return [lat, lng]
+  }
+}
+
 const ERR_MSG = {
   NODE_NOT_FOUND:    '找不到起點或終點附近的道路，請換個地點',
   NO_PATH_FOUND:     '起終點之間找不到可行路線（可能位於不相連的路網區段），請嘗試換個地點或將起終點設在主要道路附近',
@@ -467,8 +477,20 @@ function RoutePlanner() {
     setStatus('loading')
     setErrMsg('')
     try {
-      const sCoord = startCoord ?? await geocodeText(start)
-      const eCoord = endCoord   ?? await geocodeText(end)
+      // 1. 取得座標（已選 → 直接用；未選 → 地理編碼）
+      let sCoord = startCoord ?? await geocodeText(start)
+      let eCoord = endCoord   ?? await geocodeText(end)
+
+      // 2. 統一 snap 到最近可路由道路（MapPickerModal 來的已是路面點，
+      //    但 autocomplete / geocode 來的是原始 Nominatim 座標，需要吸附）
+      ;[sCoord, eCoord] = await Promise.all([
+        snapToRoad(sCoord),
+        snapToRoad(eCoord),
+      ])
+
+      // 3. 更新 state，確保後續地圖標記顯示在道路上
+      setStartCoord(sCoord)
+      setEndCoord(eCoord)
 
       const res = await api.post('/route/plan', {
         start_lat:           sCoord[0],
@@ -481,11 +503,18 @@ function RoutePlanner() {
         max_distance_m:      maxDist ? maxDist * 1000 : null,
       })
 
+      // 優先用後端回傳的路口座標當 marker（與 route 線條終點完全吻合）
+      // 若後端未回傳（舊版或異常），fallback 到 snap 座標
+      const markerStart = res.data.start_node_coord ?? sCoord
+      const markerEnd   = res.data.end_node_coord   ?? eCoord
+
       navigate('/route-select', {
         state: {
           routes:         res.data.routes,
           shortest_route: res.data.shortest_route,
-          prefs:  { start, end, startCoord: sCoord, endCoord: eCoord,
+          prefs:  { start, end,
+                    startCoord: markerStart, endCoord: markerEnd,
+                    snapStart:  sCoord,      snapEnd:  eCoord,
                     bridge, tunnel, maxDist, difficulty },
         }
       })
@@ -528,7 +557,11 @@ function RoutePlanner() {
                       value={start}
                       coord={startCoord}
                       onChange={(v, c) => { setStart(v); setStartCoord(c); if (!c) setGpsStatus('idle') }}
-                      onSelect={c => setStartCoord(c)}
+                      onSelect={async c => {
+                        setStartCoord(c)                      // 先顯示原始座標
+                        const snapped = await snapToRoad(c)
+                        setStartCoord(snapped)                // 更新為路面上的點
+                      }}
                       placeholder="設定出發起點（例：長庚大學）"
                       labelText="START POINT"
                     />
@@ -560,7 +593,11 @@ function RoutePlanner() {
                       value={end}
                       coord={endCoord}
                       onChange={(v, c) => { setEnd(v); setEndCoord(c) }}
-                      onSelect={c => setEndCoord(c)}
+                      onSelect={async c => {
+                        setEndCoord(c)
+                        const snapped = await snapToRoad(c)
+                        setEndCoord(snapped)
+                      }}
                       placeholder="設定練習終點（例：林口長庚醫院）"
                       labelText="DESTINATION"
                     />
