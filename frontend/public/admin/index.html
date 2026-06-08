@@ -344,29 +344,6 @@ select.select-filter option { background: var(--navy-mid); }
 .empty-icon { font-size: 32px; margin-bottom: 8px; }
 
 /* ── 等級選擇器 ── */
-.level-selector { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
-.level-opt {
-  display: flex; align-items: center; gap: 14px;
-  padding: 14px 16px; border-radius: 10px; cursor: pointer;
-  border: 2px solid var(--border); background: var(--navy-light);
-  transition: all .18s; position: relative; overflow: hidden;
-}
-.level-opt:hover { border-color: var(--accent); background: rgba(59,130,246,.08); }
-.level-opt.selected { border-color: var(--accent); background: rgba(59,130,246,.13); }
-.level-opt.selected::after {
-  content: '✓'; position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
-  color: var(--accent); font-weight: 700; font-size: 16px;
-}
-.level-opt-icon { font-size: 22px; }
-.level-opt-info { flex: 1; }
-.level-opt-name { font-size: 13px; font-weight: 700; }
-.level-opt-range { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-.level-opt-weight { font-size: 11px; font-family: var(--font-mono); margin-top: 2px; }
-.level-opt.l-beginner.selected    { border-color: var(--green);  background: rgba(34,197,94,.1); }
-.level-opt.l-beginner.selected::after { color: var(--green); }
-.level-opt.l-normal.selected      { border-color: var(--accent); background: rgba(59,130,246,.1); }
-.level-opt.l-experienced.selected { border-color: var(--yellow); background: rgba(245,158,11,.1); }
-.level-opt.l-experienced.selected::after { color: var(--yellow); }
 
 /* ── 使用者資訊卡（Modal 頂部） ── */
 .user-info-strip {
@@ -383,11 +360,6 @@ select.select-filter option { background: var(--navy-mid); }
 .user-strip-info { flex: 1; }
 .user-strip-name { font-size: 14px; font-weight: 700; }
 .user-strip-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-.score-chip {
-  font-family: var(--font-mono); font-size: 13px; font-weight: 700;
-  background: rgba(245,158,11,.12); color: var(--yellow);
-  border: 1px solid rgba(245,158,11,.25); border-radius: 8px; padding: 4px 10px;
-}
 
 /* ── 警告文字 ── */
 .warn-box {
@@ -738,7 +710,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
               <div class="tbl-wrap">
                 <table>
                   <thead><tr><th>ID</th><th>使用者名稱</th><th>Email</th><th>累積分數</th>
-                  <th style="min-width:120px">直接改分數</th><th>駕照日期</th><th>調整等級</th></tr></thead>
+                  <th>駕照日期</th></tr></thead>
                   <tbody id="lvtbl-BEGINNER"><tr><td colspan="7" class="empty" style="padding:16px">載入中…</td></tr></tbody>
                 </table>
               </div>
@@ -761,7 +733,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
               <div class="tbl-wrap">
                 <table>
                   <thead><tr><th>ID</th><th>使用者名稱</th><th>Email</th><th>累積分數</th>
-                  <th style="min-width:120px">直接改分數</th><th>駕照日期</th><th>調整等級</th></tr></thead>
+                  <th>駕照日期</th></tr></thead>
                   <tbody id="lvtbl-NORMAL"><tr><td colspan="7" class="empty" style="padding:16px">載入中…</td></tr></tbody>
                 </table>
               </div>
@@ -784,7 +756,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
               <div class="tbl-wrap">
                 <table>
                   <thead><tr><th>ID</th><th>使用者名稱</th><th>Email</th><th>累積分數</th>
-                  <th style="min-width:120px">直接改分數</th><th>駕照日期</th><th>調整等級</th></tr></thead>
+                  <th>駕照日期</th></tr></thead>
                   <tbody id="lvtbl-EXPERIENCED"><tr><td colspan="7" class="empty" style="padding:16px">載入中…</td></tr></tbody>
                 </table>
               </div>
@@ -908,64 +880,6 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   </div>
 </div>
 
-<!-- ── 調整等級 Modal ── -->
-<div class="modal-overlay" id="modal-edit-level">
-  <div class="modal" style="max-width:520px">
-    <div class="modal-title">✏️ 調整駕駛等級</div>
-
-    <!-- 使用者資訊條 -->
-    <div class="user-info-strip">
-      <div class="user-avatar-sm" id="el-avatar">W</div>
-      <div class="user-strip-info">
-        <div class="user-strip-name" id="el-username">—</div>
-        <div class="user-strip-meta" id="el-meta">—</div>
-      </div>
-      <div class="score-chip">⭐ <span id="el-score">0</span> 分</div>
-    </div>
-
-    <!-- 等級選擇 -->
-    <div class="form-label" style="margin-bottom:10px">選擇新等級</div>
-    <div class="level-selector">
-      <div class="level-opt l-beginner" id="lopt-BEGINNER" onclick="selectLevel('BEGINNER')">
-        <div class="level-opt-icon">🟢</div>
-        <div class="level-opt-info">
-          <div class="level-opt-name">⭐ 新手駕駛（BEGINNER）</div>
-          <div class="level-opt-range">分數範圍：0 – 499</div>
-          <div class="level-opt-weight" style="color:var(--green)">風險權重 × 80　→ 優先低風險路線</div>
-        </div>
-      </div>
-      <div class="level-opt l-normal" id="lopt-NORMAL" onclick="selectLevel('NORMAL')">
-        <div class="level-opt-icon">🔵</div>
-        <div class="level-opt-info">
-          <div class="level-opt-name">⭐⭐ 一般駕駛（NORMAL）</div>
-          <div class="level-opt-range">分數範圍：500 – 1999</div>
-          <div class="level-opt-weight" style="color:var(--accent)">風險權重 × 40　→ 平衡路線</div>
-        </div>
-      </div>
-      <div class="level-opt l-experienced" id="lopt-EXPERIENCED" onclick="selectLevel('EXPERIENCED')">
-        <div class="level-opt-icon">🟡</div>
-        <div class="level-opt-info">
-          <div class="level-opt-name">⭐⭐⭐ 熟練駕駛（EXPERIENCED）</div>
-          <div class="level-opt-range">分數範圍：2000 以上</div>
-          <div class="level-opt-weight" style="color:var(--yellow)">風險權重 × 10　→ 最短路線優先</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 警告提示 -->
-    <div class="warn-box" id="el-warn" style="display:none">
-      ⚠️ <span id="el-warn-text"></span>
-    </div>
-    <div class="warn-box info" style="margin-top:10px">
-      ℹ️ 手動調整等級不會變更使用者的累積分數，但會立即影響其可選擇的路線難度。
-    </div>
-
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('modal-edit-level')">取消</button>
-      <button class="btn btn-primary" id="el-confirm-btn" onclick="confirmEditLevel()">確認調整</button>
-    </div>
-  </div>
-</div>
 <div id="toast">
   <span id="toast-icon">✅</span>
   <span id="toast-msg">操作成功</span>
@@ -1255,15 +1169,7 @@ async function loadUsers() {
   filteredUsers = [...allUsers];
   renderUsersTable();
 
-  // 在表格上方加一條提示
-  const wrap = document.getElementById('user-tbody').closest('.card');
-  if (wrap && !wrap.querySelector('.api-notice')) {
-    const notice = document.createElement('div');
-    notice.className = 'api-notice';
-    notice.style.cssText = 'padding:10px 20px;background:rgba(245,158,11,.08);border-bottom:1px solid rgba(245,158,11,.2);font-size:12px;color:#fcd34d;display:flex;gap:8px;align-items:center';
-    notice.innerHTML = '⚠️ 目前只顯示登入帳號自己的資料。若要看到所有使用者，需後端新增 <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px">GET /admin/users</code>';
-    wrap.querySelector('.card-body').prepend(notice);
-  }
+
 }
 
 function renderUsersTable() {
@@ -1293,7 +1199,6 @@ function renderUsersTable() {
       <td><span class="tag ${u.role}">${u.role === 'admin' ? '管理員' : '使用者'}</span></td>
       <td style="color:var(--text-muted)">${u.license_date || '—'}</td>
       <td>
-        <button class="btn btn-ghost btn-sm" onclick="goToLevelEdit(${u.user_id})">詳情</button>
         ${u.role !== 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.user_id})">刪除</button>` : ''}
       </td>
     </tr>
@@ -1310,88 +1215,6 @@ function renderUsersTable() {
     b.onclick = () => { userPage = i; renderUsersTable(); };
     pag.appendChild(b);
   }
-}
-
-/* ════════════════════════════════
-   調整等級功能（用 /admin/users/:id/level）
-════════════════════════════════ */
-const LEVEL_ID_MAP    = { BEGINNER:1, NORMAL:2, EXPERIENCED:3 };
-const LEVEL_MIN_SCORE = { BEGINNER:0, NORMAL:500, EXPERIENCED:2000 };
-let editingUserId    = null;
-let selectedNewLevel = null;
-
-function openEditLevel(userId) {
-  const u = allUsers.find(u => u.user_id === userId);
-  if (!u) return;
-  editingUserId    = userId;
-  selectedNewLevel = u.level_code || 'BEGINNER';
-
-  document.getElementById('el-avatar').textContent   = (u.username||'?').charAt(0).toUpperCase();
-  document.getElementById('el-username').textContent = u.username;
-  document.getElementById('el-meta').textContent     = `${u.email}　｜　#${u.user_id}`;
-  document.getElementById('el-score').textContent    = u.total_score ?? 0;
-
-  ['BEGINNER','NORMAL','EXPERIENCED'].forEach(l =>
-    document.getElementById('lopt-' + l).classList.toggle('selected', l === selectedNewLevel)
-  );
-  document.getElementById('el-warn').style.display = 'none';
-  openModal('modal-edit-level');
-}
-
-function selectLevel(level) {
-  selectedNewLevel = level;
-  ['BEGINNER','NORMAL','EXPERIENCED'].forEach(l =>
-    document.getElementById('lopt-' + l).classList.toggle('selected', l === level)
-  );
-  const u = allUsers.find(u => u.user_id === editingUserId);
-  const warn = document.getElementById('el-warn');
-  if (!u) return;
-  const minScore  = LEVEL_MIN_SCORE[level];
-  const levelName = { BEGINNER:'新手駕駛', NORMAL:'一般駕駛', EXPERIENCED:'熟練駕駛' };
-  if ((u.total_score ?? 0) < minScore) {
-    document.getElementById('el-warn-text').textContent =
-      `此使用者目前分數 ${u.total_score ?? 0} 分，低於「${levelName[level]}」所需的 ${minScore} 分門檻。手動調整仍可執行，但下次完成練習後系統自動升等可能會覆蓋此設定。`;
-    warn.style.display = 'flex';
-  } else {
-    warn.style.display = 'none';
-  }
-}
-
-async function confirmEditLevel() {
-  if (!editingUserId || !selectedNewLevel) return;
-  const u = allUsers.find(u => u.user_id === editingUserId);
-  if (!u) return;
-  if (u.level_code === selectedNewLevel) { toast('等級未變更', 'error'); return; }
-
-  const levelName = { BEGINNER:'新手駕駛', NORMAL:'一般駕駛', EXPERIENCED:'熟練駕駛' };
-  const btn = document.getElementById('el-confirm-btn');
-  btn.disabled = true; btn.textContent = '處理中…';
-
-  try {
-    const res = await api(`/admin/users/${editingUserId}/level`, 'PATCH', {
-      user_level_id: LEVEL_ID_MAP[selectedNewLevel]
-    });
-    const scoreMsg = res.score_changed
-      ? `（分數已調整為 ${res.total_score} 分）`
-      : `（原始分數 ${u.total_score ?? 0} 分保留）`;
-    toast(`✅ 已將 ${u.username} 的等級調整為「${levelName[selectedNewLevel]}」${scoreMsg}`);
-    if (res.score_changed) u.total_score = res.total_score;
-  } catch {
-    toast('後端尚未提供 Admin API，無法儲存到資料庫', 'error');
-    btn.disabled = false; btn.textContent = '確認調整';
-    return;
-  }
-
-  u.level_code    = selectedNewLevel;
-  u.user_level_id = LEVEL_ID_MAP[selectedNewLevel];
-  filteredUsers = filteredUsers.map(fu =>
-    fu.user_id === editingUserId ? { ...fu, level_code: selectedNewLevel, user_level_id: LEVEL_ID_MAP[selectedNewLevel], total_score: u.total_score } : fu
-  );
-
-  closeModal('modal-edit-level');
-  renderUsersTable();
-  renderLevels();
-  btn.disabled = false; btn.textContent = '確認調整';
 }
 
 async function deleteUser(id) {
@@ -1481,15 +1304,6 @@ async function loadPractice() {
     document.getElementById('badge-practice').textContent =
       allPractice.filter(p => p.status === 'in_progress').length;
 
-    // 提示只有自己的資料
-    const wrap = document.getElementById('prac-tbody').closest('.card');
-    if (wrap && !wrap.querySelector('.api-notice')) {
-      const notice = document.createElement('div');
-      notice.className = 'api-notice';
-      notice.style.cssText = 'padding:10px 20px;background:rgba(245,158,11,.08);border-bottom:1px solid rgba(245,158,11,.2);font-size:12px;color:#fcd34d;display:flex;gap:8px;align-items:center';
-      notice.innerHTML = '⚠️ 目前只顯示登入帳號自己的練習紀錄。若要看到所有使用者，需後端新增 <code style="background:rgba(0,0,0,.2);padding:1px 6px;border-radius:4px">GET /admin/practice</code>';
-      wrap.querySelector('.card-body').prepend(notice);
-    }
   } catch {
     setError('prac-tbody', 8, '無法載入練習歷程，請確認 Token');
   }
@@ -1599,43 +1413,14 @@ function renderLevels() {
         <td><strong>${u.username}</strong></td>
         <td style="color:var(--text-muted)">${u.email}</td>
         <td style="font-family:var(--font-mono)">${u.total_score ?? 0}</td>
-        <td>
-          <div style="display:flex;gap:4px">
-            <input type="number" value="${u.total_score??0}" min="0"
-              style="width:70px;background:var(--navy-light);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:12px"
-              id="score-input-${u.user_id}"/>
-            <button onclick="saveUserScore(${u.user_id})"
-              style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px">儲存</button>
-          </div>
-        </td>
         <td style="color:var(--text-muted)">${u.license_date || '—'}</td>
-        <td><button class="btn btn-ghost btn-sm" onclick="openEditLevel(${u.user_id})">✏️ 調整等級</button></td>
       </tr>
     `).join('');
   });
 }
 
-async function saveUserScore(userId) {
-  const input = document.getElementById(`score-input-${userId}`);
-  const score = parseInt(input.value);
-  if (isNaN(score) || score < 0) { toast('請輸入有效分數', 'error'); return; }
-  try {
-    const res = await api(`/admin/users/${userId}/score`, 'PATCH', { total_score: score });
-    toast(`✅ 分數已更新為 ${score}，等級自動調整為 ${res.user_level_id === 1 ? '新手' : res.user_level_id === 2 ? '一般' : '熟練'}`);
-    // 更新本地快取
-    const u = allUsers.find(u => u.user_id === userId);
-    if (u) { u.total_score = score; u.user_level_id = res.user_level_id;
-              const lvMap = {1:'BEGINNER',2:'NORMAL',3:'EXPERIENCED'};
-              u.level_code = lvMap[res.user_level_id]; }
-    renderLevels();
-  } catch { toast('更新失敗', 'error'); }
-}
 
-function goToLevelEdit(userId) {
-  const levelNavItem = document.querySelectorAll('.nav-item')[4];
-  goto('levels', levelNavItem);
-  setTimeout(() => openEditLevel(userId), 150);
-}
+
 
 /* ════════════════════════════════
    風險管理
@@ -1904,7 +1689,6 @@ function renderUsersTable() {
       <td><span class="tag ${u.role}">${u.role === 'admin' ? '管理員' : '使用者'}</span></td>
       <td style="color:var(--text-muted)">${u.license_date || '—'}</td>
       <td>
-        <button class="btn btn-ghost btn-sm" onclick="goToLevelEdit(${u.user_id})">詳情</button>
         ${u.role !== 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.user_id})">刪除</button>` : ''}
       </td>
     </tr>
@@ -1921,89 +1705,6 @@ function renderUsersTable() {
     b.onclick = () => { userPage = i; renderUsersTable(); };
     pag.appendChild(b);
   }
-}
-
-/* ════════════════════════════════
-   調整等級功能
-════════════════════════════════ */
-// const LEVEL_ID_MAP    = { BEGINNER:1, NORMAL:2, EXPERIENCED:3 };
-// const LEVEL_MIN_SCORE = { BEGINNER:0, NORMAL:500, EXPERIENCED:2000 };
-editingUserId    = null;
-selectedNewLevel = null;
-
-function openEditLevel(userId) {
-  const u = allUsers.find(u => u.user_id === userId);
-  if (!u) return;
-  editingUserId    = userId;
-  selectedNewLevel = u.level_code || 'BEGINNER';
-
-  document.getElementById('el-avatar').textContent   = (u.username||'?').charAt(0).toUpperCase();
-  document.getElementById('el-username').textContent = u.username;
-  document.getElementById('el-meta').textContent     = `${u.email}　｜　#${u.user_id}`;
-  document.getElementById('el-score').textContent    = u.total_score ?? 0;
-
-  ['BEGINNER','NORMAL','EXPERIENCED'].forEach(l =>
-    document.getElementById('lopt-' + l).classList.toggle('selected', l === selectedNewLevel)
-  );
-  document.getElementById('el-warn').style.display = 'none';
-  openModal('modal-edit-level');
-}
-
-function selectLevel(level) {
-  selectedNewLevel = level;
-  ['BEGINNER','NORMAL','EXPERIENCED'].forEach(l =>
-    document.getElementById('lopt-' + l).classList.toggle('selected', l === level)
-  );
-  const u = allUsers.find(u => u.user_id === editingUserId);
-  const warn = document.getElementById('el-warn');
-  if (!u) return;
-  const minScore  = LEVEL_MIN_SCORE[level];
-  const levelName = { BEGINNER:'新手駕駛', NORMAL:'一般駕駛', EXPERIENCED:'熟練駕駛' };
-  if ((u.total_score ?? 0) < minScore) {
-    document.getElementById('el-warn-text').textContent =
-      `此使用者目前分數 ${u.total_score ?? 0} 分，低於「${levelName[level]}」所需的 ${minScore} 分門檻。手動調整仍可執行，但下次完成練習後系統自動升等可能會覆蓋此設定。`;
-    warn.style.display = 'flex';
-  } else {
-    warn.style.display = 'none';
-  }
-}
-
-async function confirmEditLevel() {
-  if (!editingUserId || !selectedNewLevel) return;
-  const u = allUsers.find(u => u.user_id === editingUserId);
-  if (!u) return;
-  if (u.level_code === selectedNewLevel) { toast('等級未變更', 'error'); return; }
-
-  const levelName = { BEGINNER:'新手駕駛', NORMAL:'一般駕駛', EXPERIENCED:'熟練駕駛' };
-  const btn = document.getElementById('el-confirm-btn');
-  btn.disabled = true; btn.textContent = '處理中…';
-
-  try {
-    const res = await api(`/admin/users/${editingUserId}/level`, 'PATCH', {
-      user_level_id: LEVEL_ID_MAP[selectedNewLevel]
-    });
-    const scoreMsg = res.score_changed
-      ? `（分數已調整為 ${res.total_score} 分）`
-      : `（原始分數 ${u.total_score ?? 0} 分保留）`;
-    toast(`✅ 已將 ${u.username} 的等級調整為「${levelName[selectedNewLevel]}」${scoreMsg}`);
-    if (res.score_changed) u.total_score = res.total_score;
-  } catch {
-    toast('後端尚未提供此 API，請參考說明文件新增 endpoint', 'error');
-    btn.disabled = false; btn.textContent = '確認調整';
-    return;
-  }
-
-  // 更新本地快取
-  u.level_code    = selectedNewLevel;
-  u.user_level_id = LEVEL_ID_MAP[selectedNewLevel];
-  filteredUsers = filteredUsers.map(fu =>
-    fu.user_id === editingUserId ? { ...fu, level_code: selectedNewLevel, user_level_id: LEVEL_ID_MAP[selectedNewLevel], total_score: u.total_score } : fu
-  );
-
-  closeModal('modal-edit-level');
-  renderUsersTable();
-  loadLevels();
-  btn.disabled = false; btn.textContent = '確認調整';
 }
 
 async function submitAddUser() {
