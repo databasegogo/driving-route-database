@@ -129,7 +129,7 @@ function FitBounds({ segments }) {
 }
 
 // ── 最短路徑 vs 推薦路線比較地圖 ─────────────────────────────────
-function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endCoord }) {
+function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endCoord, routeKey = 0 }) {
   if (!shortestRoute?.segments?.features?.length) return null
 
   const distKm    = +(shortestRoute.total_distance_m / 1000).toFixed(2)
@@ -253,7 +253,7 @@ function ShortestRouteMap({ shortestRoute, recommendedSegments, startCoord, endC
             <GeoJSON key="avoided" data={avoidedDangerFeatures} style={styleAvoided} onEachFeature={onEachAvoided} />
           )}
           {recommendedSegments && (
-            <GeoJSON key="rec" data={recommendedSegments} style={styleRecommended} />
+            <GeoJSON key={`rec-${routeKey}`} data={recommendedSegments} style={styleRecommended} />
           )}
           {startCoord && (
             <CircleMarker center={startCoord} radius={10}
@@ -511,6 +511,7 @@ function RouteSelect() {
           recommendedSegments={routes[active]?.segments}
           startCoord={startCoord}
           endCoord={endCoord}
+          routeKey={active}
         />
       </main>
     </>
