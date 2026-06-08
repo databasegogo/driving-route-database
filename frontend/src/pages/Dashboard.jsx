@@ -662,7 +662,7 @@ export default function Dashboard() {
         const hist = res.data.history || []
         const local = JSON.parse(localStorage.getItem('practiceRecords') || '[]')
         const localMap = Object.fromEntries(local.map(r => [r.id, r]))
-        const km = hist.reduce((sum, h) => sum + (h.total_distance_m || 0), 0)
+        const km = hist.filter(h => h.gps_verified).reduce((sum, h) => sum + (h.total_distance_m || 0), 0)
         setTotalKm(+(km / 1000).toFixed(1))
         setTotalCount(hist.length)
 

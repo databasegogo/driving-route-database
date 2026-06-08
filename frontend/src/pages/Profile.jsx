@@ -122,7 +122,7 @@ export default function Profile() {
         const localMap  = Object.fromEntries(localRecs.map(r => [r.id, r]))
         const done = hist.filter(h => h.status === 'completed')
         setPracCount(done.length)
-        const km = done.reduce((s, h) => {
+        const km = done.filter(h => h.gps_verified).reduce((s, h) => {
           const dist = localMap[h.practice_id]?.distance ?? (h.total_distance_m ? h.total_distance_m / 1000 : 0)
           return s + dist
         }, 0)
