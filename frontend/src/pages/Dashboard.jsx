@@ -282,34 +282,30 @@ function MapClicker({ onPick }) {
 
 // ── 地圖選點 Modal ──────────────────────────────────────────────────────────
 function MapPickerModal({ target, otherCoord, onConfirm, onClose }) {
-  const [picked,    setPicked]    = useState(null)   // snap 後的座標
-  const [rawPicked, setRawPicked] = useState(null)   // 原始點擊位置
+  const [picked,    setPicked]    = useState(null)   // 目前顯示的標記座標（點擊後立即顯示，snap 後移動）
+  const [rawPicked, setRawPicked] = useState(null)   // 原始點擊位置（虛線起點）
   const [snapLine,  setSnapLine]  = useState(null)   // 虛線導引 [[raw],[snapped]]
   const [name,      setName]      = useState('')
   const [loading,   setLoading]   = useState(false)
   const [boundary,  setBoundary]  = useState(null)
   const [snapFail,  setSnapFail]  = useState(false)  // 附近無可路由道路
+  const snapTimerRef = useRef(null)                  // 0.5s 延遲 timer
 
   useEffect(() => {
     api.get('/district/boundary')
       .then(res => setBoundary(res.data))
       .catch(() => setBoundary(null))
+    return () => { if (snapTimerRef.current) clearTimeout(snapTimerRef.current) }
   }, [])
 
   const isInside = picked ? pointInPolygon(picked[0], picked[1], boundary) : false
 
-  async function handlePick(coord) {
-    const inside = pointInPolygon(coord[0], coord[1], boundary)
-    setRawPicked(coord)
-    setSnapLine(null)
-    if (!inside) { setPicked(coord); setName(''); setSnapFail(false); return }
-    setLoading(true)
-    setName('定位中...')
+  async function doSnapFlow(coord) {
     setSnapFail(false)
-
-    // 1. snap 到最近可路由道路
     let finalCoord = coord
     let snapOk = false
+
+    // 1. snap 到最近可路由道路
     try {
       const snapRes = await api.get('/route/snap', { params: { lat: coord[0], lng: coord[1] } })
       finalCoord = [snapRes.data.snap_lat, snapRes.data.snap_lng]
@@ -336,12 +332,31 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose }) {
         addr.road || addr.pedestrian || addr.footway || addr.path ||
         addr.suburb || addr.village ||
         `${finalCoord[0].toFixed(5)}, ${finalCoord[1].toFixed(5)}`
-      setName(snapOk ? label : `⚠️ 附近沒有道路`)
+      setName(snapOk ? label : '⚠️ 附近沒有道路')
     } catch {
       setName(`${finalCoord[0].toFixed(5)}, ${finalCoord[1].toFixed(5)}`)
     } finally {
       setLoading(false)
     }
+  }
+
+  // 點擊地圖：立即顯示原始點，0.5s 後執行 snap
+  function handlePick(coord) {
+    if (snapTimerRef.current) clearTimeout(snapTimerRef.current)
+    setSnapLine(null)
+    setSnapFail(false)
+    setName('')
+    setRawPicked(coord)
+    setPicked(coord)   // 立即把標記放在點擊位置
+
+    const inside = pointInPolygon(coord[0], coord[1], boundary)
+    if (!inside) { setLoading(false); return }
+
+    setLoading(true)
+    setName('定位中...')
+
+    // 0.5s 後才執行 snap（讓使用者先看到點擊位置再移動）
+    snapTimerRef.current = setTimeout(() => doSnapFlow(coord), 500)
   }
 
   return (
