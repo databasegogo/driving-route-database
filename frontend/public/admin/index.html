@@ -884,7 +884,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
             <div class="card-body">
               <div class="form-group">
                 <label class="form-label">後端 API 位址</label>
-                <input class="form-input" id="api-url-input" value="http://localhost:8000" placeholder="http://localhost:8000"/>
+                <input class="form-input" id="api-url-input" value="/api" placeholder="/api"/>
               </div>
               <div class="form-group">
                 <label class="form-label">管理員 Token（Bearer）</label>
@@ -1033,7 +1033,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 /* ════════════════════════════════
    全域設定
 ════════════════════════════════ */
-let API_BASE  = localStorage.getItem('api_base')  || 'http://localhost:8000';
+let API_BASE  = localStorage.getItem('api_base')  || '/api';
 let API_TOKEN = localStorage.getItem('api_token') || '';
 
 // 預設把 input 填入已儲存值

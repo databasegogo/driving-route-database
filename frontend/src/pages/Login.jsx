@@ -24,8 +24,8 @@ function Login() {
       // 如果是管理者，跳到管理者後台
       if (res.data.role === 'admin') {
         localStorage.setItem('api_token', res.data.token)
-        localStorage.setItem('api_url', 'http://localhost:8000')
-        window.location.href = '/admin/index.html'
+        localStorage.setItem('api_base', '/api')   // admin/index.html 讀 api_base
+        window.location.href = import.meta.env.BASE_URL + 'admin/index.html'
         return
       }
 
