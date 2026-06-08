@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import Landing      from './pages/Landing'
 import Login        from './pages/Login'
 import Register     from './pages/Register'
 import Dashboard    from './pages/Dashboard'
@@ -13,11 +14,14 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 🔒 1. 不需要頂部 Navbar 的獨立頁面（留在外殼外面） */}
+        {/* 首頁：Landing Page（未登入看到的第一個畫面） */}
+        <Route path="/"         element={<Landing />} />
+
+        {/* 不需要頂部 Navbar 的獨立頁面 */}
         <Route path="/login"    element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* 🧭 2. 所有需要「新Logo + 頂部標題」的頁面，全部塞進 MainLayout 裡面 */}
+        {/* 所有需要頂部 Navbar 的頁面，塞進 MainLayout */}
         <Route element={<MainLayout />}>
           <Route path="/dashboard"    element={<Dashboard />} />
           <Route path="/profile"      element={<Profile />} />
@@ -27,8 +31,7 @@ function App() {
           <Route path="/route-detail" element={<RouteDetail />} />
         </Route>
 
-        {/* 🚀 3. 如果輸入任何不對的網址，自動萬流歸宗導回主控台 /dashboard */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   )

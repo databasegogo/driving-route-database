@@ -1,39 +1,72 @@
 # Environment Setup
 
-## Required Software
+## 必要軟體
 
-- PostgreSQL
-- PostGIS
-- pgRouting
-- DBeaver
-- WSL Ubuntu
-- Git
+| 軟體 | 用途 |
+|------|------|
+| Docker Desktop | 執行 PostgreSQL 資料庫容器 |
+| Python 3.10+ | 執行後端 FastAPI |
+| Node.js 18+ | 執行前端 React |
+| Git | 版本控制 |
+| DBeaver（建議）| 查看與操作資料庫 |
 
-## Database Name
+---
 
-本專案使用 Docker 部署，database 名稱：
+## 資料庫連線資訊
 
-```text
-gisdb
+| 項目 | 值 |
+|------|----|
+| Host | localhost |
+| Port | 5433 |
+| Database | gisdb |
+| Username | postgres |
+| Password | 123456 |
+
+---
+
+## 後端環境變數
+
+| 變數名稱 | 說明 | 預設值（開發用）|
+|---------|------|----------------|
+| `JWT_SECRET_KEY` | JWT 簽名金鑰，正式環境請改為隨機字串 | `dev-only-change-in-production` |
+
+設定方式：
+```bash
+# Windows PowerShell
+$env:JWT_SECRET_KEY = "your-random-secret-here"
+
+# Linux / macOS
+export JWT_SECRET_KEY="your-random-secret-here"
 ```
 
-## Coordinate System
+---
 
-目前主要空間資料 SRID：
+## 座標系統
 
-```text
-EPSG:4326
 ```
+EPSG:4326（WGS84）
+```
+
+---
 
 ## PostgreSQL Extensions
 
-Database 需啟用以下 extensions：
-
 ```sql
 CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS postgis_topology;
 CREATE EXTENSION IF NOT EXISTS pgrouting;
 ```
 
-## Notes
+---
 
-本專案使用 PostGIS 儲存道路與事故點空間資料，並使用 pgRouting 建立 graph topology，以支援 Dijkstra / A* 路徑演算法。
+## 後端 Python 套件
+
+```
+fastapi         API 框架
+uvicorn         ASGI 伺服器
+psycopg2-binary PostgreSQL 連線
+pyjwt           JWT 產生與驗證
+pydantic        資料驗證
+email-validator Email 格式驗證
+bcrypt          密碼雜湊
+```

@@ -22,9 +22,9 @@ CREATE TABLE user_level (
 
 INSERT INTO user_level (level_code, level_name, risk_weight, min_score, description)
 VALUES
-  ('BEGINNER',    '新手駕駛', 80,    0, '剛取得駕照，優先選擇低風險路段'),
-  ('NORMAL',      '一般駕駛', 40,  500, '有基本駕駛經驗，平衡距離與風險'),
-  ('EXPERIENCED', '熟練駕駛', 10, 2000, '駕駛經驗豐富，接近一般導航');
+  ('BEGINNER',    '新手駕駛', 80,   0, '剛取得駕照，優先選擇低風險路段'),
+  ('NORMAL',      '一般駕駛', 40, 150, '有基本駕駛經驗，平衡距離與風險'),
+  ('EXPERIENCED', '熟練駕駛', 10, 300, '駕駛經驗豐富，接近一般導航');
 
 -- 2. App User
 CREATE TABLE app_user (
@@ -70,6 +70,8 @@ CREATE TABLE route_request (
   avoid_bridge    BOOLEAN NOT NULL DEFAULT false,
   avoid_tunnel    BOOLEAN NOT NULL DEFAULT false,
   max_distance_m  INTEGER DEFAULT NULL,  -- 快照當下設定，NULL = 不限制
+  start_name      TEXT    DEFAULT NULL,  -- 起點地名（使用者輸入）
+  end_name        TEXT    DEFAULT NULL,  -- 終點地名（使用者輸入）
   created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -117,11 +119,23 @@ CREATE TABLE user_practice_history (
   selected_difficulty TEXT NOT NULL,                                 -- BEGINNER / NORMAL / EXPERIENCED（依等級限制可選範圍）
   score_earned        INTEGER NOT NULL DEFAULT 0,                    -- 基本分數
   time_bonus          INTEGER NOT NULL DEFAULT 0,                    -- 準時完成加分（超時則為 0）
-  is_favorite         BOOLEAN NOT NULL DEFAULT false                 -- 使用者愛心收藏
+  is_favorite         BOOLEAN NOT NULL DEFAULT false,                -- 使用者愛心收藏
+  gps_verified        BOOLEAN NOT NULL DEFAULT false,               -- GPS 偵測到達終點（true = 真實駕駛驗證）
+  terminated_early    BOOLEAN NOT NULL DEFAULT false                 -- 使用者主動提前終止練習（折扣計分）
 );
 
 CREATE INDEX practice_user_idx  ON user_practice_history(user_id);
 CREATE INDEX practice_route_idx ON user_practice_history(route_id);
+
+-- ── 現有 DB 升級腳本（idempotent）──
+-- 更新等級閾值（與前端 getMaxDifficulty 0/150/300 對齊）
+UPDATE user_level SET min_score = 150 WHERE level_code = 'NORMAL';
+UPDATE user_level SET min_score = 300 WHERE level_code = 'EXPERIENCED';
+
+-- 確保 user_practice_history 有新欄位
+ALTER TABLE user_practice_history
+  ADD COLUMN IF NOT EXISTS gps_verified     BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS terminated_early BOOLEAN NOT NULL DEFAULT false;
 
 -- Verification
 SELECT 'user_level'             AS table_name, COUNT(*) AS count FROM user_level

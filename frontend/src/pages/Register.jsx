@@ -4,6 +4,16 @@ import { UserPlus, CheckCircle, User, MapPin } from 'lucide-react'
 import api from '../api'
 import '../styles/auth.css'
 
+// 驗證取得駕照時是否已滿 18 歲
+function validateLicenseAge(birthday, licenseDate) {
+  if (!birthday || !licenseDate) return null
+  const bDay = new Date(birthday)
+  const lDay = new Date(licenseDate)
+  bDay.setFullYear(bDay.getFullYear() + 18)
+  if (lDay < bDay) return '駕照取得日期須在生日後滿 18 歲 ❌'
+  return null
+}
+
 function Register() {
   const [form, setForm] = useState({
     name:         '',
@@ -24,12 +34,36 @@ function Register() {
   const navigate = useNavigate()
 
   function handleChange(e) {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
+    const updated = { ...form, [e.target.name]: e.target.value }
+    setForm(updated)
+    // 即時驗證駕照年齡（只要生日或駕照日期其中一個改動就檢查）
+    if (e.target.name === 'birthday' || e.target.name === 'licenseDate') {
+      const b = e.target.name === 'birthday'    ? e.target.value : form.birthday
+      const l = e.target.name === 'licenseDate' ? e.target.value : form.licenseDate
+      const warning = validateLicenseAge(b, l)
+      setError(warning ?? '')
+    }
   }
+
+  // 今天的日期（yyyy-mm-dd），用作 max 屬性
+  const today = new Date().toISOString().split('T')[0]
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+
+    // ── 日期防呆驗證 ──
+    if (form.birthday > today) {
+      setError('生日不能是未來的日期 ❌')
+      return
+    }
+    if (form.licenseDate > today) {
+      setError('駕照取得日期不能是未來的日期 ❌')
+      return
+    }
+    const ageErr = validateLicenseAge(form.birthday, form.licenseDate)
+    if (ageErr) { setError(ageErr); return }
+
     setLoading(true)
 
     try {
@@ -39,22 +73,28 @@ function Register() {
         password:     form.password,
         birth_date:   form.birthday,
         license_date: form.licenseDate,
+        address:      JSON.stringify({
+          city:     form.addrCity,
+          district: form.addrDistrict,
+          road:     form.addrRoad,
+          section:  form.addrSection,
+          lane:     form.addrLane,
+          number:   form.addrNumber,
+        }),
       })
-
-      localStorage.setItem('pendingAddr', JSON.stringify({
-        addrCity:     form.addrCity,
-        addrDistrict: form.addrDistrict,
-        addrRoad:     form.addrRoad,
-        addrSection:  form.addrSection,
-        addrLane:     form.addrLane,
-        addrNumber:   form.addrNumber,
-      }))
 
       setSuccess(true)
     } catch (err) {
+      const status = err.response?.status
       const detail = err.response?.data?.detail
       if (detail === 'EMAIL_ALREADY_EXISTS') {
         setError('此 Email 已被使用 ❌')
+      } else if (detail === 'LICENSE_AGE_INVALID') {
+        setError('取得駕照時必須已滿 18 歲，請確認出生日期與駕照日期 ❌')
+      } else if (status === 422) {
+        const errs = err.response?.data?.detail
+        const msg  = Array.isArray(errs) ? errs.map(e => e.msg).join('、') : '輸入格式錯誤'
+        setError(`格式錯誤：${msg} ⚠️`)
       } else {
         setError('註冊失敗，請稍後再試 ⚠️')
       }
@@ -66,8 +106,8 @@ function Register() {
   if (success) {
     return (
       <div className="auth-page-container">
-        <div className="auth-glass-card" style={{ maxWidth: '440px', padding: '48px 40px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+        <div className="auth-glass-card" style={{ maxWidth: '360px', padding: '48px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', width: '100%' }}>
             <CheckCircle size={56} color="#264653" style={{ opacity: 0.9 }} />
             <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#264653', margin: 0 }}>註冊成功！</h2>
             <p style={{ fontSize: '14px', color: '#7e8b9b', margin: '0 0 12px 0', textAlign: 'center' }}>
@@ -112,9 +152,15 @@ function Register() {
               
               <div className="panel-inside-grid-2col">
                 <div className="auth-input-group">
-                  <label htmlFor="name">姓名</label>
+                  <label htmlFor="name">
+                    姓名
+                    <span className={`field-counter ${form.name.length >= 26 ? 'at-limit' : ''}`}>
+                      {form.name.length}/26
+                    </span>
+                  </label>
                   <input id="name" name="name" type="text" className="auth-field"
-                    value={form.name} onChange={handleChange} placeholder="請輸入姓名" required />
+                    value={form.name} onChange={handleChange} placeholder="請輸入姓名"
+                    maxLength={26} required />
                 </div>
 
                 <div className="auth-input-group">
@@ -128,20 +174,20 @@ function Register() {
                 <div className="auth-input-group">
                   <label htmlFor="reg-password">密碼</label>
                   <input id="reg-password" name="password" type="password" className="auth-field"
-                    value={form.password} onChange={handleChange} placeholder="設定密碼" required />
+                    value={form.password} onChange={handleChange} placeholder="設定密碼（至少六位數）" required />
                 </div>
 
                 <div className="auth-input-group">
                   <label htmlFor="birthday">生日</label>
                   <input id="birthday" name="birthday" type="date" className="auth-field"
-                    value={form.birthday} onChange={handleChange} required />
+                    value={form.birthday} onChange={handleChange} max={today} required />
                 </div>
               </div>
 
               <div className="auth-input-group">
                 <label htmlFor="licenseDate">駕照取得日期</label>
                 <input id="licenseDate" name="licenseDate" type="date" className="auth-field"
-                  value={form.licenseDate} onChange={handleChange} required />
+                  value={form.licenseDate} onChange={handleChange} max={today} required />
               </div>
             </div>
 

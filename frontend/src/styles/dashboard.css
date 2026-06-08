@@ -1,14 +1,14 @@
 /* ==========================================================================
-   🌿 北歐晨曦極簡風格 (動態數據軌道修正版) - 解決對齊、變色與終點點位
+   Dashboard
    ========================================================================== */
 
 :root {
-  --nordic-bg: #f4f3ee; 
-  --nordic-surface: #ffffff;
-  --nordic-dark: #264653; 
-  --nordic-orange: #ff6b35; 
-  --nordic-gray: #7e8b9b;
-  --nordic-border: rgba(38, 70, 83, 0.04);
+  --nordic-bg:     #f4f3ee;
+  --nordic-surface:#ffffff;
+  --nordic-dark:   #264653;
+  --nordic-orange: #ff6b35;
+  --nordic-gray:   #7e8b9b;
+  --nordic-border: rgba(38, 70, 83, 0.07);
 }
 
 body {
@@ -18,272 +18,748 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.nordic-dashboard-layout {
-  background-color: var(--nordic-bg);
+.dash-page {
   min-height: 100vh;
-  padding-bottom: 60px;
-}
-
-/* 🧭 Navbar */
-.nordic-navbar {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 18px 50px;
-  background: var(--nordic-surface);
-  border-bottom: 1px solid var(--nordic-border);
-  position: sticky; top: 0; z-index: 100;
+  flex-direction: column;
 }
-.nordic-brand { display: flex; align-items: center; gap: 0px; }
-.compass-badge { width: 32px; height: 32px; background: var(--nordic-dark); color: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
-.brand-text h1 { margin: 0; font-size: 1.2rem; font-weight: 800; color: var(--nordic-dark); letter-spacing: -0.3px; }
-.brand-text span { font-size: 0.7rem; color: var(--nordic-gray); font-weight: 600; display: block; }
 
-.nordic-user { display: flex; align-items: center; gap: 12px; background: var(--nordic-bg); padding: 6px 16px; border-radius: 40px; }
-.user-avatar-initial { width: 24px; height: 24px; background: var(--nordic-orange); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem; }
-.user-welcome-name { font-weight: 700; font-size: 0.85rem; color: var(--nordic-dark); }
-.logout-minimal-btn { background: transparent; border: none; color: #b0bac5; cursor: pointer; display: flex; align-items: center; }
-.logout-minimal-btn:hover { color: #e76f51; }
-
-/* 🌿 網格佈局 */
-.nordic-grid-layout {
-  max-width: 1120px; margin: 35px auto 0 auto; padding: 0 24px;
+/* ── 主佈局 ── */
+.dash-layout {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 36px 28px 0;
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 6fr 4fr;
+  gap: 24px;
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ═══════════════════════════════════
+   左側白卡
+═══════════════════════════════════ */
+.dash-left { display: flex; flex-direction: column; min-width: 0; }
+
+.dash-route-card {
+  background: var(--nordic-surface);
+  border-radius: 24px;
+  padding: 36px 32px;
+  box-shadow: 0 4px 24px rgba(38, 70, 83, 0.06);
+  border: 1px solid var(--nordic-border);
+  display: flex;
+  flex-direction: column;
   gap: 24px;
 }
 
-.nordic-main-card {
-  background-color: var(--nordic-surface);
-  border-radius: 22px;
-  padding: 35px;
-  border: 1px solid rgba(0, 0, 0, 0.005);
-  box-shadow: 0 12px 40px rgba(38, 70, 83, 0.03);
+.dash-greeting { display: flex; flex-direction: column; gap: 6px; }
+
+.dash-hi {
+  margin: 0;
+  font-size: 15px;
+  color: var(--nordic-gray);
+  font-weight: 500;
 }
 
-/* 控制盤 */
-.user-status-panel { display: flex; flex-direction: column; justify-content: space-between; align-items: center; text-align: center; }
-.status-header { width: 100%; }
-.level-badge-pill { font-size: 0.7rem; font-weight: 900; padding: 4px 12px; border-radius: 30px; display: inline-block; margin-bottom: 12px; }
-.user-status-panel h2 { margin: 0 0 6px 0; font-size: 1.35rem; color: var(--nordic-dark); font-weight: 500; }
-.user-status-panel h2 strong { font-weight: 900; }
-.subtitle-gray { margin: 0; color: var(--nordic-gray); font-size: 0.85rem; }
-
-.nordic-score-widget { margin-top: 25px; }
-/* 1. 平常沒有碰到時：保持乾淨優雅的淺灰色細邊，不發光 */
-.outer-soft-ring {
-  width: 135px; 
-  height: 135px; 
-  background: var(--nordic-bg); 
-  border-radius: 50%; 
-  display: flex; 
-  flex-direction: column; 
-  align-items: center; 
-  justify-content: center;
-  
-  /* 預設邊框：極淡的灰色，維持低調圓環感 */
-  border: 1.5px solid rgba(38, 70, 83, 0.08); 
-  box-shadow: inset 0 2px 8px rgba(0,0,0,0.01);
-  
-  /* 關鍵：設定 transition，讓邊框跟發光在變化時有 0.3 秒的平滑漸變，不會顯得太突兀 */
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+.dash-heading {
+  margin: 0;
+  font-size: clamp(26px, 3vw, 38px);
+  font-weight: 900;
+  color: var(--nordic-dark);
+  letter-spacing: -0.5px;
+  line-height: 1.15;
 }
 
-/* 2. 當滑鼠游標「碰觸（Hover）」到圓圈時：平滑變為橘色邊框，並帶有微微發光特效 */
-.outer-soft-ring:hover {
-  border-color: var(--nordic-orange); /* 變為橘色邊框 */
-  
-  /* 細緻的橘色外發光特效 (外圍一層淡淡的橘色光暈) */
-  box-shadow: 0 0 20px rgba(255, 107, 53, 0.25), inset 0 2px 8px rgba(0,0,0,0.02);
-  
-  /* 可選微調：讓圓圈在碰到時微微往上浮起 2px，增加實體操控感，不想要的話可以把下面這行刪除 */
-  transform: translateY(-2px); 
+.dash-sub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--nordic-gray);
 }
-.big-score-digits { font-size: 2.2rem; font-weight: 900; color: var(--nordic-dark); letter-spacing: -1px; }
-.score-lbl-text { font-size: 0.6rem; color: var(--nordic-gray); font-weight: 800; margin-top: 4px; }
 
-/* 公路區塊 */
-.road-track-panel { display: flex; flex-direction: column; }
-.track-header-row { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 0.95rem; color: var(--nordic-dark); margin-bottom: 25px; }
-.track-dot-icon { width: 8px; height: 8px; background: var(--nordic-orange); border-radius: 50%; }
-
-.nordic-map-canvas {
-  background: #fafafa; padding: 40px 20px; border-radius: 16px; position: relative; overflow: hidden; flex-grow: 1; min-height: 240px;
-  border: 1px solid rgba(0,0,0,0.01);
-}
-.natural-roads-background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-
-/* S 型公路軌道 */
-.s-highway-container { position: relative; width: 100%; height: 60px; top: 35px; }
-.s-curve-road-svg { width: 100%; height: 100%; overflow: visible; }
-
-/* 🚗 車子移動滑軌 */
-.curved-car-carrier {
-  position: absolute; z-index: 10; transform: translate(-50%, -20%); 
-  transition: left 0.8s cubic-bezier(0.25, 1, 0.5, 1), top 0.8s cubic-bezier(0.25, 1, 0.5, 1);
-}
-.cartoon-eco-car { filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.08)); }
-
-/* 📍 里程碑地標改到「道路正上方」 */
-.scenic-landmarks-flipped { position: absolute; width: 100%; height: 100%; top: 0; left: 0; pointer-events: none; }
-.landmark-node-top { position: absolute; top: 50%; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; z-index: 4; }
-
-.node-marker-dot-top { width: 8px; height: 8px; background: #cbd5e1; border-radius: 50%; border: 2px solid #ffffff; box-shadow: 0 -2px 4px rgba(0,0,0,0.05); margin-top: 5px; }
-
-/* 🏁 熟練駕駛底部的連接點樣式 */
-.node-marker-dot-top-flag {
-  font-size: 1.1rem;
-  display: block;
-  margin-top: -3px; /* 👈 精準定位方格旗，並在下面補上一顆圓點 */
+/* 輸入區 */
+.dash-inputs {
   position: relative;
-}
-.node-marker-dot-top-flag::after {
-  content: '';
-  display: block;
-  width: 8px; height: 8px;
-  background: #cbd5e1;
-  border-radius: 50%;
-  border: 2px solid #ffffff;
-  margin: 5px auto 0 auto;
-}
-
-/* 地標氣泡卡片 */
-.node-popover-bubble-top {
-  background: #ffffff; 
-  border: 1px solid rgba(0,0,0,0.03); 
-  padding: 6px 16px; 
-  border-radius: 10px; 
-  box-shadow: 0 -4px 15px rgba(38, 70, 83, 0.03); 
-  text-align: center; 
-  white-space: nowrap; 
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  transform: translateY(2px);
+  gap: 16px;
 }
 
-.popover-title { font-size: 0.85rem; font-weight: 800; color: #94a3b8; transition: color 0.25s; }
-.popover-pts { font-size: 0.7rem; font-weight: 700; color: #cbd5e1; transition: color 0.25s; }
+.dash-field-group { display: flex; flex-direction: column; gap: 8px; }
+.dash-field-header { display: flex; align-items: center; gap: 10px; }
 
-/* 🔥 🛠️ 1st 等級亮燈：新手駕駛狀態（亮橘色） */
-.landmark-node-top.active-beginner .node-marker-dot-top { background: var(--nordic-orange); box-shadow: 0 0 6px var(--nordic-orange); }
-.landmark-node-top.active-beginner .node-popover-bubble-top { border-color: rgba(255, 107, 53, 0.15); box-shadow: 0 -8px 22px rgba(255, 107, 53, 0.06); }
-.landmark-node-top.active-beginner .popover-title { color: var(--nordic-orange); } /* 👈 標題變橘色 */
-.landmark-node-top.active-beginner .popover-pts { color: var(--nordic-orange); font-weight: 800; }
+.dash-dot { width: 10px; height: 10px; flex-shrink: 0; }
+.dot-start { background: #22c55e; border-radius: 50%; }
+.dot-end   { background: #ef4444; border-radius: 50%; }
 
-/* 🔥 🛠️ 2nd 等級亮燈：一般駕駛狀態（達到500分時自動被觸發變橘色！） */
-.landmark-node-top.active-normal .node-marker-dot-top { background: var(--nordic-orange); box-shadow: 0 0 6px var(--nordic-orange); }
-.landmark-node-top.active-normal .node-popover-bubble-top { border-color: rgba(255, 107, 53, 0.15); box-shadow: 0 -8px 22px rgba(255, 107, 53, 0.06); }
-.landmark-node-top.active-normal .popover-title { color: var(--nordic-orange); } /* 👈 標題變橘色 */
-.landmark-node-top.active-normal .popover-pts { color: var(--nordic-orange); font-weight: 800; }
-
-/* 🔥 🛠️ 3rd 等級亮燈：熟練駕駛狀態 */
-.landmark-node-top.active-experienced .node-marker-dot-top-flag::after { background: var(--nordic-orange); box-shadow: 0 0 6px var(--nordic-orange); }
-.landmark-node-top.active-experienced .node-popover-bubble-top { border-color: rgba(255, 107, 53, 0.15); box-shadow: 0 -8px 22px rgba(255, 107, 53, 0.06); }
-.landmark-node-top.active-experienced .popover-title { color: var(--nordic-orange); }
-.landmark-node-top.active-experienced .popover-pts { color: var(--nordic-orange); font-weight: 800; }
-
-/* 🎛️ 底部橫跨卡片區 */
-.nordic-action-section {
-  grid-column: 1 / span 2;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  margin-top: 8px;
+.dash-input-label {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--nordic-gray);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
-.action-tile-card {
-  background-color: var(--nordic-surface); border-radius: 16px; padding: 22px 28px; display: flex; align-items: center; gap: 20px; cursor: pointer;
-  box-shadow: 0 8px 24px rgba(38, 70, 83, 0.015);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  border: 1px solid rgba(0, 0, 0, 0.005);
-}
+.dash-input-body { position: relative; }
 
-.tile-icon-box { padding: 12px; border-radius: 12px; display: flex; align-items: center; justify-content: center; transition: all 0.25s; }
-.tile-info { text-align: left; }
-.tile-info h4 { margin: 0 0 2px 0; font-size: 1.1rem; font-weight: 800; color: var(--nordic-dark); }
-.tile-info p { margin: 0; font-size: 0.65rem; color: var(--nordic-gray); font-weight: bold; letter-spacing: 0.5px; }
-
-.tile-blue .tile-icon-box { background: #eef5fc; color: #2f80ed; }
-.tile-orange .tile-icon-box { background: #fff2ec; color: var(--nordic-orange); }
-.tile-green .tile-icon-box { background: #edf7f5; color: #2a9d8f; }
-
-.action-tile-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 35px rgba(38, 70, 83, 0.06);
-  border-color: var(--hover-line-c);
-}
-/* 🛠️ 全新智慧路徑 Logo 互動特效 */
-.smart-path-logo-svg {
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  filter: drop-shadow(0 2px 4px rgba(38, 70, 83, 0.06));
-}
-
-/* 當滑鼠滑過左上角商標區域時，Logo 會帶有平滑優雅的微浮起與微放大，速度感滿分 */
-.nordic-brand:hover .smart-path-logo-svg {
-  transform: translateY(-1px) scale(1.05);
-  filter: drop-shadow(0 4px 8px rgba(255, 107, 53, 0.15));
-}
-.nordic-brand { display: flex; align-items: center; gap: 0px; }
-.brand-text {
-  margin-left: -6px; /* 👈 如果覺得還不夠近，可以改成 -8px 或 -10px */
-  text-align: left;
-}
-/* ==========================================================================
-   📦 破格改造：調寬左側卡片底盤，強迫歡迎文字完美放下
-   ========================================================================== */
-
-/* 1. 調整首頁卡片群的網格比例（假設妳是用 grid 堆疊） */
-.dashboard-grid, 
-.cockpit-two-columns-form {
-  /* 💡 把原本給左邊的寬度（如380px）拉寬到 440px，右邊自動分配剩餘空間 */
-  grid-template-columns: 440px 1fr !important; 
-}
-
-/* 2. 確保文字有百分之百的安全感，不縮小、不換行、霸氣鋪開 */
-.route-section p,
-.nordic-main-card p,
-.driver-level-card p { /* 這裡對齊妳左側卡片裡「歡迎回來...」的 p 標籤 */
-  white-space: nowrap;       /* 🔒 核心關鍵：強迫整句話絕對不允許折行 */
-  overflow: visible;         /* 容許內容完整顯現 */
-  display: block;
+.dash-input-box {
   width: 100%;
-  text-align: center;        /* 居中對齊依舊優雅 */
-}
-/* ==========================================================================
-   🎯 終極視覺校正：只管下方卡片與字距，Navbar 絕對不亂動
-   ========================================================================== */
-
-/* 1. 精準吸附：強制把標題字往左吸，消除新圖片 Logo 的隱形白邊！ */
-.nordic-brand .brand-text,
-.nordic-brand div,
-.brand-text {
-  margin-left: -2px !important; /* 💡 如果覺得還不夠近，可以加到 -15px */
-}
-
-/* 2. 局部加寬：只把「主畫面卡片網格」與「表單雙欄」強行拉寬到 440px */
-main.nordic-grid-layout,
-main.cockpit-layout-container,
-form.cockpit-two-columns-form {
-  grid-template-columns: 380px 1fr !important; /* 下方卡片有 440px 的寬敞空間 */
+  padding: 14px 18px;
+  background: var(--nordic-surface);
+  border: 1.5px solid #e8e6e0;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--nordic-dark);
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(38, 70, 83, 0.04);
 }
 
-/* 3. 歡迎文字特權：維持原大小，並且 100% 絕對禁止折行換字 */
-.user-status-panel p,
-.route-section p,
-.nordic-main-card p {
-  white-space: nowrap !important; /* 🔒 鎖死不准換行 */
-  overflow: visible !important;
-  text-align: center !important;
-  width: 100% !important;
+.dash-input-box:focus {
+  border-color: var(--nordic-dark);
+  box-shadow: 0 0 0 3px rgba(38, 70, 83, 0.07);
 }
 
-/* ── 🧭 🔒 防護罩：強制把頂部導航列（Navbar）的高度與比例鎖死回預設 ── */
-header.nordic-navbar,
-header.route-header {
-  height: 80px !important;               /* 強制縮回超精緻的 60px 高度 */
-  display: flex !important;
-  grid-template-columns: none !important; /* 拔除任何可能被干擾的網格屬性 */
-  padding: 0 40px !important;
+.dash-input-box::placeholder { color: #c0bdb6; font-weight: 400; }
+
+.dash-coord-ok {
+  position: absolute;
+  right: 14px; top: 50%;
+  transform: translateY(-50%);
+  color: #2a9d8f;
+}
+
+.dash-input-connector {
+  position: absolute;
+  left: 4px;
+  top: calc(50% - 4px);
+  height: 16px;
+  width: 2px;
+  border-left: 2px dashed rgba(38, 70, 83, 0.2);
+  pointer-events: none;
+}
+
+.dash-suggest-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  background: var(--nordic-surface);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(38, 70, 83, 0.12);
+  border: 1px solid #e2e8f0;
+  list-style: none;
+  margin: 0; padding: 6px 0;
+  z-index: 50;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.dash-suggest-list li {
+  padding: 10px 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dash-suggest-list li:hover { background: #f8fafc; }
+.dash-suggest-name { font-size: 14px; font-weight: 600; color: var(--nordic-dark); }
+.dash-suggest-addr { font-size: 13px; color: var(--nordic-gray); }
+
+.dash-cta-btn {
+  width: 100%;
+  padding: 16px;
+  background: var(--nordic-dark);
+  color: #ffffff;
+  border: none;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(38, 70, 83, 0.2);
+}
+.dash-cta-btn:hover {
+  background: var(--nordic-orange);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(255, 107, 53, 0.3);
+}
+
+/* ═══════════════════════════════════
+   右側雙卡
+═══════════════════════════════════ */
+.dash-right { display: flex; flex-direction: column; gap: 16px; min-width: 0; overflow: hidden; }
+
+/* ── 用戶資訊卡（白卡 + 漸層 Header）── */
+.dash-user-card {
+  background: var(--nordic-surface);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(38, 70, 83, 0.08);
+  border: 1px solid var(--nordic-border);
+}
+
+/* 漸層 Header Bar */
+.dash-user-header {
+  background: linear-gradient(135deg, #e8622a 0%, #2d6070 65%, #264653 100%);
+  padding: 20px 24px 22px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dash-user-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dash-user-level-tag {
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+}
+
+.dash-user-level-name {
+  font-size: 26px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+/* 右側積分區 */
+.dash-user-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.dash-user-score-num {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 28px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.dash-user-score-zap {
+  color: rgba(255, 200, 120, 0.90);
+  flex-shrink: 0;
+}
+
+.dash-user-score-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.50);
+  letter-spacing: 0.5px;
+}
+
+/* 白色統計區 */
+.dash-user-body {
+  padding: 18px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dash-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.dash-stat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.dash-stat-icon { flex-shrink: 0; }
+.dash-stat-icon.orange { color: var(--nordic-orange); }
+.dash-stat-icon.teal   { color: #2a9d8f; }
+
+.dash-stat-label {
+  margin: 0 0 2px;
+  font-size: 13px;
+  color: var(--nordic-gray);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dash-stat-num {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--nordic-dark);
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.dash-stat-num span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--nordic-gray);
+}
+
+.dash-stat-divider {
+  width: 1px;
+  height: 36px;
+  background: var(--nordic-border);
+  margin: 0 20px;
+  flex-shrink: 0;
+}
+
+.dash-white-profile-btn {
+  width: 100%;
+  padding: 11px;
+  background: #f5f4f0;
+  border: none;
+  border-radius: 12px;
+  color: var(--nordic-dark);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+.dash-white-profile-btn:hover {
+  background: #eeede8;
+}
+
+
+/* ── 道路滑動容器 ── */
+.dash-road-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(38,70,83,0.15) transparent;
+  cursor: grab;
+  border-radius: 12px;
+  margin: 0 -4px;
+  padding: 0 4px 6px;
+}
+.dash-road-scroll:active { cursor: grabbing; }
+.dash-road-scroll::-webkit-scrollbar { height: 3px; }
+.dash-road-scroll::-webkit-scrollbar-track { background: transparent; }
+.dash-road-scroll::-webkit-scrollbar-thumb {
+  background: rgba(38,70,83,0.15); border-radius: 3px;
+}
+
+/* ── 等級進度卡 ── */
+.dash-progress-card {
+  background: var(--nordic-surface);
+  border-radius: 20px;
+  padding: 16px 20px 14px;
+  box-shadow: 0 4px 20px rgba(38, 70, 83, 0.05);
+  border: 1px solid var(--nordic-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dash-progress-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--nordic-dark);
+}
+
+.track-dot-icon {
+  width: 8px; height: 8px;
+  background: var(--nordic-orange);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 三個等級標記（space-between 讓位置對齊進度條） */
+.dash-level-markers {
+  display: flex;
+  justify-content: space-between;
+}
+
+.dash-level-marker { display: flex; flex-direction: column; gap: 2px; }
+.dash-level-marker:nth-child(2) { align-items: center; }
+.dash-level-marker:nth-child(3) { align-items: flex-end; }
+
+.dlm-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--nordic-gray);
+}
+.dlm-pts { font-size: 13px; color: #b0b8c1; font-weight: 600; }
+
+.dash-level-marker.active .dlm-name { color: var(--nordic-orange); }
+.dash-level-marker.active .dlm-pts  { color: var(--nordic-orange); }
+
+.dash-level-bar-track {
+  height: 6px;
+  background: #eeede8;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.dash-level-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: var(--nordic-orange);
+  transition: width 0.7s ease;
+}
+
+.dash-level-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--nordic-gray);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.hint-zap { color: var(--nordic-orange); flex-shrink: 0; }
+
+/* ═══════════════════════════════════
+   最近練習紀錄橫向滑動
+═══════════════════════════════════ */
+.dash-rec-section {
+  max-width: 1100px;
+  margin: 28px auto 0;
+  padding: 0 28px 48px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.dash-rec-section-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.dash-rec-section-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--nordic-dark);
+}
+
+.dash-rec-see-all {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--nordic-gray);
+  cursor: pointer;
+  font-family: inherit;
+  padding: 7px 13px;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.dash-rec-see-all:hover {
+  background: rgba(255, 107, 53, 0.08);
+  border-color: rgba(255, 107, 53, 0.3);
+  color: var(--nordic-orange);
+}
+
+/* 橫向滑動容器 */
+.dash-rec-scroll {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+}
+.dash-rec-scroll::-webkit-scrollbar { display: none; }
+
+/* 大長方形卡片（約3張可見） */
+.dash-rec-card {
+  flex-shrink: 0;
+  width: 300px;
+  background: var(--nordic-surface);
+  border-radius: 18px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 16px rgba(38, 70, 83, 0.06);
+  border: 1px solid var(--nordic-border);
+  scroll-snap-align: start;
+  transition: transform 0.25s, box-shadow 0.25s;
+}
+.dash-rec-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(38, 70, 83, 0.1);
+}
+
+/* 地圖 / 佔位區 */
+.dash-rec-map-wrap {
+  width: 100%;
+  height: 150px;
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.dash-rec-map {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.dash-rec-map-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #edeae3 0%, #e4e1d8 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #b0aba0;
+}
+
+/* 資訊區 */
+.dash-rec-body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.dash-rec-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dash-rec-badge {
+  font-size: 13px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+.dash-rec-date {
+  font-size: 13px;
+  color: var(--nordic-gray);
+}
+
+.dash-rec-route {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--nordic-dark);
+  line-height: 1.4;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.dash-rec-divider {
+  height: 1px;
+  background: var(--nordic-border);
+}
+
+.dash-rec-foot {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 2px;
+}
+
+.dash-rec-km,
+.dash-rec-score {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dash-rec-km    { color: #2a9d8f; }
+.dash-rec-score { color: var(--nordic-orange); }
+
+/* ═══════════════════════════════════
+   紀錄詳細 Modal
+═══════════════════════════════════ */
+.dash-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(38, 70, 83, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+
+.dash-detail-modal {
+  background: var(--nordic-surface);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 24px;
+  position: relative;
+  box-shadow: 0 24px 60px rgba(38, 70, 83, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: none;
+}
+.dash-detail-modal::-webkit-scrollbar { display: none; }
+
+.dash-modal-close {
+  position: absolute;
+  top: 14px; right: 16px;
+  background: none; border: none;
+  font-size: 18px; color: var(--nordic-gray);
+  cursor: pointer;
+}
+.dash-modal-close:hover { color: var(--nordic-dark); }
+
+.dash-modal-title {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--nordic-dark);
+}
+
+.dash-modal-map-wrap {
+  width: 100%;
+  height: 180px;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.dash-modal-map-wrap .dash-rec-map {
+  pointer-events: none;
+}
+
+.dash-modal-rows {
+  border: 1px solid var(--nordic-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.dash-modal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--nordic-dark);
+  border-bottom: 1px solid #f5f5f0;
+}
+.dash-modal-row:last-child { border-bottom: none; }
+
+.dash-modal-key {
+  font-size: 13px;
+  color: var(--nordic-gray);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dash-modal-status {
+  font-size: 13px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+/* 雙按鈕列：查看更多 + 再練習一次 */
+.dash-modal-btn-row {
+  display: flex;
+  gap: 10px;
+}
+.dash-modal-more-btn {
+  flex: 1;
+  padding: 13px;
+  background: #f0f4f3;
+  color: var(--nordic-dark);
+  border: 1.5px solid rgba(38, 70, 83, 0.15);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s, border-color 0.2s;
+}
+.dash-modal-more-btn:hover {
+  background: rgba(42, 157, 143, 0.12);
+  border-color: #2a9d8f;
+  color: #2a9d8f;
+}
+.dash-modal-repeat-btn {
+  flex: 1;
+  width: auto;
+  padding: 13px;
+  background: var(--nordic-dark);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+.dash-modal-repeat-btn:hover { background: var(--nordic-orange); }
+
+.dash-modal-close-btn {
+  width: 100%;
+  padding: 11px;
+  background: #f5f4f0;
+  border: none;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--nordic-gray);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* ═══════════════════════════════════
+   手機版
+═══════════════════════════════════ */
+@media (max-width: 768px) {
+  .dash-layout {
+    grid-template-columns: 1fr;
+    padding: 20px 16px 0;
+    gap: 20px;
+  }
+  .dash-route-card { padding: 24px 20px; }
+  .dash-heading    { font-size: 24px; }
+  .dash-rec-section { padding: 0 16px 40px; margin-top: 20px; }
 }

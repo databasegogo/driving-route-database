@@ -107,6 +107,10 @@ pgRouting 自動產生的節點表（7,727 個節點）。
 | length | 路段長度（公尺） |
 | geom | LineString |
 
+> **v1.3.1 虛擬橋接邊**：`edge_id ≥ 9000000` 的邊為路網橋接腳本（`10_bridge_gaps.sql`）插入的虛擬邊，  
+> 連接孤立路網島到主路網（`road_id = 9000001`，name = `(路網連通補丁)`）。  
+> 這些邊不對應真實道路，**cost = 節點間實際距離公尺**，geom 為直線。
+
 ### accident_severity
 | 欄位 | 說明 |
 |------|------|
@@ -146,7 +150,15 @@ pgRouting 自動產生的節點表（7,727 個節點）。
 | risk_score | 最終風險分數（用於 routing cost） |
 
 ### main_component_nodes
-最大連通圖的節點（1,082 個），路線規劃只在這裡面找起終點。
+可路由節點集合，路線規劃的起終點 snap 及 pgr_ksp 都限縮在此表內。
+
+| 版本 | 節點數 | 說明 |
+|------|--------|------|
+| v1.1.0 ~ v1.3.0 | ~1,082 | 僅最大連通分量 |
+| **v1.3.1+** | **~4,196** | 所有節點數 ≥ 5 的連通分量（含橋接後合併的分量）|
+
+> 由 `10_bridge_gaps.sql` 最後一步重建，會 DROP 舊表後重新 CREATE。  
+> 若需手動重建：執行整份 `10_bridge_gaps.sql`（idempotent）。
 
 ---
 
@@ -158,7 +170,9 @@ pgRouting 自動產生的節點表（7,727 個節點）。
 | user_level_id | PK |
 | level_code | BEGINNER / NORMAL / EXPERIENCED |
 | risk_weight | 路線風險權重（80 / 40 / 10） |
-| min_score | 升等所需最低分數（0 / 500 / 2000） |
+| min_score | 升等所需最低分數（0 / **150** / **300**）|
+
+> v1.3.0 起閾值由 0/500/2000 調整為 **0/150/300**，與前端 `getMaxDifficulty(total_score)` 對齊。
 
 ### app_user
 | 欄位 | 說明 |
@@ -228,3 +242,5 @@ pgRouting 自動產生的節點表（7,727 個節點）。
 | score_earned | 獲得分數（基本分 + time_bonus） |
 | time_bonus | 在預估時間內完成的加分（基本分 × 50%） |
 | is_favorite | 愛心收藏 |
+| gps_verified | GPS 偵測到達終點（true = 全額計分，不受當日限制）|
+| terminated_early | 使用者提前終止練習（折扣計分 × 0.8）|
