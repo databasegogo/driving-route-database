@@ -66,7 +66,9 @@ def get_all_routes(current_user: dict = Depends(get_current_user)):
                 r.total_risk_score,
                 r.total_final_cost,
                 r.created_at,
-                rq.user_id
+                rq.user_id,
+                rq.start_name,
+                rq.end_name
             FROM route r
             JOIN route_request rq ON r.request_id = rq.request_id
             ORDER BY r.created_at DESC
@@ -83,6 +85,8 @@ def get_all_routes(current_user: dict = Depends(get_current_user)):
                 "total_final_cost": float(row[6]) if row[6] else 0,
                 "created_at":       row[7].isoformat() if row[7] else None,
                 "user_id":          row[8],
+                "start_name":       row[9] or "",
+                "end_name":         row[10] or "",
             }
             for row in rows
         ]
