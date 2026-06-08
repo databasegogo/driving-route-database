@@ -191,7 +191,7 @@ export default function RouteDetail() {
     if (!userPos || !endCoord || status !== 'active' || arrived) return
     const d = haversine(userPos[0], userPos[1], endCoord[0], endCoord[1])
     setDistToEnd(Math.round(d))
-    if (d < 50) {
+    if (d < 30) {
       setArrived(true)
       // 只在沒有其他 Modal 開著時自動彈出（避免覆蓋暫停/終止 Modal）
       setModal(prev => prev === null ? 'arrived' : prev)
