@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // 所有 API 請求的基底設定
 const api = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: '/api',
 })
 
 // 每次發出請求前，自動把 token 加到 Header
@@ -20,7 +20,8 @@ api.interceptors.response.use(
   response => response,
   error => {
     if (error.response?.status === 401 &&
-        error.response?.data?.detail !== 'WRONG_OLD_PASSWORD') {
+        error.response?.data?.detail !== 'WRONG_OLD_PASSWORD' &&
+        error.response?.data?.detail !== 'INVALID_CREDENTIALS') {
       localStorage.removeItem('token')
       localStorage.removeItem('currentUser')
       window.location.href = '/login'
