@@ -3,15 +3,23 @@ from pydantic import BaseModel
 from collections import defaultdict
 import json
 import math
+import logging
 
 from database import get_db
 from utils.auth import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/route", tags=["route"])
 
 # ── 常數設定 ──────────────────────────────────────────────────────
 
-RISK_WEIGHT  = {"BEGINNER": 80, "NORMAL": 40, "EXPERIENCED": 10}
+# risk_score 實際範圍 0~2952，平均約 17，road_edge.cost 單位為公尺。
+# 用 LEAST(risk_score, 50) 限制單邊最大影響：
+#   BEGINNER：高風險路段 cost 最多 +50m，中強迴避（不會繞超過 50m × 邊數 的大圈）
+#   NORMAL  ：高風險路段 cost 最多 +25m，輕度迴避
+#   EXPERIENCED：高風險路段 cost 最多 +5m，幾乎忽略風險
+RISK_WEIGHT  = {"BEGINNER": 1, "NORMAL": 0.5, "EXPERIENCED": 0.1}
 SCORE_WEIGHT = {"BEGINNER": 1,  "NORMAL": 2,  "EXPERIENCED": 3}
 LEVEL_ORDER  = {"BEGINNER": 1,  "NORMAL": 2,  "EXPERIENCED": 3}
 LEVEL_CODE   = {1: "BEGINNER",  2: "NORMAL",  3: "EXPERIENCED"}
@@ -77,6 +85,12 @@ def build_cost_expr(base_expr: str, avoid_bridge: bool, avoid_tunnel: bool) -> s
         when_clause = " OR ".join(conditions)
         return f"CASE WHEN {when_clause} THEN 999999 ELSE {base_expr} END"
     return base_expr
+
+
+def jaccard_similarity(a: frozenset, b: frozenset) -> float:
+    """計算兩條路線的邊重疊比例（0 = 完全不同，1 = 完全相同）"""
+    union = len(a | b)
+    return len(a & b) / union if union > 0 else 1.0
 
 
 def mark_dangerous_segments(segments: list) -> list:
@@ -191,13 +205,21 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         if not end_candidates:
             raise HTTPException(422, "NODE_NOT_FOUND")
 
-
         # 4. 建立 cost 表達式
-        base_cost = f"(re.cost         + COALESCE(ers.risk_score, 0) * {risk_weight})"
-        base_rev  = f"(re.reverse_cost + COALESCE(ers.risk_score, 0) * {risk_weight})"
+        # LEAST(risk_score, 50)：限制單條邊的風險影響上限（risk_score 最高達 2952，不限制會讓演算法繞大圈）
+        # risk_expr 單一定義，inner_sql / ksp_sql segment_final_cost 共用，避免三處不同步
+        risk_expr = f"LEAST(COALESCE(ers.risk_score, 0), 50) * {risk_weight}"
+        base_cost = f"(re.cost         + {risk_expr})"
+        base_rev  = f"(re.reverse_cost + {risk_expr})"
         cost_expr = build_cost_expr(base_cost, req.avoid_bridge, req.avoid_tunnel)
         rev_expr  = build_cost_expr(base_rev,  req.avoid_bridge, req.avoid_tunnel)
 
+        # avoid_bridge/tunnel 才需要 JOIN road（cost 表達式裡才有 r.bridge/r.tunnel）
+        # 不需要時省掉 JOIN 可大幅加速 pgr_ksp 建圖
+        road_join = (
+            "JOIN road r ON r.road_id = re.road_id"
+            if (req.avoid_bridge or req.avoid_tunnel) else ""
+        )
         inner_sql = f"""
             SELECT
                 re.edge_id AS id,
@@ -206,8 +228,9 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                 {cost_expr} AS cost,
                 {rev_expr}  AS reverse_cost
             FROM road_edge re
-            JOIN road r ON r.road_id = re.road_id
+            {road_join}
             LEFT JOIN edge_risk_score ers ON re.edge_id = ers.edge_id
+            WHERE re.source != re.target
         """
 
         # 5. pgr_ksp：回傳 k=6 條最短路徑（去重後最多保留 3 條）
@@ -226,7 +249,7 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                 re.length                                       AS segment_distance_m,
                 re.cost                                         AS segment_base_cost,
                 COALESCE(ers.risk_score, 0)                     AS segment_risk_score,
-                (re.cost + COALESCE(ers.risk_score, 0) * {risk_weight}) AS segment_final_cost,
+                (re.cost + {risk_expr}) AS segment_final_cost,
                 COALESCE(
                     ST_AsGeoJSON(re.geom),
                     ST_AsGeoJSON(ST_SetSRID(
@@ -237,7 +260,7 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                 r.tunnel                                        AS tunnel,
                 re.source                                       AS seg_source,
                 re.target                                       AS seg_target
-            FROM pgr_ksp(%s, %s, %s, 6, directed := false) d
+            FROM pgr_ksp(%s, %s, %s, 5, directed := false) d
             JOIN road_edge re  ON d.edge = re.edge_id
             JOIN road r        ON re.road_id = r.road_id
             LEFT JOIN edge_risk_score ers ON re.edge_id = ers.edge_id
@@ -253,12 +276,25 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         #   避免 end 跑到次近路口造成路線「在終點附近繞一圈」
         all_rows = []
         start_node, end_node = start_candidates[0], end_candidates[0]
-        for e_node in end_candidates:
-            for s_node in start_candidates:
+
+        # statement_timeout：單次 pgr_ksp 最多跑 10 秒，防止 CPU 爆衝
+        # 使用 SET（session level）確保 rollback 後仍有效
+        cur.execute("SET statement_timeout = '10000'")
+
+        # 只嘗試前 3 個 end_candidates × 前 3 個 start_candidates（最多 9 對）
+        # 避免 6×6=36 次全試導致等待過久；最近的候選對最可能成功
+        for e_node in end_candidates[:3]:
+            for s_node in start_candidates[:3]:
                 if s_node == e_node:
                     continue
-                cur.execute(ksp_sql, (inner_sql, s_node, e_node))
-                all_rows = cur.fetchall()
+                try:
+                    cur.execute(ksp_sql, (inner_sql, s_node, e_node))
+                    all_rows = cur.fetchall()
+                except Exception as ex:
+                    # timeout 或其他 query 層級錯誤 → 此配對跳過，繼續試下一個
+                    logger.warning(f"pgr_ksp({s_node},{e_node}) failed: {ex}")
+                    conn.rollback()
+                    all_rows = []
                 if all_rows:
                     start_node, end_node = s_node, e_node
                     break
@@ -273,16 +309,24 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
             SELECT re.edge_id AS id, re.source, re.target,
                    re.cost, re.reverse_cost
             FROM road_edge re
+            WHERE re.source != re.target
         """
         shortest_sql = """
             SELECT d.seq, d.edge,
                    r.name AS road_name, re.length, re.cost,
                    COALESCE(ers.risk_score, 0) AS risk_score,
-                   ST_AsGeoJSON(re.geom)
+                   COALESCE(
+                       ST_AsGeoJSON(re.geom),
+                       ST_AsGeoJSON(ST_SetSRID(
+                           ST_MakeLine(vsrc.the_geom, vtgt.the_geom), 4326
+                       ))
+                   ) AS geom_json
             FROM pgr_dijkstra(%s, %s, %s, directed := false) d
             JOIN road_edge re ON d.edge = re.edge_id
             JOIN road r ON re.road_id = r.road_id
             LEFT JOIN edge_risk_score ers ON re.edge_id = ers.edge_id
+            LEFT JOIN road_edges_guishan_vertices_pgr vsrc ON vsrc.id = re.source
+            LEFT JOIN road_edges_guishan_vertices_pgr vtgt ON vtgt.id = re.target
             WHERE d.edge > 0
             ORDER BY d.seq
         """
@@ -307,8 +351,13 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                 if   src == cur_v: next_v = tgt
                 elif tgt == cur_v: next_v = src
                 else:
-                    # 序列斷裂（橋接邊或資料問題）→ 保守放行
-                    break
+                    # 序列斷裂（橋接邊跳接或資料問題）
+                    # 兩端都已拜訪 → 確認是迴路
+                    if src in visited and tgt in visited:
+                        is_loop = True
+                        break
+                    # 選取未拜訪端繼續（容錯跳接）
+                    next_v = src if tgt in visited else tgt
                 if next_v in visited:
                     is_loop = True
                     break
@@ -318,13 +367,18 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                 non_loop_paths[pid] = segs
         paths = non_loop_paths
 
-        # 6b. Jaccard 去重：相似度 > 80% 視為重複路線，最多保留 3 條
-        # 去除完全相同的路線（edge set 完全一樣才算重複）
+        # 6b. 多樣性去重：edge 重疊比例 > DIVERSITY_THRESHOLD 視為太相似，跳過
+        # 0.5 = 允許最多 50% 邊重疊；值越小路線越不一樣，但越可能湊不到 3 條
+        DIVERSITY_THRESHOLD = 0.5
         unique_path_ids = []
         seen_edge_sets  = []
         for pid in sorted(paths.keys()):
             edge_set = frozenset(seg[2] for seg in paths[pid])
-            if edge_set not in seen_edge_sets:
+            too_similar = any(
+                jaccard_similarity(edge_set, seen) >= DIVERSITY_THRESHOLD
+                for seen in seen_edge_sets
+            )
+            if not too_similar:
                 unique_path_ids.append(pid)
                 seen_edge_sets.append(edge_set)
             if len(unique_path_ids) == 3:
@@ -346,7 +400,11 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         #    延遲寫入：/route/plan 不存 DB，使用者點選「選擇此路線」後
         #    再由前端呼叫 POST /route/save 存入一條選定的路線。
         avg_speed_m_per_sec = 30 * 1000 / 3600   # 30 km/h → 8.33 m/s
+        # 路線距離比例上限：不可超過直線距離 4 倍（避免演算法繞大圈）
+        max_ratio = straight_line_m * 4 if straight_line_m > 0 else None
         routes_result = []
+        rejected_by_max_dist  = 0   # 因使用者距離上限被排除的路線數
+        rejected_by_max_ratio = 0   # 因 4× 比例上限被排除的路線數
 
         for path_id, segments in sorted(paths.items()):
             total_distance  = sum(seg[4] for seg in segments)
@@ -356,6 +414,12 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
 
             # 距離上限檢查（只跳過超限路線，不整個失敗）
             if max_dist and total_distance > max_dist:
+                rejected_by_max_dist += 1
+                continue
+
+            # 路線距離比例檢查：超過直線距離 4 倍的路線跳過（排除繞大圈的異常路線）
+            if max_ratio and total_distance > max_ratio:
+                rejected_by_max_ratio += 1
                 continue
 
             # 偵測此路線是否實際含有橋樑/隧道
@@ -403,7 +467,10 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
             })
 
         if not routes_result:
-            raise HTTPException(422, "ALL_ROUTES_EXCEED_DISTANCE_LIMIT")
+            # 區分錯誤原因：使用者設距離上限 vs 路線演算法繞大圈
+            if rejected_by_max_dist > 0:
+                raise HTTPException(422, "ALL_ROUTES_EXCEED_DISTANCE_LIMIT")
+            raise HTTPException(422, "NO_PATH_FOUND")
 
         # 整理最短路徑（含危險路段標記）
         shortest_route = None

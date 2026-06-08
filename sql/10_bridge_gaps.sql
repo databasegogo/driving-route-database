@@ -6,8 +6,16 @@
 -- 可重複執行（idempotent）：先清除前一次的橋接資料再重建
 
 -- ── 0. 清除前一次橋接資料 ─────────────────────────────────────────────────
-DELETE FROM road_edge WHERE edge_id >= 9000000;
-DELETE FROM road       WHERE road_id = 9000001;
+-- 先清 route_segment 裡引用到橋接邊的紀錄（外鍵約束），否則無法刪除 road_edge
+DELETE FROM route_segment WHERE edge_id >= 9000000;
+
+-- 清除橋接邊 segment 被刪後變成空的孤立 route 紀錄（沒有任何 segment 的 route 無法練習）
+DELETE FROM route WHERE NOT EXISTS (
+  SELECT 1 FROM route_segment rs WHERE rs.route_id = route.route_id
+);
+
+DELETE FROM road_edge     WHERE edge_id >= 9000000;
+DELETE FROM road          WHERE road_id  = 9000001;
 
 -- ── 0b. 修補 road_edge 裡 geom = NULL 的邊（OSM 資料缺漏）─────────────────
 -- geom 為 NULL 的邊仍會參與路由，但 ST_AsGeoJSON(NULL) 讓前端渲染出現斷點。
@@ -28,7 +36,7 @@ DROP TABLE IF EXISTS _comp;
 CREATE TEMP TABLE _comp AS
 SELECT node, component, COUNT(*) OVER (PARTITION BY component) AS comp_size
 FROM pgr_connectedComponents(
-  'SELECT edge_id AS id, source, target, cost, reverse_cost FROM road_edge'
+  'SELECT edge_id AS id, source, target, cost, reverse_cost FROM road_edge WHERE source != target'
 );
 
 -- 診斷：橋接前分量分佈
@@ -80,7 +88,7 @@ CROSS JOIN LATERAL (
   ORDER BY iso.the_geom <-> m.the_geom
   LIMIT 1
 ) mn
-WHERE ST_Distance(iso.the_geom::geography, mn.the_geom::geography) <= 80
+WHERE ST_Distance(iso.the_geom::geography, mn.the_geom::geography) <= 200
 ORDER BY iso.iso_comp, dist_m;
 
 SELECT '=== 第一次掃描橋接對數量 ===' AS info;
@@ -133,7 +141,7 @@ DROP TABLE IF EXISTS _comp2;
 CREATE TEMP TABLE _comp2 AS
 SELECT node, component, COUNT(*) OVER (PARTITION BY component) AS comp_size
 FROM pgr_connectedComponents(
-  'SELECT edge_id AS id, source, target, cost, reverse_cost FROM road_edge'
+  'SELECT edge_id AS id, source, target, cost, reverse_cost FROM road_edge WHERE source != target'
 );
 
 DROP TABLE IF EXISTS _bridge_pairs2;
@@ -165,7 +173,7 @@ CROSS JOIN LATERAL (
   SELECT m.node, m.the_geom FROM main_nodes2 m
   ORDER BY iso.the_geom <-> m.the_geom LIMIT 1
 ) mn
-WHERE ST_Distance(iso.the_geom::geography, mn.the_geom::geography) <= 80
+WHERE ST_Distance(iso.the_geom::geography, mn.the_geom::geography) <= 200
 ORDER BY iso.iso_comp, dist_m;
 
 SELECT '=== 第二次掃描補充橋接對數量 ===' AS info;
@@ -192,7 +200,7 @@ DROP TABLE IF EXISTS _comp3;
 CREATE TEMP TABLE _comp3 AS
 SELECT node, component, COUNT(*) OVER (PARTITION BY component) AS comp_size
 FROM pgr_connectedComponents(
-  'SELECT edge_id AS id, source, target, cost, reverse_cost FROM road_edge'
+  'SELECT edge_id AS id, source, target, cost, reverse_cost FROM road_edge WHERE source != target'
 );
 
 DROP TABLE IF EXISTS _bridge_pairs3;
@@ -222,7 +230,7 @@ CROSS JOIN LATERAL (
   SELECT m.node, m.the_geom FROM routable_nodes3 m
   ORDER BY iso.the_geom <-> m.the_geom LIMIT 1
 ) mn
-WHERE ST_Distance(iso.the_geom::geography, mn.the_geom::geography) <= 80
+WHERE ST_Distance(iso.the_geom::geography, mn.the_geom::geography) <= 200
 ORDER BY iso.iso_comp, dist_m;
 
 SELECT '=== 第三步補橋接數量（<5 nodes 小群 → 任意可路由分量）===' AS info;
@@ -242,21 +250,25 @@ SELECT '=== 全部橋接邊數量（一次 + 二次 + 三次）===' AS info;
 SELECT COUNT(*) AS total_bridge_edges FROM road_edge WHERE edge_id >= 9000000;
 
 -- ── 5. 重建 main_component_nodes ──────────────────────────────────────────
+-- 只保留「最大連通分量」的節點，確保所有可路由節點互相連通。
+-- 即使 200m 橋接後仍有少數孤立小塊，也不會污染路由表。
 DROP TABLE IF EXISTS main_component_nodes;
 CREATE TABLE main_component_nodes AS
 WITH all_comp AS (
   SELECT node, component
   FROM pgr_connectedComponents(
-    'SELECT edge_id AS id, source, target, cost, reverse_cost FROM road_edge'
+    'SELECT edge_id AS id, source, target, cost, reverse_cost FROM road_edge WHERE source != target'
   )
+),
+main_comp_id AS (
+  SELECT component FROM all_comp
+  GROUP BY component
+  ORDER BY COUNT(*) DESC
+  LIMIT 1
 )
 SELECT node
 FROM all_comp
-WHERE component IN (
-  SELECT component FROM all_comp
-  GROUP BY component
-  HAVING COUNT(*) >= 5
-);
+WHERE component = (SELECT component FROM main_comp_id);
 
 CREATE INDEX main_component_nodes_idx ON main_component_nodes(node);
 
