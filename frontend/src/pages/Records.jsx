@@ -62,7 +62,7 @@ const STATUS_META = {
   'in-progress': { label: '練習中', cls: 'st-ing'        },
   in_progress:   { label: '練習中', cls: 'st-ing'        },
   incomplete:    { label: '未完成', cls: 'st-none'       },
-  terminated:    { label: '終止',   cls: 'st-terminated' },
+  terminated:    { label: '未完成', cls: 'st-terminated' },
 }
 
 function StatusBadge({ status }) {
@@ -301,8 +301,7 @@ export default function Records() {
   const total      = records.length
   const completed  = records.filter(r => r.status === 'completed').length
   const inProgress = records.filter(r => ['in-progress', 'in_progress'].includes(r.status)).length
-  const incomplete = records.filter(r => r.status === 'incomplete').length
-  const terminated = records.filter(r => r.status === 'terminated').length
+  const incomplete = records.filter(r => r.status === 'incomplete' || r.status === 'terminated').length
   const pct        = total ? Math.round((completed / total) * 100) : 0
 
   let filtered = favOnly ? records.filter(r => r.favorited) : records
@@ -340,10 +339,9 @@ export default function Records() {
         {/* 統計（可點選篩選）*/}
         <div className="rec-stats-block">
           {[
-            ['完成',   completed,  'done',       'completed'],
-            ['練習中', inProgress, 'ing',        'in-progress'],
-            ['未完成', incomplete, 'none',       'incomplete'],
-            ['終止',   terminated, 'terminated', 'terminated'],
+            ['完成',   completed,  'done',  'completed'],
+            ['練習中', inProgress, 'ing',   'in-progress'],
+            ['未完成', incomplete, 'none',  'incomplete'],
           ].map(([label, num, cls, val]) => (
             <button
               key={label}
@@ -575,10 +573,10 @@ export default function Records() {
                 : <Polyline positions={selected.coords} color="#ff6b35" weight={5} opacity={0.85} />
               }
               {selected.coords?.[0] && (
-                <CircleMarker center={selected.coords[0]} radius={9} fillColor="#264653" color="#fff" weight={2} fillOpacity={1} />
+                <CircleMarker center={selected.coords[0]} radius={9} fillColor="#22c55e" color="#fff" weight={2} fillOpacity={1} />
               )}
               {selected.coords?.length > 1 && (
-                <CircleMarker center={selected.coords[selected.coords.length - 1]} radius={9} fillColor="#ff6b35" color="#fff" weight={2} fillOpacity={1} />
+                <CircleMarker center={selected.coords[selected.coords.length - 1]} radius={9} fillColor="#ef4444" color="#fff" weight={2} fillOpacity={1} />
               )}
             </MapContainer>
           </div>

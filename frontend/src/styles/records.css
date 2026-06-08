@@ -474,7 +474,7 @@
 .st-ing        { background: #fff0e6; color: var(--rec-orange); }
 .st-none       { background: #f0f0f0; color: #999; }
 .st-off        { background: #f0f0f0; color: #bbb; }
-.st-terminated { background: #fff3e0; color: #e65100; }
+.st-terminated { background: #fef3c7; color: #d97706; }
 
 /* ── GPS / 終止 徽章 ── */
 .rec-gps-badge {

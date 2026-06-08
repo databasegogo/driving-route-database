@@ -48,12 +48,32 @@ function LevelRoad({ score, level, gapToNext }) {
     { label: '熟練駕駛', pts: '300 PTS', cx: 838, cy:  93, active: safeScore >= 300 },
   ]
 
+  function roadYatX(x) {
+    const segs = [
+      { x0: 20,  y0: 118, cpx: 175, cpy: 66,  x1: 345, y1: 104 },
+      { x0: 345, y0: 104, cpx: 510, cpy: 142, x1: 665, y1: 102 },
+      { x0: 665, y0: 102, cpx: 762, cpy: 78,  x1: 855, y1: 92  },
+    ]
+    const seg = x < 345 ? segs[0] : x < 665 ? segs[1] : segs[2]
+    const { x0, y0, cpx, cpy, x1, y1 } = seg
+    const a = x0 - 2 * cpx + x1
+    const b = 2 * (cpx - x0)
+    const c = x0 - x
+    let t
+    if (Math.abs(a) < 0.001) { t = -c / b }
+    else {
+      const disc = b * b - 4 * a * c
+      const sq   = Math.sqrt(Math.max(0, disc))
+      const t1   = (-b + sq) / (2 * a)
+      const t2   = (-b - sq) / (2 * a)
+      t = (t1 >= 0 && t1 <= 1) ? t1 : t2
+    }
+    t = Math.max(0, Math.min(1, t))
+    return (1-t)*(1-t)*y0 + 2*t*(1-t)*cpy + t*t*y1
+  }
+
   const carX = 62 + pct * 776
-  const carY = safeScore < 150
-    ? 115 - (safeScore / 150) * 4
-    : safeScore < 300
-      ? 119 - ((safeScore - 150) / 150) * 26
-      : 93
+  const carY = roadYatX(carX)
 
   /* 首次載入：讓車子置中在可見範圍 */
   useEffect(() => {

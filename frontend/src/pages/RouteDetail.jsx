@@ -374,7 +374,7 @@ export default function RouteDetail() {
 
   return (
     <div className="detail-page">
-      <header className="route-header">
+      <header className="route-header route-header--detail">
         <button className="back-btn" onClick={() => {
           // 從 RouteSelect 進來（有 routes）→ 還原 RouteSelect 狀態
           // 從 Records/Dashboard 再練習一次進來（沒有 routes）→ 直接回上一頁
@@ -399,7 +399,7 @@ export default function RouteDetail() {
       {/* 危險路段統計欄（有高風險路段才顯示）*/}
       {dangerSegments.length > 0 && (
         <div style={{
-          background: '#1a1d27', borderBottom: '1px solid #2d3148',
+          background: '#1e3a4a', borderBottom: '1px solid #2d3148',
           padding: '8px 16px', display: 'flex', gap: 16,
           fontSize: 12, alignItems: 'center', flexWrap: 'wrap',
         }}>
@@ -412,7 +412,7 @@ export default function RouteDetail() {
               （風險分數 {mostDangerous.properties.risk_score}）
             </span>
           )}
-          <span style={{ color: '#64748b', marginLeft: 'auto' }}>
+          <span style={{ color: 'rgba(255,255,255,0.55)', marginLeft: 'auto' }}>
             點擊路段可查看詳細資訊
           </span>
         </div>
@@ -467,7 +467,7 @@ export default function RouteDetail() {
       {/* 點擊路段後的資訊面板 */}
       {selected && (
         <div style={{
-          background: '#222536', borderBottom: '1px solid #2d3148',
+          background: '#1e3a4a', borderBottom: '1px solid #2d3148',
           padding: '10px 16px', display: 'flex', justifyContent: 'space-between',
           alignItems: 'center', fontSize: 13,
         }}>
@@ -495,7 +495,7 @@ export default function RouteDetail() {
       {/* 圖例 */}
       <div style={{
         padding: '6px 16px', display: 'flex', gap: 16,
-        fontSize: 11, color: '#64748b', background: '#1a1d27',
+        fontSize: 11, color: '#ffffff', fontWeight: 700, background: '#1e3a4a',
         borderBottom: '1px solid #2d3148',
       }}>
         <span>

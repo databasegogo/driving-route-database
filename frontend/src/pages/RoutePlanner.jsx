@@ -562,7 +562,7 @@ function RoutePlanner() {
                         const snapped = await snapToRoad(c)
                         setStartCoord(snapped)                // 更新為路面上的點
                       }}
-                      placeholder="設定出發起點（例：長庚大學）"
+                      placeholder="設定出發起點"
                       labelText="START POINT"
                     />
                     <button type="button" className="map-pin-btn" onClick={() => setMapPicker('start')} title="在地圖上選取起點">
@@ -598,7 +598,7 @@ function RoutePlanner() {
                         const snapped = await snapToRoad(c)
                         setEndCoord(snapped)
                       }}
-                      placeholder="設定練習終點（例：林口長庚醫院）"
+                      placeholder="設定練習終點"
                       labelText="DESTINATION"
                     />
                     <button type="button" className="map-pin-btn" onClick={() => setMapPicker('end')} title="在地圖上選取終點">
