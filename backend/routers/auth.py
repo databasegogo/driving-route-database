@@ -19,7 +19,7 @@ class RegisterRequest(BaseModel):
     password:     str            = Field(min_length=6,  max_length=26)
     birth_date:   str            = Field(pattern=r'^\d{4}-\d{2}-\d{2}$')
     license_date: str            = Field(pattern=r'^\d{4}-\d{2}-\d{2}$')
-    address:      Optional[str]  = None   # JSON 字串，如 '{"city":"台北市",...}'
+    address:      Optional[str]  = None
 
 
 class LoginRequest(BaseModel):
@@ -36,11 +36,9 @@ def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
 def validate_license_age(birth_date_str: str, license_date_str: str):
-    """取得駕照時是否已滿 18 歲，否則拋 400"""
-    birth   = date.fromisoformat(birth_date_str)
-    lic     = date.fromisoformat(license_date_str)
-    age_at_license = (lic - birth).days / 365.25
-    if age_at_license < 18:
+    birth = date.fromisoformat(birth_date_str)
+    lic   = date.fromisoformat(license_date_str)
+    if (lic - birth).days / 365.25 < 18:
         raise HTTPException(status_code=400, detail="LICENSE_AGE_INVALID")
 
 
@@ -48,9 +46,7 @@ def validate_license_age(birth_date_str: str, license_date_str: str):
 
 @router.post("/register")
 def register(req: RegisterRequest):
-    # 驗證取得駕照時年齡是否已滿 18 歲
     validate_license_age(req.birth_date, req.license_date)
-
     conn = get_db()
     cur  = conn.cursor()
     try:
@@ -70,7 +66,7 @@ def register(req: RegisterRequest):
             hash_password(req.password),
             req.birth_date,
             req.license_date,
-            req.address,   # JSON 字串，None 則存 NULL
+            req.address,
         ))
 
         user_id, username, user_level_id = cur.fetchone()
@@ -107,7 +103,6 @@ def login(req: LoginRequest):
 
         row = cur.fetchone()
 
-        # email 不存在 或 密碼錯誤 → 同一個訊息（不洩漏哪個錯）
         if not row or not verify_password(req.password, row[2]):
             raise HTTPException(status_code=401, detail="INVALID_CREDENTIALS")
 
