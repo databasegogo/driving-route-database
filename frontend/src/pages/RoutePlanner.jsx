@@ -4,6 +4,7 @@ import { ArrowLeft, Compass, Sliders, Star, Shield, ArrowRight, MapPin, AlertCir
 import { MapContainer, TileLayer, useMapEvents, GeoJSON, CircleMarker, Polyline, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api'
+import { pointInRing, pointInPolygon } from '../utils/geo'
 import '../styles/route.css'
 
 const DIFF_CODE = { 1: 'BEGINNER', 2: 'NORMAL', 3: 'EXPERIENCED' }
@@ -128,27 +129,6 @@ function MapClicker({ onPick }) {
   return null
 }
 
-// Ray-casting：判斷點是否在單一環內
-function pointInRing(lat, lng, ring) {
-  let inside = false
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, yi] = ring[i]
-    const [xj, yj] = ring[j]
-    const intersect = ((yi > lat) !== (yj > lat)) &&
-      (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)
-    if (intersect) inside = !inside
-  }
-  return inside
-}
-
-// 支援 Polygon 和 MultiPolygon
-function pointInPolygon(lat, lng, geojson) {
-  if (!geojson) return false
-  const { type, coordinates } = geojson.geometry
-  if (type === 'Polygon') return pointInRing(lat, lng, coordinates[0])
-  if (type === 'MultiPolygon') return coordinates.some(p => pointInRing(lat, lng, p[0]))
-  return false
-}
 
 // ── 地圖選點 Modal ───────────────────────────────────────────────────────────
 function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }) {

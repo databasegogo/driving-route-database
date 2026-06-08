@@ -4,6 +4,7 @@ import { User, MapPin, ArrowRight, Zap, Navigation, BookOpen, Map } from 'lucide
 import { MapContainer, TileLayer, Polyline, useMap, GeoJSON, CircleMarker, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api'
+import { pointInRing, pointInPolygon } from '../utils/geo'
 import '../styles/dashboard.css'
 import '../styles/route.css'
 
@@ -279,34 +280,15 @@ function MapClicker({ onPick }) {
   return null
 }
 
-// Ray-casting：判斷點是否在單一環內
-function pointInRing(lat, lng, ring) {
-  let inside = false
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, yi] = ring[i]
-    const [xj, yj] = ring[j]
-    const intersect = ((yi > lat) !== (yj > lat)) &&
-      (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)
-    if (intersect) inside = !inside
-  }
-  return inside
-}
-
-// 支援 Polygon 和 MultiPolygon
-function pointInPolygon(lat, lng, geojson) {
-  if (!geojson) return false
-  const { type, coordinates } = geojson.geometry
-  if (type === 'Polygon') return pointInRing(lat, lng, coordinates[0])
-  if (type === 'MultiPolygon') return coordinates.some(p => pointInRing(lat, lng, p[0]))
-  return false
-}
-
 // ── 地圖選點 Modal ──────────────────────────────────────────────────────────
 function MapPickerModal({ target, otherCoord, onConfirm, onClose }) {
-  const [picked,   setPicked]   = useState(null)
-  const [name,     setName]     = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [boundary, setBoundary] = useState(null)
+  const [picked,    setPicked]    = useState(null)   // snap 後的座標
+  const [rawPicked, setRawPicked] = useState(null)   // 原始點擊位置
+  const [snapLine,  setSnapLine]  = useState(null)   // 虛線導引 [[raw],[snapped]]
+  const [name,      setName]      = useState('')
+  const [loading,   setLoading]   = useState(false)
+  const [boundary,  setBoundary]  = useState(null)
+  const [snapFail,  setSnapFail]  = useState(false)  // 附近無可路由道路
 
   useEffect(() => {
     api.get('/district/boundary')
@@ -317,15 +299,33 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose }) {
   const isInside = picked ? pointInPolygon(picked[0], picked[1], boundary) : false
 
   async function handlePick(coord) {
-    setPicked(coord)
     const inside = pointInPolygon(coord[0], coord[1], boundary)
-    if (!inside) { setName(''); return }
+    setRawPicked(coord)
+    setSnapLine(null)
+    if (!inside) { setPicked(coord); setName(''); setSnapFail(false); return }
     setLoading(true)
     setName('定位中...')
+    setSnapFail(false)
+
+    // 1. snap 到最近可路由道路
+    let finalCoord = coord
+    let snapOk = false
+    try {
+      const snapRes = await api.get('/route/snap', { params: { lat: coord[0], lng: coord[1] } })
+      finalCoord = [snapRes.data.snap_lat, snapRes.data.snap_lng]
+      snapOk = true
+      const dist = snapRes.data.dist_m ?? 0
+      if (dist > 5) setSnapLine([coord, finalCoord])   // 有明顯位移才畫虛線
+    } catch {
+      setSnapFail(true)
+    }
+    setPicked(finalCoord)
+
+    // 2. Nominatim 反地理編碼取名稱
     try {
       const url = new URL('https://nominatim.openstreetmap.org/reverse')
-      url.searchParams.set('lat', coord[0])
-      url.searchParams.set('lon', coord[1])
+      url.searchParams.set('lat', finalCoord[0])
+      url.searchParams.set('lon', finalCoord[1])
       url.searchParams.set('format', 'json')
       url.searchParams.set('accept-language', 'zh-TW,zh')
       url.searchParams.set('addressdetails', '1')
@@ -335,10 +335,10 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose }) {
       const label = data.name ||
         addr.road || addr.pedestrian || addr.footway || addr.path ||
         addr.suburb || addr.village ||
-        `${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}`
-      setName(label)
+        `${finalCoord[0].toFixed(5)}, ${finalCoord[1].toFixed(5)}`
+      setName(snapOk ? label : `⚠️ 附近沒有道路`)
     } catch {
-      setName(`${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}`)
+      setName(`${finalCoord[0].toFixed(5)}, ${finalCoord[1].toFixed(5)}`)
     } finally {
       setLoading(false)
     }
@@ -376,6 +376,16 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose }) {
               />
             )}
             <MapClicker onPick={handlePick} />
+            {/* 位移虛線：原始點擊 → snap 後路面點 */}
+            {snapLine && (
+              <Polyline positions={snapLine} pathOptions={{ color: '#ff6b35', dashArray: '6,5', weight: 2, opacity: 0.7 }} />
+            )}
+            {/* 原始點擊位置（半透明小圓）*/}
+            {rawPicked && snapLine && (
+              <CircleMarker center={rawPicked} radius={5}
+                pathOptions={{ fillColor: '#ff6b35', color: '#fff', weight: 1.5, fillOpacity: 0.5 }}
+              />
+            )}
             {otherCoord && (
               <CircleMarker center={otherCoord} radius={9}
                 pathOptions={{
@@ -401,7 +411,7 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose }) {
           <button className="map-picker-cancel" onClick={onClose}>取消</button>
           <button
             className="map-picker-confirm"
-            disabled={!picked || !isInside || loading}
+            disabled={!picked || !isInside || loading || snapFail}
             onClick={() => { onConfirm(name, picked); onClose() }}
           >
             確認選點
