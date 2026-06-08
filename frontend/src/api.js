@@ -24,7 +24,7 @@ api.interceptors.response.use(
         error.response?.data?.detail !== 'INVALID_CREDENTIALS') {
       localStorage.removeItem('token')
       localStorage.removeItem('currentUser')
-      window.location.href = '/login'
+      window.location.href = import.meta.env.BASE_URL + 'login'
     }
     return Promise.reject(error)
   }

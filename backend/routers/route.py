@@ -210,9 +210,11 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         # risk_expr 單一定義，inner_sql / ksp_sql segment_final_cost 共用，避免三處不同步
         risk_expr = f"LEAST(COALESCE(ers.risk_score, 0), 50) * {risk_weight}"
         base_cost = f"(re.cost         + {risk_expr})"
-        base_rev  = f"(re.reverse_cost + {risk_expr})"
         cost_expr = build_cost_expr(base_cost, req.avoid_bridge, req.avoid_tunnel)
-        rev_expr  = build_cost_expr(base_rev,  req.avoid_bridge, req.avoid_tunnel)
+        # 單行道保護：reverse_cost < 0（pgRouting 的單行道標記）不可被風險分數或 bridge 懲罰蓋掉
+        # 先套 bridge/tunnel 懲罰，再用外層 CASE 確保 < 0 的值永遠保持原值
+        rev_expr_inner = build_cost_expr(f"(re.reverse_cost + {risk_expr})", req.avoid_bridge, req.avoid_tunnel)
+        rev_expr = f"CASE WHEN re.reverse_cost < 0 THEN re.reverse_cost ELSE {rev_expr_inner} END"
 
         # avoid_bridge/tunnel 才需要 JOIN road（cost 表達式裡才有 r.bridge/r.tunnel）
         # 不需要時省掉 JOIN 可大幅加速 pgr_ksp 建圖
@@ -260,7 +262,7 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                 r.tunnel                                        AS tunnel,
                 re.source                                       AS seg_source,
                 re.target                                       AS seg_target
-            FROM pgr_ksp(%s, %s, %s, 5, directed := false) d
+            FROM pgr_ksp(%s, %s, %s, 5, directed := true) d
             JOIN road_edge re  ON d.edge = re.edge_id
             JOIN road r        ON re.road_id = r.road_id
             LEFT JOIN edge_risk_score ers ON re.edge_id = ers.edge_id
@@ -321,7 +323,7 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                            ST_MakeLine(vsrc.the_geom, vtgt.the_geom), 4326
                        ))
                    ) AS geom_json
-            FROM pgr_dijkstra(%s, %s, %s, directed := false) d
+            FROM pgr_dijkstra(%s, %s, %s, directed := true) d
             JOIN road_edge re ON d.edge = re.edge_id
             JOIN road r ON re.road_id = r.road_id
             LEFT JOIN edge_risk_score ers ON re.edge_id = ers.edge_id

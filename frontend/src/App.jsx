@@ -12,7 +12,7 @@ import MainLayout   from './pages/MainLayout'
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         {/* 首頁：Landing Page（未登入看到的第一個畫面） */}
         <Route path="/"         element={<Landing />} />
