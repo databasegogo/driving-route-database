@@ -996,7 +996,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
         <div class="level-opt-icon">🔵</div>
         <div class="level-opt-info">
           <div class="level-opt-name">⭐⭐ 一般駕駛（NORMAL）</div>
-          <div class="level-opt-range">分數範圍：500 – 1999</div>
+          <div class="level-opt-range">分數範圍：150 – 299</div>
           <div class="level-opt-weight" style="color:var(--accent)">風險權重 × 40　→ 平衡路線</div>
         </div>
       </div>
@@ -1004,7 +1004,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
         <div class="level-opt-icon">🟡</div>
         <div class="level-opt-info">
           <div class="level-opt-name">⭐⭐⭐ 熟練駕駛（EXPERIENCED）</div>
-          <div class="level-opt-range">分數範圍：2000 以上</div>
+          <div class="level-opt-range">分數範圍：300 以上</div>
           <div class="level-opt-weight" style="color:var(--yellow)">風險權重 × 10　→ 最短路線優先</div>
         </div>
       </div>
@@ -1365,7 +1365,7 @@ function renderUsersTable() {
    調整等級功能（用 /admin/users/:id/level）
 ════════════════════════════════ */
 const LEVEL_ID_MAP    = { BEGINNER:1, NORMAL:2, EXPERIENCED:3 };
-const LEVEL_MIN_SCORE = { BEGINNER:0, NORMAL:500, EXPERIENCED:2000 };
+const LEVEL_MIN_SCORE = { BEGINNER:0, NORMAL:150, EXPERIENCED:300 };
 let editingUserId    = null;
 let selectedNewLevel = null;
 
@@ -1967,7 +1967,7 @@ function renderUsersTable() {
    調整等級功能
 ════════════════════════════════ */
 // const LEVEL_ID_MAP    = { BEGINNER:1, NORMAL:2, EXPERIENCED:3 };
-// const LEVEL_MIN_SCORE = { BEGINNER:0, NORMAL:500, EXPERIENCED:2000 };
+// const LEVEL_MIN_SCORE = { BEGINNER:0, NORMAL:150, EXPERIENCED:300 };
 editingUserId    = null;
 selectedNewLevel = null;
 
