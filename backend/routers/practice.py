@@ -24,9 +24,10 @@ class PracticeRequest(BaseModel):
     def validated_duration(self) -> int | None:
         if self.actual_duration_sec is None:
             return None
-        if self.actual_duration_sec < 10:   # 10 秒以下視為異常
+        v = min(max(0, self.actual_duration_sec), 86400)  # 最多 24 小時，防超大值
+        if v < 10:   # 10 秒以下視為異常
             return None
-        return self.actual_duration_sec
+        return v
 
 
 @router.post("/complete")
@@ -46,17 +47,33 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
             raise HTTPException(404, "ROUTE_NOT_FOUND")
         total_distance_m, estimated_duration_sec = row
 
-        # 1b. 防刷分邏輯
-        # - GPS 驗證到達終點（gps_verified=true）→ 不限次數，全額計分，但需最短練習時間
-        # - 提前終止（terminated_early=true） → 不限次數，按比例折扣計分
-        # - 兩者皆否（直接繞過 UI 呼叫 API）→ 同路線當天只能計分一次
+        # 1b. actual_duration_sec 限制在合理範圍（防超大值讓 practice_time 跑到過去）
+        safe_dur = None
+        if req.actual_duration_sec is not None:
+            safe_dur = min(max(0, req.actual_duration_sec), 86400)
 
-        # GPS 驗證：最短練習時間 60 秒（防止起終點設同地點立刻得分）
-        MIN_GPS_PRACTICE_SEC = 60
-        if req.gps_verified:
-            actual = req.actual_duration_sec or 0
-            if actual < MIN_GPS_PRACTICE_SEC:
+        # 1c. 防刷分邏輯
+        # - GPS 驗證到達終點（gps_verified=true）→ 不限次數，全額計分，最短 60 秒
+        # - 提前終止（terminated_early=true）    → 每日同路線最多 5 次，最短 30 秒
+        # - 兩者皆否（手動完成）                 → 同路線當天只能計分一次
+        MIN_GPS_SEC         = 60   # GPS 到達：最短練習時間
+        MIN_TERMINATE_SEC   = 30   # 提前終止：最短練習時間
+        MAX_TERMINATE_DAILY = 5    # 提前終止：同路線每日上限
+
+        if req.gps_verified and (safe_dur or 0) < MIN_GPS_SEC:
+            raise HTTPException(400, "PRACTICE_TOO_SHORT")
+
+        if req.terminated_early:
+            if (safe_dur or 0) < MIN_TERMINATE_SEC:
                 raise HTTPException(400, "PRACTICE_TOO_SHORT")
+            cur.execute("""
+                SELECT COUNT(*) FROM user_practice_history
+                WHERE user_id = %s AND route_id = %s
+                  AND terminated_early = true
+                  AND practice_time >= CURRENT_DATE
+            """, (user_id, req.route_id))
+            if cur.fetchone()[0] >= MAX_TERMINATE_DAILY:
+                raise HTTPException(400, "TERMINATE_DAILY_LIMIT")
 
         if not req.gps_verified and not req.terminated_early:
             cur.execute("""
@@ -98,16 +115,27 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
             EARLY_DISCOUNT = 0.8
             if req.covered_pct is not None:
                 covered_pct = max(0.0, min(float(req.covered_pct), 1.0))
+                # 合理性驗證：GPS 比例不應超過時間比例的 3 倍
+                # 防止繞過前端直接呼叫 API 傳入誇大的 covered_pct
+                if safe_dur and estimated_duration_sec and estimated_duration_sec > 0:
+                    time_pct = safe_dur / estimated_duration_sec
+                    covered_pct = min(covered_pct, min(time_pct * 3.0, 1.0))
             elif duration and estimated_duration_sec and estimated_duration_sec > 0:
                 covered_pct = min(duration / estimated_duration_sec, 1.0)
             else:
                 covered_pct = 0.0   # 無計時與 GPS 資料就不計分
             base_score = int(total_distance_m * covered_pct / 1000
                              * EARLY_DISCOUNT) * SCORE_WEIGHT[req.selected_difficulty]
+            # 完成 ≥ 25% 且因 int() 截斷得 0 → 至少保障 1 分
+            if base_score == 0 and covered_pct >= 0.25 and total_distance_m > 0:
+                base_score = 1
             time_bonus = 0          # 提前終止不給 time_bonus
         else:
             # 全程完成（GPS 驗證或正常完成）
             base_score = int(total_distance_m / 1000) * SCORE_WEIGHT[req.selected_difficulty]
+            # 全程完成且路線有效 → 至少保障 1 分（防短路線被 int() 截斷為 0）
+            if base_score == 0 and total_distance_m > 0:
+                base_score = 1
 
             # 4b. 時間評分：
             #   在預估時間內完成         → +50%（time_bonus）
@@ -123,13 +151,15 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
 
         score_earned = base_score + time_bonus
 
-        # 4c. 超時扣分（× 0.9），僅全程完成時適用
+        # 4c/4d. 懲罰乘數合併後一次截斷（避免分步 int() 造成雙重誤差）
+        #        例：score=2, overtime+off_route → int(2×0.81)=1，而非 int(int(2×0.9)×0.9)=int(1×0.9)=0
+        multiplier = 1.0
         if not req.terminated_early and overtime_penalty:
-            score_earned = int(score_earned * 0.9)
-
-        # 4d. 偏離路線扣分（× 0.9），與 terminated_early / overtime 可同時疊加
+            multiplier *= 0.9
         if req.was_off_route:
-            score_earned = int(score_earned * 0.9)
+            multiplier *= 0.9
+        if multiplier < 1.0:
+            score_earned = int(score_earned * multiplier)
 
         # 5. 新增練習紀錄
         cur.execute("""

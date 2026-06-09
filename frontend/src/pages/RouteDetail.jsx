@@ -323,7 +323,7 @@ export default function RouteDetail() {
       coveredPct = estimatedSec > 0 ? Math.min(elapsedSec / estimatedSec, 1.0) : 0
     }
 
-    const estimatedScore = Math.floor(route.distance * coveredPct * 0.8) * weight
+    const estimatedScore = Math.floor((route.distance ?? 0) * coveredPct * 0.8) * weight
     setTerminateStats({ elapsedSec, coveredPct, estimatedScore })
     setModal('terminate')
   }
@@ -391,17 +391,32 @@ export default function RouteDetail() {
       localStorage.setItem('currentUser', JSON.stringify({
         ...user, score: res.data.new_total_score,
       }))
-    } catch {
-      // API 失敗：仍顯示完成畫面，使用本機估算分數
-      const fallbackScore = terminateStats?.estimatedScore ?? 0
-      setResult({
-        score_earned:     fallbackScore,
-        base_score:       fallbackScore,   // 分數明細卡片用，避免顯示 +0 與合計不一致
-        time_bonus:       0,
-        new_total_score:  null,
-        terminated_early: true,
-        _api_error:       true,
-      })
+    } catch (err) {
+      const detail = err?.response?.data?.detail
+      if (detail === 'TERMINATE_DAILY_LIMIT') {
+        // 同路線今日終止次數已達 5 次上限
+        setResult({
+          score_earned: 0, base_score: 0, time_bonus: 0,
+          new_total_score: null, _limited: true, _terminate_limit: true,
+          terminated_early: true,
+        })
+      } else if (detail === 'PRACTICE_TOO_SHORT') {
+        // 練習時間未滿 30 秒，不計分，讓使用者繼續練習
+        setModal(null)
+        alert('練習時間未滿 30 秒，無法計分。\n請繼續練習後再終止。')
+        return
+      } else {
+        // 其他 API 錯誤：仍顯示完成畫面，使用本機估算分數
+        const fallbackScore = terminateStats?.estimatedScore ?? 0
+        setResult({
+          score_earned:     fallbackScore,
+          base_score:       fallbackScore,
+          time_bonus:       0,
+          new_total_score:  null,
+          terminated_early: true,
+          _api_error:       true,
+        })
+      }
     }
     setModal('complete')
   }
@@ -782,7 +797,9 @@ export default function RouteDetail() {
                 <div className="sum-row score-row">
                   <span>本次獲得分數</span>
                   <span style={{ fontSize: '13px', color: '#e76f51', fontWeight: '700' }}>
-                    今日已手動完成此路線，<br />不重複計分
+                    {result?._terminate_limit
+                      ? <>今日此路線終止練習已達 5 次上限，<br />不重複計分</>
+                      : <>今日已手動完成此路線，<br />不重複計分</>}
                   </span>
                 </div>
               ) : (
