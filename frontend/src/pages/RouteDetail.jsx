@@ -566,6 +566,28 @@ export default function RouteDetail() {
         </div>
       )}
 
+      {/* 已到達終點持續提示條（關掉 arrived modal 選擇繼續練習後保持顯示） */}
+      {status === 'active' && arrived && modal === null && (
+        <div style={{
+          background: 'linear-gradient(90deg, #065f46, #047857)',
+          padding: '10px 16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          fontSize: 14, color: '#ecfdf5', gap: 12,
+        }}>
+          <span>🎯 已抵達終點！隨時可確認完成練習</span>
+          <button
+            onClick={handleComplete}
+            style={{
+              background: '#10b981', color: '#fff', border: 'none',
+              borderRadius: 8, padding: '6px 16px', cursor: 'pointer',
+              fontSize: 13, fontWeight: 700, flexShrink: 0,
+            }}
+          >
+            ✅ 完成練習
+          </button>
+        </div>
+      )}
+
       {/* 偏離路線警告（練習中且距路線 > 100m） */}
       {status === 'active' && offRoute && (
         <div className="off-route-warning">
@@ -590,11 +612,11 @@ export default function RouteDetail() {
           暫停
         </button>
         <button
-          className="ctrl-btn terminate"
-          onClick={openTerminateModal}
+          className={`ctrl-btn ${arrived ? 'start' : 'terminate'}`}
+          onClick={arrived ? handleComplete : openTerminateModal}
           disabled={status !== 'active'}
         >
-          終止練習
+          {arrived ? '完成練習' : '終止練習'}
         </button>
       </div>
 
