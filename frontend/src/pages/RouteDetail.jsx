@@ -187,7 +187,8 @@ export default function RouteDetail() {
   const [offRoute,    setOffRoute]    = useState(false)  // 偏離路線 > 100m
   const [offRouteDist,setOffRouteDist]= useState(null)   // 目前偏離距離（m）
   const [overTime,    setOverTime]    = useState(false)  // 已超過預估時間 2 倍
-  const wasOffRouteRef = useRef(false)                   // 曾偏離（送出時用）
+  const wasOffRouteRef   = useRef(false)  // 曾偏離（送出時用）
+  const maxCoveredPctRef = useRef(0)      // 練習中最高達到的完成比例（只升不降，防多次按終止膨脹）
   const watchIdRef = useRef(null)
 
   // 開始 GPS watchPosition（mount 時啟動，unmount 時清除）
@@ -204,10 +205,16 @@ export default function RouteDetail() {
 
   // 到達偵測：每次 userPos 更新時計算與終點距離；抵達後自動跳出完成 Modal
   useEffect(() => {
-    const endCoord = state?.route?.endCoord
+    const endCoord   = state?.route?.endCoord
+    const totalM     = (state?.route?.distance ?? 0) * 1000
     if (!userPos || !endCoord || status !== 'active' || arrived) return
     const d = haversine(userPos[0], userPos[1], endCoord[0], endCoord[1])
     setDistToEnd(Math.round(d))
+    // 記錄最高完成比例（只升不降），供終止 Modal 使用
+    if (totalM > 0) {
+      const pct = Math.max(0, Math.min(1, 1 - d / totalM))
+      if (pct > maxCoveredPctRef.current) maxCoveredPctRef.current = pct
+    }
     if (d < 50) {
       setArrived(true)
       // 只在沒有其他 Modal 開著時自動彈出（避免覆蓋暫停/終止 Modal）
@@ -303,14 +310,16 @@ export default function RouteDetail() {
     const elapsedSec = getElapsedSec()
     const weight     = DIFF_WEIGHT[route.diffCode] ?? 1
 
-    // 優先用 GPS 位置比例（更符合使用者實際走了多遠）
-    // GPS 比例也會傳給後端，讓計分一致
+    // 使用練習中最高達到的 GPS 比例（只升不降）
+    // 多次按終止不會因 GPS 漂移或重新計算而膨脹
     let coveredPct
-    const totalM = (route.distance ?? 0) * 1000
-    if (distToEnd !== null && totalM > 0) {
-      coveredPct = Math.max(0, Math.min(1, 1 - distToEnd / totalM))
+    if (maxCoveredPctRef.current > 0) {
+      coveredPct = maxCoveredPctRef.current
+    } else if (distToEnd !== null && (route.distance ?? 0) > 0) {
+      // GPS 有值但還沒記錄到（剛開始就按終止）：直接用當前距離
+      coveredPct = Math.max(0, Math.min(1, 1 - distToEnd / ((route.distance ?? 0) * 1000)))
     } else {
-      // GPS 不可用：fallback 用時間比例
+      // GPS 完全不可用：fallback 用時間比例
       coveredPct = estimatedSec > 0 ? Math.min(elapsedSec / estimatedSec, 1.0) : 0
     }
 
