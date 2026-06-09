@@ -449,6 +449,8 @@ def admin_delete_practice(
 
 
 # ── GET /admin/risk　取得道路風險資料 ────────────────────────────
+# 讀 edge_risk_score（真實事故風險，路線規劃實際使用的表）
+# LEFT JOIN road_edges_guishan 取路名/類型/橋樑/隧道欄位
 @router.get("/risk")
 def get_risk(
     search: Optional[str] = None,
@@ -458,15 +460,17 @@ def get_risk(
     cur  = conn.cursor()
     try:
         query = """
-            SELECT edge_id, name, fclass, bridge, tunnel, risk_score
-            FROM road_edges_guishan
-            WHERE edge_id < 9000000
+            SELECT rg.edge_id, rg.name, rg.fclass, rg.bridge, rg.tunnel,
+                   COALESCE(ers.risk_score, 0) AS risk_score
+            FROM road_edges_guishan rg
+            LEFT JOIN edge_risk_score ers ON rg.edge_id = ers.edge_id
+            WHERE rg.edge_id < 9000000
         """
         params = []
         if search:
-            query += " AND name ILIKE %s"
+            query += " AND rg.name ILIKE %s"
             params.append(f"%{search}%")
-        query += " ORDER BY risk_score DESC, edge_id LIMIT 500"
+        query += " ORDER BY COALESCE(ers.risk_score, 0) DESC, rg.edge_id LIMIT 500"
 
         cur.execute(query, params)
         rows = cur.fetchall()
@@ -489,6 +493,7 @@ def get_risk(
 
 
 # ── PATCH /admin/risk/{edge_id}　更新道路風險分數 ─────────────────
+# UPSERT edge_risk_score（影響路線規劃權重）
 class AdminRiskUpdate(BaseModel):
     risk_score: float
 
@@ -505,14 +510,22 @@ def update_risk(
     conn = get_db()
     cur  = conn.cursor()
     try:
-        cur.execute(
-            "UPDATE road_edges_guishan SET risk_score = %s WHERE edge_id = %s RETURNING edge_id",
-            (req.risk_score, edge_id)
-        )
+        # 確認 edge 存在
+        cur.execute("SELECT 1 FROM road_edges_guishan WHERE edge_id = %s", (edge_id,))
         if not cur.fetchone():
             raise HTTPException(404, "EDGE_NOT_FOUND")
+
+        # UPSERT edge_risk_score：有就更新，沒有就新增（accident 欄位補 0）
+        cur.execute("""
+            INSERT INTO edge_risk_score
+                (edge_id, accident_count, a1_count, a2_count, severity_score, risk_score)
+            VALUES (%s, 0, 0, 0, 0, %s)
+            ON CONFLICT (edge_id) DO UPDATE SET risk_score = EXCLUDED.risk_score
+            RETURNING edge_id, risk_score
+        """, (edge_id, req.risk_score))
+        result = cur.fetchone()
         conn.commit()
-        return {"message": "risk updated", "edge_id": edge_id, "risk_score": req.risk_score}
+        return {"message": "risk updated", "edge_id": result[0], "risk_score": float(result[1])}
     except HTTPException:
         raise
     except Exception as e:
