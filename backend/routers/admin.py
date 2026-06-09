@@ -461,23 +461,26 @@ def get_risk(
     try:
         query = """
             SELECT rg.edge_id, rg.name, rg.fclass, rg.bridge, rg.tunnel,
-                   COALESCE(ers.risk_score, 0) AS risk_score,
-                   ST_Y(ST_Centroid(rg.geom)) AS lat,
-                   ST_X(ST_Centroid(rg.geom)) AS lng
+                   COALESCE(ers.risk_score, 0)  AS risk_score,
+                   ST_Y(ST_Centroid(rg.geom))   AS lat,
+                   ST_X(ST_Centroid(rg.geom))   AS lng,
+                   COALESCE(re.blocked, false)   AS blocked
             FROM road_edges_guishan rg
             LEFT JOIN edge_risk_score ers ON rg.edge_id = ers.edge_id
+            LEFT JOIN road_edge re         ON rg.edge_id = re.edge_id
             WHERE rg.edge_id < 9000000
         """
         params = []
         if search:
-            # 支援兩種搜尋：純數字 → edge_id 完整比對；文字 → 路名模糊比對
+            # 支援兩種搜尋：純數字 → edge_id 子字串比對；文字 → 路名模糊比對
             if search.isdigit():
                 query += " AND rg.edge_id = %s"
                 params.append(int(search))
             else:
                 query += " AND rg.name ILIKE %s"
                 params.append(f"%{search}%")
-        query += " ORDER BY COALESCE(ers.risk_score, 0) DESC, rg.edge_id LIMIT 500"
+        # 封鎖中的路段置頂，再按風險分數排序
+        query += " ORDER BY COALESCE(re.blocked, false) DESC, COALESCE(ers.risk_score, 0) DESC, rg.edge_id LIMIT 500"
 
         cur.execute(query, params)
         rows = cur.fetchall()
@@ -491,6 +494,7 @@ def get_risk(
                 "risk_score": float(row[5]) if row[5] else 0.0,
                 "lat":        round(float(row[6]), 6) if row[6] else None,
                 "lng":        round(float(row[7]), 6) if row[7] else None,
+                "blocked":    bool(row[8]),
             }
             for row in rows
         ]
@@ -504,7 +508,8 @@ def get_risk(
 # ── PATCH /admin/risk/{edge_id}　更新道路風險分數 ─────────────────
 # UPSERT edge_risk_score（影響路線規劃權重）
 class AdminRiskUpdate(BaseModel):
-    risk_score: float
+    risk_score: float | None = None   # None = 不更新風險分數
+    blocked:    bool  | None = None   # None = 不更新封鎖狀態
 
 
 @router.patch("/risk/{edge_id}")
@@ -513,28 +518,51 @@ def update_risk(
     req: AdminRiskUpdate,
     current_user: dict = Depends(get_current_user),
 ):
-    if req.risk_score < 0:
+    if req.risk_score is None and req.blocked is None:
+        raise HTTPException(400, "MISSING_FIELD")
+    if req.risk_score is not None and req.risk_score < 0:
         raise HTTPException(400, "INVALID_RISK_SCORE")
 
     conn = get_db()
     cur  = conn.cursor()
     try:
-        # 確認 edge 存在
+        # 確認 edge 存在（以 road_edges_guishan 為準）
         cur.execute("SELECT 1 FROM road_edges_guishan WHERE edge_id = %s", (edge_id,))
         if not cur.fetchone():
             raise HTTPException(404, "EDGE_NOT_FOUND")
 
-        # UPSERT edge_risk_score：有就更新，沒有就新增（accident 欄位補 0）
-        cur.execute("""
-            INSERT INTO edge_risk_score
-                (edge_id, accident_count, a1_count, a2_count, severity_score, risk_score)
-            VALUES (%s, 0, 0, 0, 0, %s)
-            ON CONFLICT (edge_id) DO UPDATE SET risk_score = EXCLUDED.risk_score
-            RETURNING edge_id, risk_score
-        """, (edge_id, req.risk_score))
-        result = cur.fetchone()
+        result = {"edge_id": edge_id}
+
+        # 更新風險分數：UPSERT edge_risk_score
+        if req.risk_score is not None:
+            cur.execute("""
+                INSERT INTO edge_risk_score
+                    (edge_id, accident_count, a1_count, a2_count, severity_score, risk_score)
+                VALUES (%s, 0, 0, 0, 0, %s)
+                ON CONFLICT (edge_id) DO UPDATE SET risk_score = EXCLUDED.risk_score
+                RETURNING risk_score
+            """, (edge_id, req.risk_score))
+            row = cur.fetchone()
+            result["risk_score"] = float(row[0])
+
+        # 更新封鎖狀態：road_edge.blocked
+        # 注意：部分 edge 可能不在 road_edge（非可路由邊），UPDATE 影響 0 筆不視為錯誤
+        if req.blocked is not None:
+            cur.execute("""
+                UPDATE road_edge SET blocked = %s WHERE edge_id = %s
+                RETURNING blocked
+            """, (req.blocked, edge_id))
+            row = cur.fetchone()
+            if not row:
+                # 此邊不在路由圖中，封鎖無實際效果
+                result["blocked"]  = req.blocked
+                result["warning"]  = "EDGE_NOT_IN_ROUTING_GRAPH"
+            else:
+                result["blocked"] = bool(row[0])
+
         conn.commit()
-        return {"message": "risk updated", "edge_id": result[0], "risk_score": float(result[1])}
+        return result
+
     except HTTPException:
         raise
     except Exception as e:

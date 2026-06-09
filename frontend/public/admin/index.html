@@ -874,10 +874,10 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
             <div class="tbl-wrap">
               <table>
                 <thead>
-                  <tr><th>Edge ID</th><th>道路名稱</th><th>道路類型</th><th>橋樑</th><th>隧道</th><th>風險分數</th><th>位置</th><th>操作</th></tr>
+                  <tr><th>Edge ID</th><th>道路名稱</th><th>道路類型</th><th>橋樑</th><th>隧道</th><th>風險分數</th><th>位置</th><th>封鎖</th><th>操作</th></tr>
                 </thead>
                 <tbody id="risk-tbody">
-                  <tr><td colspan="8" class="empty">載入中…</td></tr>
+                  <tr><td colspan="9" class="empty">載入中…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1398,7 +1398,7 @@ async function loadRisk() {
     document.getElementById('risk-count-label').textContent = `共 ${allRisk.length} 筆`;
   } catch {
     document.getElementById('risk-tbody').innerHTML =
-      '<tr><td colspan="8" class="empty" style="color:var(--yellow)">無法載入風險資料，請確認 Token</td></tr>';
+      '<tr><td colspan="9" class="empty" style="color:var(--yellow)">無法載入風險資料，請確認 Token</td></tr>';
   }
 }
 
@@ -1425,19 +1425,22 @@ function filterRisk() {
 
 function renderRiskTable(list) {
   const tbody = document.getElementById('risk-tbody');
-  if (!list.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">無資料</td></tr>'; return; }
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">無資料</td></tr>'; return; }
   tbody.innerHTML = list.map(r => {
-    const hasCoord = r.lat != null && r.lng != null;
-    const osmUrl   = hasCoord
+    const hasCoord  = r.lat != null && r.lng != null;
+    const osmUrl    = hasCoord
       ? `https://www.openstreetmap.org/?mlat=${r.lat}&mlon=${r.lng}#map=18/${r.lat}/${r.lng}`
       : null;
-    const coordTip = hasCoord ? `${r.lat}, ${r.lng}` : '無座標';
+    const coordTip  = hasCoord ? `${r.lat}, ${r.lng}` : '無座標';
+    const rowStyle  = r.blocked ? 'background:rgba(239,68,68,0.08);' : '';
     return `
-    <tr>
+    <tr style="${rowStyle}">
       <td style="font-family:var(--font-mono);color:var(--text-muted)">${r.edge_id}</td>
       <td>${r.road_name
         ? r.road_name
-        : '<span style="color:var(--text-muted);font-style:italic">未命名</span>'}</td>
+        : '<span style="color:var(--text-muted);font-style:italic">未命名</span>'}
+        ${r.blocked ? '<span style="color:#ef4444;font-size:11px;margin-left:4px">🚫封鎖</span>' : ''}
+      </td>
       <td style="color:var(--text-muted)">${r.highway || '-'}</td>
       <td style="text-align:center">${r.bridge ? '✓' : '-'}</td>
       <td style="text-align:center">${r.tunnel ? '✓' : '-'}</td>
@@ -1451,6 +1454,17 @@ function renderRiskTable(list) {
           ? `<a href="${osmUrl}" target="_blank" title="${coordTip}"
                style="color:var(--accent);text-decoration:none;font-size:16px">📍</a>`
           : `<span style="color:var(--text-muted);font-size:12px" title="無座標">—</span>`}
+      </td>
+      <td style="text-align:center">
+        <button onclick="toggleBlock(${r.edge_id}, ${r.blocked})"
+          style="background:${r.blocked ? '#ef4444' : 'var(--navy-light)'};
+                 color:${r.blocked ? '#fff' : 'var(--text-muted)'};
+                 border:1px solid ${r.blocked ? '#ef4444' : 'var(--border)'};
+                 border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;
+                 white-space:nowrap"
+          id="block-btn-${r.edge_id}">
+          ${r.blocked ? '🚫 解封' : '封鎖'}
+        </button>
       </td>
       <td>
         <button onclick="saveRisk(${r.edge_id})"
@@ -1469,6 +1483,23 @@ async function saveRisk(edgeId) {
     if (item) item.risk_score = val;
     toast(`✅ Edge ${edgeId} 風險分數已更新為 ${val}`);
   } catch { toast('更新失敗，請確認連線', 'error'); }
+}
+
+async function toggleBlock(edgeId, currentBlocked) {
+  const newBlocked = !currentBlocked;
+  const action     = newBlocked ? '封鎖' : '解封';
+  if (!confirm(`確定要${action} Edge ${edgeId}？\n${newBlocked ? '封鎖後此路段將完全不納入路線規劃。' : '解封後此路段恢復正常路由。'}`)) return;
+  try {
+    const res = await api(`/admin/risk/${edgeId}`, 'PATCH', { blocked: newBlocked });
+    const item = allRisk.find(r => r.edge_id === edgeId);
+    if (item) item.blocked = res.blocked ?? newBlocked;
+    if (res.warning === 'EDGE_NOT_IN_ROUTING_GRAPH') {
+      toast(`⚠️ Edge ${edgeId} 不在路由圖中，封鎖不影響路線規劃`, 'error');
+    } else {
+      toast(`✅ Edge ${edgeId} 已${action}`);
+    }
+    filterRisk(); // 重新渲染，更新按鈕與行樣式
+  } catch { toast(`${action}失敗，請確認連線`, 'error'); }
 }
 
 /* ════════════════════════════════

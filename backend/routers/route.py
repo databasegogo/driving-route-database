@@ -216,6 +216,14 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         rev_expr_inner = build_cost_expr(f"(re.reverse_cost + {risk_expr})", req.avoid_bridge, req.avoid_tunnel)
         rev_expr = f"CASE WHEN re.reverse_cost < 0 THEN re.reverse_cost ELSE {rev_expr_inner} END"
 
+        # blocked 封鎖：cost 強制 999999，reverse_cost 保留 -1（單行道）或也設 999999
+        final_cost_expr = f"CASE WHEN re.blocked THEN 999999 ELSE {cost_expr} END"
+        final_rev_expr  = (
+            f"CASE WHEN re.blocked THEN "
+            f"  (CASE WHEN re.reverse_cost < 0 THEN re.reverse_cost ELSE 999999 END) "
+            f"ELSE {rev_expr} END"
+        )
+
         # avoid_bridge/tunnel 才需要 JOIN road（cost 表達式裡才有 r.bridge/r.tunnel）
         # 不需要時省掉 JOIN 可大幅加速 pgr_ksp 建圖
         road_join = (
@@ -227,8 +235,8 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                 re.edge_id AS id,
                 re.source,
                 re.target,
-                {cost_expr} AS cost,
-                {rev_expr}  AS reverse_cost
+                {final_cost_expr} AS cost,
+                {final_rev_expr}  AS reverse_cost
             FROM road_edge re
             {road_join}
             LEFT JOIN edge_risk_score ers ON re.edge_id = ers.edge_id
