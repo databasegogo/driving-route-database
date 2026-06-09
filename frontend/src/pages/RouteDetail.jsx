@@ -186,6 +186,7 @@ export default function RouteDetail() {
   const [arrived,     setArrived]     = useState(false)
   const [offRoute,    setOffRoute]    = useState(false)  // 偏離路線 > 100m
   const [offRouteDist,setOffRouteDist]= useState(null)   // 目前偏離距離（m）
+  const [overTime,    setOverTime]    = useState(false)  // 已超過預估時間 2 倍
   const wasOffRouteRef = useRef(false)                   // 曾偏離（送出時用）
   const watchIdRef = useRef(null)
 
@@ -232,6 +233,14 @@ export default function RouteDetail() {
       setOffRouteDist(null)
     }
   }, [userPos, status, state])
+
+  // 超時偵測：每次 GPS 更新時順帶檢查（GPS 更新頻率約 3s，足以驅動超時警告）
+  useEffect(() => {
+    if (status !== 'active' || arrived) { setOverTime(false); return }
+    if (estimatedSec > 0 && getElapsedSec() > estimatedSec * 2) {
+      setOverTime(true)
+    }
+  }, [userPos, status, arrived]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!state?.route) { navigate('/route'); return null }
   const { route, prefs } = state
@@ -367,8 +376,10 @@ export default function RouteDetail() {
       }))
     } catch {
       // API 失敗：仍顯示完成畫面，使用本機估算分數
+      const fallbackScore = terminateStats?.estimatedScore ?? 0
       setResult({
-        score_earned:     terminateStats?.estimatedScore ?? 0,
+        score_earned:     fallbackScore,
+        base_score:       fallbackScore,   // 分數明細卡片用，避免顯示 +0 與合計不一致
         time_bonus:       0,
         new_total_score:  null,
         terminated_early: true,
@@ -589,8 +600,8 @@ export default function RouteDetail() {
         </div>
       )}
 
-      {/* 超時警告（超過預估時間 2 倍） */}
-      {status === 'active' && !arrived && estimatedSec > 0 && getElapsedSec() > estimatedSec * 2 && (
+      {/* 超時警告（超過預估時間 2 倍，由 GPS 更新驅動的 overTime state） */}
+      {status === 'active' && !arrived && overTime && (
         <div style={{
           background: '#7c2d12', color: '#fed7aa',
           padding: '6px 16px', fontSize: 12, textAlign: 'center',

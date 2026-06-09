@@ -257,7 +257,7 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                 d.path_id,
                 d.path_seq,
                 d.edge,
-                r.name                                          AS road_name,
+                COALESCE(r.name, '(路網橋接)')                  AS road_name,
                 re.length                                       AS segment_distance_m,
                 re.cost                                         AS segment_base_cost,
                 COALESCE(ers.risk_score, 0)                     AS segment_risk_score,
@@ -268,13 +268,13 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                         ST_MakeLine(vsrc.the_geom, vtgt.the_geom), 4326
                     ))
                 )                                               AS geom_json,
-                r.bridge                                        AS bridge,
-                r.tunnel                                        AS tunnel,
+                COALESCE(r.bridge, 'F')                         AS bridge,
+                COALESCE(r.tunnel, 'F')                         AS tunnel,
                 re.source                                       AS seg_source,
                 re.target                                       AS seg_target
             FROM pgr_ksp(%s, %s, %s, 5, directed := true) d
             JOIN road_edge re  ON d.edge = re.edge_id
-            JOIN road r        ON re.road_id = r.road_id
+            LEFT JOIN road r   ON re.road_id = r.road_id
             LEFT JOIN edge_risk_score ers ON re.edge_id = ers.edge_id
             LEFT JOIN road_edges_guishan_vertices_pgr vsrc ON vsrc.id = re.source
             LEFT JOIN road_edges_guishan_vertices_pgr vtgt ON vtgt.id = re.target
@@ -325,7 +325,7 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
         """
         shortest_sql = """
             SELECT d.seq, d.edge,
-                   r.name AS road_name, re.length, re.cost,
+                   COALESCE(r.name, '(路網橋接)') AS road_name, re.length, re.cost,
                    COALESCE(ers.risk_score, 0) AS risk_score,
                    COALESCE(
                        ST_AsGeoJSON(re.geom),
@@ -334,8 +334,8 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                        ))
                    ) AS geom_json
             FROM pgr_dijkstra(%s, %s, %s, directed := true) d
-            JOIN road_edge re ON d.edge = re.edge_id
-            JOIN road r ON re.road_id = r.road_id
+            JOIN road_edge re  ON d.edge = re.edge_id
+            LEFT JOIN road r   ON re.road_id = r.road_id
             LEFT JOIN edge_risk_score ers ON re.edge_id = ers.edge_id
             LEFT JOIN road_edges_guishan_vertices_pgr vsrc ON vsrc.id = re.source
             LEFT JOIN road_edges_guishan_vertices_pgr vtgt ON vtgt.id = re.target
