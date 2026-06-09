@@ -1254,6 +1254,22 @@ async function deletePractice(practiceId) {
   } catch { toast('刪除失敗', 'error'); }
 }
 
+async function deleteUser(userId) {
+  if (!confirm(`確定要刪除使用者 #${userId}？\n此操作將一併刪除該使用者的所有練習紀錄與路線，無法復原。`)) return;
+  try {
+    await api(`/admin/users/${userId}`, 'DELETE');
+    toast(`✅ 使用者 #${userId} 已刪除`);
+    loadUsers();
+  } catch (e) {
+    const msg = e?.message || '';
+    if (msg.includes('CANNOT_DELETE_ADMIN')) {
+      toast('無法刪除管理員帳號', 'error');
+    } else {
+      toast('刪除失敗', 'error');
+    }
+  }
+}
+
 /* ════════════════════════════════
    等級設定（從 DB 讀取門檻 + 所有使用者）
 ════════════════════════════════ */
