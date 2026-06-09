@@ -226,8 +226,10 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
 
         # avoid_bridge/tunnel 才需要 JOIN road（cost 表達式裡才有 r.bridge/r.tunnel）
         # 不需要時省掉 JOIN 可大幅加速 pgr_ksp 建圖
+        # LEFT JOIN（不是 INNER JOIN）：虛擬橋接邊 road_id=9000001 不在 road 表
+        # 若用 INNER JOIN，虛擬邊會被整個排除，導致 avoid_bridge/tunnel 時路網斷裂回 1082 節點
         road_join = (
-            "JOIN road r ON r.road_id = re.road_id"
+            "LEFT JOIN road r ON r.road_id = re.road_id"
             if (req.avoid_bridge or req.avoid_tunnel) else ""
         )
         inner_sql = f"""
