@@ -28,20 +28,36 @@ function distToSegment(lat, lng, lat1, lng1, lat2, lng2) {
 }
 
 // ── 點到整條 GeoJSON 路線的最近距離（公尺）──────────────────────────
+// 支援 LineString 與 MultiLineString（OSM 資料兩種都有）
 function distToRoute(lat, lng, segments) {
   if (!segments?.features) return Infinity
   let min = Infinity
+
   for (const feat of segments.features) {
-    const coords = feat.geometry?.coordinates
-    if (!coords || coords.length < 2) continue
-    for (let i = 0; i < coords.length - 1; i++) {
-      // GeoJSON 座標格式：[lng, lat]
-      const d = distToSegment(
-        lat, lng,
-        coords[i][1],   coords[i][0],
-        coords[i+1][1], coords[i+1][0]
-      )
-      if (d < min) min = d
+    const geom = feat.geometry
+    if (!geom) continue
+
+    // 統一轉成 [[lng,lat],...] 陣列的陣列
+    let lines = []
+    if (geom.type === 'LineString') {
+      lines = [geom.coordinates]
+    } else if (geom.type === 'MultiLineString') {
+      lines = geom.coordinates
+    } else {
+      continue
+    }
+
+    for (const coords of lines) {
+      if (!coords || coords.length < 2) continue
+      for (let i = 0; i < coords.length - 1; i++) {
+        // GeoJSON 座標格式：[lng, lat]
+        const d = distToSegment(
+          lat, lng,
+          coords[i][1],   coords[i][0],
+          coords[i+1][1], coords[i+1][0]
+        )
+        if (d < min) min = d
+      }
     }
   }
   return min
