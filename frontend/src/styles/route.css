@@ -425,9 +425,9 @@ body {
 .slide-route-name { font-size: 15px; font-weight: 700; color: #264653; line-height: 1.4; }
 .slide-stars { display: flex; align-items: center; gap: 4px; }
 .slide-diff-label { font-size: 13px; color: #7e8b9b; margin-left: 4px; }
-.slide-stats { display: flex; gap: 14px; }
-.slide-stat { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: #264653; }
-.slide-stat svg { color: #7e8b9b; }
+.slide-stats { display: flex; gap: 14px; flex-wrap: nowrap; align-items: center; }
+.slide-stat { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: #264653; white-space: nowrap; flex-shrink: 0; }
+.slide-stat svg { color: #7e8b9b; flex-shrink: 0; }
 .slide-stat.score { color: var(--nordic-orange); }
 .slide-stat.score svg { color: var(--nordic-orange); }
 .slide-warning {
@@ -758,21 +758,24 @@ body {
     height: 56px;
   }
 
-  /* 縮小 Logo */
+  .slide-stats { gap: 10px; }
+  .slide-stat   { font-size: 12px; gap: 4px; }
+
+  /* Logo 尺寸 */
   .smart-path-logo-svg {
-    width: 36px !important;
-    height: 36px !important;
-    border-radius: 8px !important;
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 10px !important;
   }
 
-  /* logo 縮小後修正文字負 margin，避免重疊 */
+  /* logo 和文字間距拉近 */
   .brand-text {
-    margin-left: 8px !important;
+    margin-left: 2px !important;
   }
 
-  /* 品牌名稱字號縮小 */
+  /* 品牌名稱字號 */
   .brand-text h1 {
-    font-size: 15px !important;
+    font-size: 20px !important;
   }
 
   /* 副標題在手機上隱藏 */

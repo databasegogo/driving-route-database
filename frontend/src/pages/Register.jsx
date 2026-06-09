@@ -111,14 +111,14 @@ function Register() {
             <CheckCircle size={56} color="#264653" style={{ opacity: 0.9 }} />
             <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#264653', margin: 0 }}>註冊成功！</h2>
             <p style={{ fontSize: '14px', color: '#7e8b9b', margin: '0 0 12px 0', textAlign: 'center' }}>
-              您的虛擬座艙憑證已簽發，請重新登入以進入系統。
+              歡迎加入！登入後即可開始規劃你的練習路線。
             </p>
-            <button 
-              className="auth-submit-btn" 
+            <button
+              className="auth-submit-btn"
               onClick={() => navigate('/login')}
               style={{ marginTop: '8px' }}
             >
-              前往開通數位座艙
+              立即登入
             </button>
           </div>
         </div>

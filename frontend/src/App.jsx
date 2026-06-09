@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import ScrollToTop  from './ScrollToTop'
 import Landing      from './pages/Landing'
 import Login        from './pages/Login'
 import Register     from './pages/Register'
@@ -13,6 +14,7 @@ import MainLayout   from './pages/MainLayout'
 function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <ScrollToTop />
       <Routes>
         {/* 首頁：Landing Page（未登入看到的第一個畫面） */}
         <Route path="/"         element={<Landing />} />

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Compass, Sliders, Star, Shield, ArrowRight, MapPin, AlertCircle, Map, Navigation } from 'lucide-react'
-import { MapContainer, TileLayer, useMapEvents, GeoJSON, CircleMarker, Polyline, Tooltip } from 'react-leaflet'
+import { MapContainer, TileLayer, useMap, useMapEvents, GeoJSON, CircleMarker, Polyline, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api'
 import { pointInRing, pointInPolygon } from '../utils/geo'
@@ -126,6 +126,35 @@ function LocationInput({ value, coord, onChange, onSelect, placeholder, labelTex
 // ── 地圖點擊器 ──────────────────────────────────────────────────────────────
 function MapClicker({ onPick }) {
   useMapEvents({ click(e) { onPick([e.latlng.lat, e.latlng.lng]) } })
+  return null
+}
+
+// ── 地圖視角控制器 ──────────────────────────────────────────────────────────
+// initialCoord：GPS 座標，開 modal 時立刻飛過去
+// picked：使用者選的點（吸附後），若另一個點也存在則 fitBounds
+// otherCoord：另一個已選的點（起點或終點）
+function MapController({ initialCoord, picked, otherCoord }) {
+  const map = useMap()
+  const didInit = useRef(false)
+
+  // modal 開啟時飛到 GPS 位置（只做一次）
+  useEffect(() => {
+    if (initialCoord && !didInit.current) {
+      map.setView(initialCoord, 15, { animate: true })
+      didInit.current = true
+    }
+  }, [initialCoord, map])
+
+  // 有選點時：若另一點也存在就 fitBounds，否則只置中到選點
+  useEffect(() => {
+    if (!picked) return
+    if (otherCoord) {
+      map.fitBounds([picked, otherCoord], { padding: [50, 50], maxZoom: 15, animate: true })
+    } else {
+      map.setView(picked, 15, { animate: true })
+    }
+  }, [picked, otherCoord, map])
+
   return null
 }
 
@@ -292,6 +321,7 @@ function MapPickerModal({ target, otherCoord, onConfirm, onClose, initialCoord }
                 style={{ color: '#ff6b35', weight: 2.5, dashArray: '8,5', fillOpacity: 0.06 }}
               />
             )}
+            <MapController initialCoord={initialCoord} picked={picked} otherCoord={otherCoord} />
             <MapClicker onPick={handlePick} />
 
             {/* 另一個已選點（綠色＝起點，紅色＝終點），加永久標籤避免混淆 */}

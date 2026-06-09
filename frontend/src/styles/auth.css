@@ -478,6 +478,48 @@
     max-width: 100%;
   }
 }
+
+/* ── 超小螢幕（手機 480px 以下）：欄位全部改單欄 ── */
+@media (max-width: 480px) {
+  .auth-page-container {
+    padding: 12px;
+    /* align-items 維持 center，登入頁保持垂直置中 */
+  }
+  /* 只有註冊頁因為表單很長，改成從上方開始排 */
+  .auth-page-container:has(.register-dashboard-layout) {
+    align-items: flex-start;
+    padding-top: 24px;
+  }
+  .register-dashboard-layout {
+    padding: 20px 16px !important;
+    border-radius: 20px;
+  }
+  .register-main-header h2 {
+    font-size: 20px !important;
+  }
+  .panel-inside-grid-2col {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+  .panel-inside-grid-3col {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+  .register-panel-column .auth-field {
+    padding: 11px 14px !important;
+    height: auto !important;
+    font-size: 15px !important;
+    border-radius: 10px !important;
+  }
+  .auth-field {
+    font-size: 16px; /* 避免 iOS Safari 自動 zoom in */
+    border-radius: 10px;
+  }
+  .auth-submit-btn {
+    padding: 13px;
+    font-size: 15px;
+  }
+}
 /* ── 字數計數器 ── */
 .auth-input-group label {
   display: flex;
