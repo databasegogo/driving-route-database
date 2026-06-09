@@ -402,6 +402,51 @@ select.select-filter option { background: var(--navy-mid); }
 /* ── 分隔線 ── */
 hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 
+/* ── 登入 Overlay ── */
+#login-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  background: var(--navy);
+  display: flex; align-items: center; justify-content: center;
+}
+#login-overlay.hidden { display: none; }
+.login-card {
+  width: 380px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px 36px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+.login-logo {
+  text-align: center;
+  font-size: 28px; font-weight: 700; letter-spacing: -0.5px;
+  color: var(--text);
+}
+.login-logo span { color: var(--accent); }
+.login-subtitle {
+  text-align: center;
+  font-size: 13px; color: var(--text-muted);
+  margin-top: -12px;
+}
+.login-error {
+  background: rgba(239,68,68,.12);
+  border: 1px solid rgba(239,68,68,.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px; color: var(--red);
+  display: none;
+}
+.login-error.show { display: block; }
+.login-btn {
+  width: 100%; padding: 12px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: 8px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: opacity .2s;
+}
+.login-btn:hover { opacity: .85; }
+.login-btn:disabled { opacity: .5; cursor: not-allowed; }
+
 /* ── Toast ── */
 #toast {
   position: fixed; bottom: 24px; right: 24px; z-index: 999;
@@ -489,6 +534,10 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
     </div>
 
     <div class="sidebar-footer">
+      <button class="toggle-btn" onclick="adminLogout()" style="color:var(--red);margin-bottom:6px">
+        <span>🚪</span>
+        <span class="toggle-btn-text">登出</span>
+      </button>
       <button class="toggle-btn" onclick="toggleSidebar()">
         <span>◀</span>
         <span class="toggle-btn-text">收合側欄</span>
@@ -934,6 +983,26 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
     </div><!-- /page-wrap -->
   </div><!-- /main -->
 </div><!-- /layout -->
+
+<!-- ── 登入 Overlay ── -->
+<div id="login-overlay">
+  <div class="login-card">
+    <div class="login-logo">新手路徑王 <span>後台</span></div>
+    <div class="login-subtitle">請以管理員帳號登入</div>
+    <div id="login-error" class="login-error"></div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input class="form-input" id="login-email" type="email" placeholder="admin@admin.com"
+             onkeydown="if(event.key==='Enter')adminLogin()"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">密碼</label>
+      <input class="form-input" id="login-password" type="password" placeholder="••••••••"
+             onkeydown="if(event.key==='Enter')adminLogin()"/>
+    </div>
+    <button class="login-btn" id="login-btn" onclick="adminLogin()">登入</button>
+  </div>
+</div>
 
 <!-- ── 新增使用者 Modal ── -->
 <div class="modal-overlay" id="modal-add-user">
@@ -1727,9 +1796,99 @@ async function submitAddUser() {
 
 
 /* ════════════════════════════════
+   登入功能
+════════════════════════════════ */
+async function adminLogin() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn      = document.getElementById('login-btn');
+  const errEl    = document.getElementById('login-error');
+  errEl.classList.remove('show');
+
+  if (!email || !password) {
+    errEl.textContent = '請填寫 Email 與密碼';
+    errEl.classList.add('show');
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = '登入中…';
+
+  try {
+    // 1. 取得 Token
+    const loginRes = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!loginRes.ok) {
+      const detail = await loginRes.json().catch(() => ({}));
+      throw new Error(detail.detail === 'INVALID_CREDENTIALS' ? '帳號或密碼錯誤' : '登入失敗，請重試');
+    }
+    const loginData = await loginRes.json();
+    API_TOKEN = loginData.access_token;
+
+    // 2. 確認身份為 admin
+    const meRes = await fetch(`${API_BASE}/user/me`, {
+      headers: { 'Authorization': `Bearer ${API_TOKEN}` }
+    });
+    if (!meRes.ok) throw new Error('無法驗證帳號身份');
+    const me = await meRes.json();
+    if (me.role !== 'admin') throw new Error('此帳號無管理員權限');
+
+    // 3. 儲存並進入後台
+    localStorage.setItem('api_token', API_TOKEN);
+    document.getElementById('admin-token-input').value = API_TOKEN;
+    document.getElementById('login-overlay').classList.add('hidden');
+    currentAdmin = me;
+    loadDashboard();
+
+  } catch (e) {
+    errEl.textContent = e.message || '登入失敗';
+    errEl.classList.add('show');
+    btn.disabled = false; btn.textContent = '登入';
+  }
+}
+
+function adminLogout() {
+  API_TOKEN = '';
+  currentAdmin = null; allUsers = []; allPractice = []; allRoutes = [];
+  localStorage.removeItem('api_token');
+  document.getElementById('admin-token-input').value = '';
+  document.getElementById('login-email').value    = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').classList.remove('show');
+  document.getElementById('login-btn').disabled = false;
+  document.getElementById('login-btn').textContent = '登入';
+  document.getElementById('login-overlay').classList.remove('hidden');
+}
+
+/* ════════════════════════════════
    初始化
 ════════════════════════════════ */
-loadDashboard();
+(async function init() {
+  // 若 localStorage 已有 Token，嘗試靜默驗證
+  if (API_TOKEN) {
+    try {
+      const meRes = await fetch(`${API_BASE}/user/me`, {
+        headers: { 'Authorization': `Bearer ${API_TOKEN}` }
+      });
+      if (meRes.ok) {
+        const me = await meRes.json();
+        if (me.role === 'admin') {
+          currentAdmin = me;
+          document.getElementById('login-overlay').classList.add('hidden');
+          loadDashboard();
+          return;
+        }
+      }
+    } catch {}
+    // Token 無效或非 admin → 清除並顯示登入畫面
+    API_TOKEN = '';
+    localStorage.removeItem('api_token');
+    document.getElementById('admin-token-input').value = '';
+  }
+  // 無有效 Token → 顯示登入畫面（預設已顯示，不需額外操作）
+})();
 
 </script>
 </body>
