@@ -859,18 +859,25 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 
       <!-- ══ 風險管理 ══ -->
       <div class="section" id="sec-risk">
-        <div class="search-bar">
-          <input class="search-input" id="risk-search" type="text" placeholder="搜尋道路名稱…" oninput="filterRisk()"/>
+        <div class="search-bar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input class="search-input" id="risk-search" type="text"
+            placeholder="搜尋道路名稱 或 輸入 Edge ID 數字…"
+            oninput="filterRisk()" style="flex:1;min-width:200px"/>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;white-space:nowrap">
+            <input type="checkbox" id="risk-unnamed-only" onchange="filterRisk()"
+              style="width:14px;height:14px;cursor:pointer"/>
+            只顯示未命名路段
+          </label>
         </div>
         <div class="card">
           <div class="card-body" style="padding:0">
             <div class="tbl-wrap">
               <table>
                 <thead>
-                  <tr><th>Edge ID</th><th>道路名稱</th><th>道路類型</th><th>橋樑</th><th>隧道</th><th>風險分數</th><th>操作</th></tr>
+                  <tr><th>Edge ID</th><th>道路名稱</th><th>道路類型</th><th>橋樑</th><th>隧道</th><th>風險分數</th><th>位置</th><th>操作</th></tr>
                 </thead>
                 <tbody id="risk-tbody">
-                  <tr><td colspan="7" class="empty">載入中…</td></tr>
+                  <tr><td colspan="8" class="empty">載入中…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1391,22 +1398,41 @@ async function loadRisk() {
     document.getElementById('risk-count-label').textContent = `共 ${allRisk.length} 筆`;
   } catch {
     document.getElementById('risk-tbody').innerHTML =
-      '<tr><td colspan="7" class="empty" style="color:var(--yellow)">無法載入風險資料，請確認 Token</td></tr>';
+      '<tr><td colspan="8" class="empty" style="color:var(--yellow)">無法載入風險資料，請確認 Token</td></tr>';
   }
 }
 
 function filterRisk() {
-  const q = document.getElementById('risk-search').value.trim().toLowerCase();
-  renderRiskTable(allRisk.filter(r => !q || (r.road_name||'').toLowerCase().includes(q)));
+  const q           = document.getElementById('risk-search').value.trim().toLowerCase();
+  const unnamedOnly = document.getElementById('risk-unnamed-only').checked;
+  let list = allRisk;
+  // 數字 → edge_id 比對；文字 → 路名模糊比對
+  if (q) {
+    if (/^\d+$/.test(q)) {
+      list = list.filter(r => String(r.edge_id).includes(q));
+    } else {
+      list = list.filter(r => (r.road_name||'').toLowerCase().includes(q));
+    }
+  }
+  if (unnamedOnly) list = list.filter(r => !r.road_name);
+  renderRiskTable(list);
 }
 
 function renderRiskTable(list) {
   const tbody = document.getElementById('risk-tbody');
-  if (!list.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">無資料</td></tr>'; return; }
-  tbody.innerHTML = list.map(r => `
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">無資料</td></tr>'; return; }
+  tbody.innerHTML = list.map(r => {
+    const hasCoord = r.lat != null && r.lng != null;
+    const osmUrl   = hasCoord
+      ? `https://www.openstreetmap.org/?mlat=${r.lat}&mlon=${r.lng}#map=18/${r.lat}/${r.lng}`
+      : null;
+    const coordTip = hasCoord ? `${r.lat}, ${r.lng}` : '無座標';
+    return `
     <tr>
       <td style="font-family:var(--font-mono);color:var(--text-muted)">${r.edge_id}</td>
-      <td>${r.road_name || '未命名'}</td>
+      <td>${r.road_name
+        ? r.road_name
+        : '<span style="color:var(--text-muted);font-style:italic">未命名</span>'}</td>
       <td style="color:var(--text-muted)">${r.highway || '-'}</td>
       <td style="text-align:center">${r.bridge ? '✓' : '-'}</td>
       <td style="text-align:center">${r.tunnel ? '✓' : '-'}</td>
@@ -1415,12 +1441,18 @@ function renderRiskTable(list) {
           style="width:80px;background:var(--navy-light);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px"
           id="risk-input-${r.edge_id}"/>
       </td>
+      <td style="text-align:center">
+        ${hasCoord
+          ? `<a href="${osmUrl}" target="_blank" title="${coordTip}"
+               style="color:var(--accent);text-decoration:none;font-size:16px">📍</a>`
+          : `<span style="color:var(--text-muted);font-size:12px" title="無座標">—</span>`}
+      </td>
       <td>
         <button onclick="saveRisk(${r.edge_id})"
           style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px">儲存</button>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
 async function saveRisk(edgeId) {

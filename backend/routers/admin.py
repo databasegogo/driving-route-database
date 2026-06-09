@@ -461,15 +461,22 @@ def get_risk(
     try:
         query = """
             SELECT rg.edge_id, rg.name, rg.fclass, rg.bridge, rg.tunnel,
-                   COALESCE(ers.risk_score, 0) AS risk_score
+                   COALESCE(ers.risk_score, 0) AS risk_score,
+                   ST_Y(ST_Centroid(rg.geom)) AS lat,
+                   ST_X(ST_Centroid(rg.geom)) AS lng
             FROM road_edges_guishan rg
             LEFT JOIN edge_risk_score ers ON rg.edge_id = ers.edge_id
             WHERE rg.edge_id < 9000000
         """
         params = []
         if search:
-            query += " AND rg.name ILIKE %s"
-            params.append(f"%{search}%")
+            # 支援兩種搜尋：純數字 → edge_id 完整比對；文字 → 路名模糊比對
+            if search.isdigit():
+                query += " AND rg.edge_id = %s"
+                params.append(int(search))
+            else:
+                query += " AND rg.name ILIKE %s"
+                params.append(f"%{search}%")
         query += " ORDER BY COALESCE(ers.risk_score, 0) DESC, rg.edge_id LIMIT 500"
 
         cur.execute(query, params)
@@ -482,6 +489,8 @@ def get_risk(
                 "bridge":     row[3] == "T",
                 "tunnel":     row[4] == "T",
                 "risk_score": float(row[5]) if row[5] else 0.0,
+                "lat":        round(float(row[6]), 6) if row[6] else None,
+                "lng":        round(float(row[7]), 6) if row[7] else None,
             }
             for row in rows
         ]
