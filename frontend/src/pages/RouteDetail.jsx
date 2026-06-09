@@ -294,16 +294,9 @@ export default function RouteDetail() {
     const elapsedSec = getElapsedSec()
     const weight     = DIFF_WEIGHT[route.diffCode] ?? 1
 
-    // 完成比例：優先用 GPS 距離（更準確），無 GPS 時 fallback 用練習時間
-    let coveredPct
-    const totalM = (route.distance ?? 0) * 1000
-    if (distToEnd !== null && totalM > 0) {
-      // GPS 模式：已走比例 = 1 - (離終點距離 / 全程距離)
-      coveredPct = Math.max(0, Math.min(1, 1 - distToEnd / totalM))
-    } else {
-      // 時間 fallback
-      coveredPct = estimatedSec > 0 ? Math.min(elapsedSec / estimatedSec, 1.0) : 0
-    }
+    // 與後端計算一致：使用時間比例
+    // （後端收不到 GPS 覆蓋比例，用 GPS 比例會造成 preview 與實際得分不符）
+    const coveredPct = estimatedSec > 0 ? Math.min(elapsedSec / estimatedSec, 1.0) : 0
 
     const estimatedScore = Math.floor(route.distance * coveredPct * 0.8) * weight
     setTerminateStats({ elapsedSec, coveredPct, estimatedScore })
@@ -337,6 +330,14 @@ export default function RouteDetail() {
       const detail = err?.response?.data?.detail
       if (detail === 'MANUAL_COMPLETE_DAILY_LIMIT') {
         setResult({ score_earned: 0, time_bonus: 0, new_total_score: null, _limited: true })
+      } else if (detail === 'PRACTICE_TOO_SHORT') {
+        // 起終點太近，練習時間未滿 60 秒 → 不計分，關 modal 讓使用者繼續
+        setModal(null)
+        alert('練習時間未滿 60 秒，無法計分。\n請確實練習完整路線後再完成。')
+        return
+      } else {
+        // 其他 API 錯誤：顯示 0 分 + 錯誤提示，避免顯示假分數
+        setResult({ score_earned: 0, time_bonus: 0, new_total_score: null, _api_error: true })
       }
     }
     setModal('complete')
@@ -588,6 +589,16 @@ export default function RouteDetail() {
         </div>
       )}
 
+      {/* 超時警告（超過預估時間 2 倍） */}
+      {status === 'active' && !arrived && estimatedSec > 0 && getElapsedSec() > estimatedSec * 2 && (
+        <div style={{
+          background: '#7c2d12', color: '#fed7aa',
+          padding: '6px 16px', fontSize: 12, textAlign: 'center',
+        }}>
+          ⏰ 已超過預估時間 2 倍，完成後分數將 × 0.9
+        </div>
+      )}
+
       {/* 偏離路線警告（練習中且距路線 > 100m） */}
       {status === 'active' && offRoute && (
         <div className="off-route-warning">
@@ -716,6 +727,15 @@ export default function RouteDetail() {
             {result?.gps_verified && (
               <div className="gps-verified-badge">✅ GPS 驗證到達終點</div>
             )}
+            {result?._api_error && (
+              <div style={{
+                background: '#7f1d1d', color: '#fca5a5',
+                borderRadius: 8, padding: '8px 12px',
+                fontSize: 13, marginBottom: 8, textAlign: 'center',
+              }}>
+                ⚠️ 無法連線伺服器，本次練習未記錄
+              </div>
+            )}
             <div className="summary">
               {[
                 ['練習路徑', `${route.start} — ${route.end}`],
@@ -729,21 +749,79 @@ export default function RouteDetail() {
                   <span>{k}</span><span>{v}</span>
                 </div>
               ))}
-              <div className="sum-row score-row">
-                <span>本次獲得分數</span>
-                {result?._limited ? (
+              {/* ── 分數明細卡片 ── */}
+              {result?._limited ? (
+                <div className="sum-row score-row">
+                  <span>本次獲得分數</span>
                   <span style={{ fontSize: '13px', color: '#e76f51', fontWeight: '700' }}>
                     今日已手動完成此路線，<br />不重複計分
                   </span>
-                ) : (
-                  <span className="score-val">+{scoreEarned} 分</span>
-                )}
-              </div>
-              {result?.terminated_early && (
-                <div className="sum-row">
-                  <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>
-                    提前終止：比例計分 × 0.8，不計 time bonus
-                  </span>
+                </div>
+              ) : (
+                <div style={{
+                  background: '#0f172a', borderRadius: 10,
+                  padding: '12px 14px', margin: '10px 0 2px',
+                  border: '1px solid #1e293b',
+                }}>
+                  {/* 基本分數 */}
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, marginBottom:6 }}>
+                    <span style={{ color:'#94a3b8' }}>
+                      基本分數
+                      {result?.terminated_early &&
+                        <span style={{ color:'#f97316', marginLeft:6 }}>(比例 × 0.8)</span>}
+                    </span>
+                    <span style={{ color:'#e2e8f0', fontWeight:600 }}>
+                      +{result?.base_score ?? 0} 分
+                    </span>
+                  </div>
+
+                  {/* 時間加成 */}
+                  {(result?.time_bonus ?? 0) > 0 && (
+                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, marginBottom:6 }}>
+                      <span style={{ color:'#22c55e' }}>⚡ 時間加成（在預估時間內完成）</span>
+                      <span style={{ color:'#22c55e', fontWeight:600 }}>+{result.time_bonus} 分</span>
+                    </div>
+                  )}
+
+                  {/* 扣分項目（有才顯示分隔線）*/}
+                  {(result?.overtime_penalty || result?.was_off_route || result?.terminated_early) && (
+                    <div style={{ borderTop:'1px solid #1e293b', margin:'6px 0' }} />
+                  )}
+
+                  {/* 超時扣分 */}
+                  {result?.overtime_penalty && (
+                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, marginBottom:6 }}>
+                      <span style={{ color:'#f97316' }}>⏰ 超過預估時間 2 倍</span>
+                      <span style={{ color:'#f97316', fontWeight:600 }}>× 0.9</span>
+                    </div>
+                  )}
+
+                  {/* 偏離路線 */}
+                  {result?.was_off_route && (
+                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, marginBottom:6 }}>
+                      <span style={{ color:'#f97316' }}>🔀 偏離路線超過 100 m</span>
+                      <span style={{ color:'#f97316', fontWeight:600 }}>× 0.9</span>
+                    </div>
+                  )}
+
+                  {/* 提前終止 */}
+                  {result?.terminated_early && (
+                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, marginBottom:6 }}>
+                      <span style={{ color:'#f97316' }}>🏁 提前終止（不計 time bonus）</span>
+                      <span style={{ color:'#f97316', fontWeight:600 }}>× 0.8</span>
+                    </div>
+                  )}
+
+                  {/* 合計 */}
+                  <div style={{
+                    display:'flex', justifyContent:'space-between',
+                    borderTop:'1px solid #334155', paddingTop:8, marginTop:4,
+                  }}>
+                    <span style={{ color:'#e2e8f0', fontWeight:700, fontSize:14 }}>本次獲得</span>
+                    <span style={{ color:'#f59e0b', fontWeight:800, fontSize:20 }}>
+                      +{scoreEarned} 分
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
