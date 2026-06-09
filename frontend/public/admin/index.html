@@ -1406,15 +1406,20 @@ function filterRisk() {
   const q           = document.getElementById('risk-search').value.trim().toLowerCase();
   const unnamedOnly = document.getElementById('risk-unnamed-only').checked;
   let list = allRisk;
-  // 數字 → edge_id 比對；文字 → 路名模糊比對
-  if (q) {
+
+  if (unnamedOnly) {
+    // 只顯示未命名模式：文字搜尋一律改為 edge_id 比對（未命名路段沒有名字可搜）
+    list = list.filter(r => !r.road_name);
+    if (q) list = list.filter(r => String(r.edge_id).includes(q));
+  } else if (q) {
+    // 一般模式：數字 → edge_id 比對；文字 → 路名模糊比對
     if (/^\d+$/.test(q)) {
       list = list.filter(r => String(r.edge_id).includes(q));
     } else {
       list = list.filter(r => (r.road_name||'').toLowerCase().includes(q));
     }
   }
-  if (unnamedOnly) list = list.filter(r => !r.road_name);
+
   renderRiskTable(list);
 }
 
