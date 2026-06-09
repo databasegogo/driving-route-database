@@ -426,7 +426,7 @@ function RoutePlanner() {
 
   useEffect(() => {
     api.get('/user/me').then(res => {
-      const newMax = getMaxDifficulty(res.data.total_score ?? 0)
+      const newMax = res.data.user_level_id ?? 1
       setMaxDiff(newMax)
       setDiff(prev => Math.min(prev, newMax))
     }).catch(() => {})

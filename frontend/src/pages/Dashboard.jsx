@@ -35,18 +35,18 @@ function CarSVG() {
 }
 
 /* ── 道路等級卡 ── */
-function LevelRoad({ score, level, gapToNext }) {
+function LevelRoad({ score, level, gapToNext, normalMin = 150, experiencedMin = 300 }) {
   const safeScore  = score ?? 0
-  const pct        = Math.min(safeScore / 300, 1)
+  const pct        = Math.min(safeScore / experiencedMin, 1)   // 動態上限
   const scrollRef  = useRef(null)
   const PATH_LEN   = 880   // 估算弧長
   const traveled   = pct * PATH_LEN
   const roadPath   = 'M 20 118 Q 175 66 345 104 Q 510 142 665 102 Q 762 78 855 92'
 
   const milestones = [
-    { label: '新手駕駛', pts: '0 PTS',   cx: 62,  cy: 115, active: safeScore < 150 },
-    { label: '一般駕駛', pts: '150 PTS', cx: 445, cy: 119, active: safeScore >= 150 && safeScore < 300 },
-    { label: '熟練駕駛', pts: '300 PTS', cx: 838, cy:  93, active: safeScore >= 300 },
+    { label: '新手駕駛', pts: '0 PTS',                  cx: 62,  cy: 115, active: level?.level === 'LEVEL 1' },
+    { label: '一般駕駛', pts: `${normalMin} PTS`,        cx: 445, cy: 119, active: level?.level === 'LEVEL 2' },
+    { label: '熟練駕駛', pts: `${experiencedMin} PTS`,   cx: 838, cy:  93, active: level?.level === 'LEVEL 3' },
   ]
 
   function roadYatX(x) {
@@ -185,10 +185,8 @@ const STATUS_META = {
 }
 
 function getLevel(user) {
-  const score = user?.score ?? 0
-  if (score >= 300) return LEVEL_MAP.EXPERIENCED
-  if (score >= 150) return LEVEL_MAP.NORMAL
-  return LEVEL_MAP.BEGINNER
+  // 直接用後端回傳的 level_code，不再硬寫分數門檻
+  return LEVEL_MAP[user?.level_code] ?? LEVEL_MAP.BEGINNER
 }
 
 function fmtDate(isoStr) {
@@ -534,6 +532,8 @@ export default function Dashboard() {
   const [detailRec, setDetailRec]     = useState(null)
   const [mapPicker, setMapPicker]     = useState(null)   // 'start' | 'end' | null
   const [gpsStatus, setGpsStatus]     = useState('idle') // 'idle' | 'loading' | 'done' | 'error'
+  // 等級門檻：從 /admin/levels 動態取得，預設值為 v1.3.1 的設定
+  const [levelThresholds, setLevelThresholds] = useState({ normal: 150, experienced: 300 })
   const navigate = useNavigate()
 
   // ── GPS 一鍵定位起點 ────────────────────────────────────────────────────────
@@ -657,6 +657,16 @@ export default function Dashboard() {
       })
       .catch(() => { localStorage.removeItem('token'); localStorage.removeItem('currentUser'); navigate('/login') })
 
+    // 從 DB 動態讀取等級門檻（admin 可調整，一般用戶也能存取此 endpoint）
+    api.get('/admin/levels')
+      .then(res => {
+        const lvls        = res.data
+        const normal      = lvls.find(l => l.level_code === 'NORMAL')?.min_score      ?? 150
+        const experienced = lvls.find(l => l.level_code === 'EXPERIENCED')?.min_score ?? 300
+        setLevelThresholds({ normal, experienced })
+      })
+      .catch(() => {}) // API 失敗時保持預設值（150 / 300）
+
     api.get('/practice/history')
       .then(async res => {
         const hist = res.data.history || []
@@ -704,11 +714,12 @@ export default function Dashboard() {
 
   const level = getLevel(user)
 
-  // 進度條：基於完整 0→300 刻度
-  const FULL_MAX = 300
-  const overallPct = Math.min((user.score / FULL_MAX) * 100, 100)
-
-  const gapToNext = level.nextScore - user.score
+  // 動態門檻：從 /admin/levels 取得
+  const nextMin    = user.level_code === 'BEGINNER' ? levelThresholds.normal
+                   : user.level_code === 'NORMAL'   ? levelThresholds.experienced
+                   : null
+  const gapToNext  = nextMin !== null ? nextMin - user.score : 0
+  const overallPct = Math.min((user.score / levelThresholds.experienced) * 100, 100)
 
   function handleGoRoute() {
     navigate('/route', { state: { startText, startCoord, endText, endCoord } })
@@ -845,7 +856,8 @@ export default function Dashboard() {
           </div>
 
           {/* 等級晉升路徑 - 道路+車子 */}
-          <LevelRoad score={user.score} level={level} gapToNext={gapToNext} />
+          <LevelRoad score={user.score} level={level} gapToNext={gapToNext}
+            normalMin={levelThresholds.normal} experiencedMin={levelThresholds.experienced} />
 
         </section>
       </main>
