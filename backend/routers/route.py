@@ -7,6 +7,7 @@ import logging
 
 from database import get_db
 from utils.auth import get_current_user
+from constants import SCORE_WEIGHT, LEVEL_ORDER, LEVEL_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +21,7 @@ router = APIRouter(prefix="/route", tags=["route"])
 #   NORMAL  ：高風險路段 cost 最多 +25m，輕度迴避
 #   EXPERIENCED：高風險路段 cost 最多 +5m，幾乎忽略風險
 RISK_WEIGHT  = {"BEGINNER": 1, "NORMAL": 0.5, "EXPERIENCED": 0.1}
-SCORE_WEIGHT = {"BEGINNER": 1,  "NORMAL": 2,  "EXPERIENCED": 3}
-LEVEL_ORDER  = {"BEGINNER": 1,  "NORMAL": 2,  "EXPERIENCED": 3}
-LEVEL_CODE   = {1: "BEGINNER",  2: "NORMAL",  3: "EXPERIENCED"}
+# SCORE_WEIGHT / LEVEL_ORDER / LEVEL_CODE → 從 constants.py 匯入，不在此重複定義
 
 DANGER_THRESHOLD_MULTIPLIER = 1.5
 

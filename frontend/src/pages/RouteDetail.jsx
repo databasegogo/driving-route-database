@@ -187,8 +187,9 @@ export default function RouteDetail() {
   const [offRoute,    setOffRoute]    = useState(false)  // 偏離路線 > 100m
   const [offRouteDist,setOffRouteDist]= useState(null)   // 目前偏離距離（m）
   const [overTime,    setOverTime]    = useState(false)  // 已超過預估時間 2 倍
-  const wasOffRouteRef   = useRef(false)  // 曾偏離（送出時用）
-  const maxCoveredPctRef = useRef(0)      // 練習中最高達到的完成比例（只升不降，防多次按終止膨脹）
+  const wasOffRouteRef      = useRef(false)  // 曾偏離（送出時用）
+  const maxCoveredPctRef    = useRef(0)      // 練習中最高達到的完成比例（只升不降，防多次按終止膨脹）
+  const suppressArrivedRef  = useRef(false)  // 使用者按「繼續練習」後抑制 arrived modal 自動重彈
   const watchIdRef = useRef(null)
 
   // 開始 GPS watchPosition（mount 時啟動，unmount 時清除）
@@ -217,8 +218,10 @@ export default function RouteDetail() {
     }
     if (d < 50) {
       setArrived(true)
-      // 只在沒有其他 Modal 開著時自動彈出（避免覆蓋暫停/終止 Modal）
-      setModal(prev => prev === null ? 'arrived' : prev)
+      // 只在沒有其他 Modal 開著，且使用者沒有按「繼續練習」抑制時才彈出
+      if (!suppressArrivedRef.current) {
+        setModal(prev => prev === null ? 'arrived' : prev)
+      }
     }
   }, [userPos, status, arrived, state])
 
@@ -710,7 +713,10 @@ export default function RouteDetail() {
               <button className="ctrl-btn start" onClick={handleComplete}>
                 確認完成
               </button>
-              <button className="ctrl-btn pause" onClick={() => setModal(null)}>
+              <button className="ctrl-btn pause" onClick={() => {
+                suppressArrivedRef.current = true   // 抑制後續 GPS 更新重新彈出此 modal
+                setModal(null)
+              }}>
                 繼續練習
               </button>
             </div>

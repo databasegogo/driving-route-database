@@ -1,14 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from datetime import datetime, timezone, timedelta
 
 from database import get_db
 from utils.auth import get_current_user
+from constants import SCORE_WEIGHT, LEVEL_ORDER, LEVEL_CODE
 
 router = APIRouter(prefix="/practice", tags=["practice"])
 
-SCORE_WEIGHT = {"BEGINNER": 1, "NORMAL": 2, "EXPERIENCED": 3}
-LEVEL_ORDER  = {"BEGINNER": 1, "NORMAL": 2, "EXPERIENCED": 3}
-LEVEL_CODE   = {1: "BEGINNER", 2: "NORMAL", 3: "EXPERIENCED"}
+
+def taiwan_today_start_utc() -> datetime:
+    """台灣今日 00:00 轉成 UTC naive datetime（與 DB TIMESTAMP 欄位型別一致）。
+    使用 Python 計算而非 SQL CURRENT_DATE，
+    確保每日限制以台灣午夜重置，不受 PostgreSQL 伺服器時區影響。
+    """
+    taipei = timezone(timedelta(hours=8))
+    now_tw = datetime.now(taipei)
+    midnight_tw = now_tw.replace(hour=0, minute=0, second=0, microsecond=0)
+    return midnight_tw.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 class PracticeRequest(BaseModel):
@@ -52,6 +61,10 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
         if req.actual_duration_sec is not None:
             safe_dur = min(max(0, req.actual_duration_sec), 86400)
 
+        # 每日限制基準：台灣今日 00:00 對應的 UTC 時間
+        # 用 Python 計算而非 SQL CURRENT_DATE，確保以台灣午夜重置（不受伺服器 UTC 時區影響）
+        today_start = taiwan_today_start_utc()
+
         # 1c. 防刷分邏輯
         # - GPS 驗證到達終點（gps_verified=true）→ 不限次數，全額計分，最短 60 秒
         # - 提前終止（terminated_early=true）    → 每日同路線最多 5 次，最短 30 秒
@@ -70,8 +83,8 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
                 SELECT COUNT(*) FROM user_practice_history
                 WHERE user_id = %s AND route_id = %s
                   AND terminated_early = true
-                  AND practice_time >= CURRENT_DATE
-            """, (user_id, req.route_id))
+                  AND practice_time >= %s
+            """, (user_id, req.route_id, today_start))
             if cur.fetchone()[0] >= MAX_TERMINATE_DAILY:
                 raise HTTPException(400, "TERMINATE_DAILY_LIMIT")
 
@@ -83,8 +96,8 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
                   AND status = 'completed'
                   AND gps_verified = false
                   AND terminated_early = false
-                  AND practice_time >= CURRENT_DATE
-            """, (user_id, req.route_id))
+                  AND practice_time >= %s
+            """, (user_id, req.route_id, today_start))
             if cur.fetchone():
                 raise HTTPException(400, "MANUAL_COMPLETE_DAILY_LIMIT")
 
