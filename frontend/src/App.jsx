@@ -9,10 +9,12 @@ import RouteSelect  from './pages/RouteSelect'
 import RouteDetail  from './pages/RouteDetail'
 import Records      from './pages/Records'
 import MainLayout   from './pages/MainLayout'
+import ScrollToTop  from './ScrollToTop'
 
 function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <ScrollToTop />
       <Routes>
         {/* 首頁：Landing Page（未登入看到的第一個畫面） */}
         <Route path="/"         element={<Landing />} />

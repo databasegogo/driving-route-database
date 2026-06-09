@@ -254,6 +254,133 @@ snap 從 `road_edges_guishan` 掃最近 **200** 條邊，篩選 source/target �
 
 ---
 
+## 伺服器部署（www.youmei.tw）
+
+### 架構
+
+```
+使用者瀏覽器
+    ↓ HTTPS
+Cloudflare Tunnel（Tunnel 名稱：ubuntu-web）
+    ↓ HTTP
+Nginx（port 80）
+    ├── /driving-route/  →  /var/www/driving-route/（前端靜態檔）
+    └── /api/            →  http://localhost:8000/（FastAPI proxy）
+                                    ↓
+                             PostgreSQL Docker（port 5433）
+```
+
+### 伺服器資訊
+
+| 項目 | 值 |
+|------|----|
+| 系統 | Ubuntu（ubt2026ser）|
+| 使用者 | sam |
+| 前端網址 | `https://www.youmei.tw/driving-route/` |
+| 前端靜態目錄 | `/var/www/driving-route/` |
+| 原始碼目錄 | `/home/sam/driving-route-database/` |
+| Nginx 設定 | `/etc/nginx/sites-available/driving-route` |
+
+### Nginx 設定（完整）
+
+```nginx
+server {
+    listen 80;
+    server_name _;
+
+    root /var/www;
+    index index.html;
+
+    location = / {
+        return 404;
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:8000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
+    location /driving-route/ {
+        alias /var/www/driving-route/;
+        try_files $uri $uri/ /driving-route/index.html;
+    }
+}
+```
+
+### 部署流程（更新前端）
+
+```bash
+# 在伺服器上執行
+cd ~/driving-route-database/frontend
+
+# 1. 重新 build（會自動套用 base: '/driving-route/'）
+npm run build
+
+# 2. 同步到 Nginx 服務目錄
+sudo rsync -av --delete dist/ /var/www/driving-route/
+sudo chown -R www-data:www-data /var/www/driving-route
+
+# 3. 確認 index.html 路徑正確（應看到 /driving-route/assets/...）
+cat /var/www/driving-route/index.html
+```
+
+### 啟動後端（伺服器）
+
+```bash
+cd ~/driving-route-database/backend
+# 注意：伺服器用 127.0.0.1（不需對外），不加 --reload
+uvicorn main:app --host 127.0.0.1 --port 8000
+```
+
+---
+
+## 本地開發 vs 伺服器部署差異
+
+| 項目 | 本地開發 | 伺服器 |
+|------|---------|--------|
+| 前端網址 | `http://localhost:5173/` | `https://www.youmei.tw/driving-route/` |
+| Vite base | `/`（自動，isProd=false）| `/driving-route/`（build 時自動）|
+| BrowserRouter basename | `''`（空字串）| `/driving-route` |
+| API 路徑 | `/api/...`（Vite proxy → localhost:8000）| `/api/...`（Nginx proxy → localhost:8000）|
+| 401 redirect | `/login` | `/driving-route/login` |
+
+### 關鍵設定（`frontend/src/`）
+
+**`vite.config.js`**：
+```js
+const isProd = process.env.NODE_ENV === 'production'
+export default defineConfig({
+  base: isProd ? '/driving-route/' : '/',
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
+})
+```
+
+**`App.jsx`**：
+```jsx
+<BrowserRouter basename={import.meta.env.PROD ? '/driving-route' : ''}>
+```
+
+**`api.js`**：
+```js
+baseURL: '/api'  // 本地走 Vite proxy，伺服器走 Nginx proxy
+// 401 攔截不包含 INVALID_CREDENTIALS（讓登入錯誤正常顯示）
+```
+
+---
+
 ## 常見任務做法
 
 ### 查看和 main 的差異
