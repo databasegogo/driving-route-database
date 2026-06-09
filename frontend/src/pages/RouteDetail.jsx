@@ -191,7 +191,7 @@ export default function RouteDetail() {
     if (!userPos || !endCoord || status !== 'active' || arrived) return
     const d = haversine(userPos[0], userPos[1], endCoord[0], endCoord[1])
     setDistToEnd(Math.round(d))
-    if (d < 30) {
+    if (d < 50) {
       setArrived(true)
       // 只在沒有其他 Modal 開著時自動彈出（避免覆蓋暫停/終止 Modal）
       setModal(prev => prev === null ? 'arrived' : prev)
@@ -275,11 +275,20 @@ export default function RouteDetail() {
 
   // 開啟「終止練習」確認 Modal，預先計算折扣分數供預覽
   function openTerminateModal() {
-    const elapsedSec     = getElapsedSec()
-    const weight         = DIFF_WEIGHT[route.diffCode] ?? 1
-    const coveredPct     = estimatedSec > 0
-      ? Math.min(elapsedSec / estimatedSec, 1.0)
-      : 0
+    const elapsedSec = getElapsedSec()
+    const weight     = DIFF_WEIGHT[route.diffCode] ?? 1
+
+    // 完成比例：優先用 GPS 距離（更準確），無 GPS 時 fallback 用練習時間
+    let coveredPct
+    const totalM = (route.distance ?? 0) * 1000
+    if (distToEnd !== null && totalM > 0) {
+      // GPS 模式：已走比例 = 1 - (離終點距離 / 全程距離)
+      coveredPct = Math.max(0, Math.min(1, 1 - distToEnd / totalM))
+    } else {
+      // 時間 fallback
+      coveredPct = estimatedSec > 0 ? Math.min(elapsedSec / estimatedSec, 1.0) : 0
+    }
+
     const estimatedScore = Math.floor(route.distance * coveredPct * 0.8) * weight
     setTerminateStats({ elapsedSec, coveredPct, estimatedScore })
     setModal('terminate')
