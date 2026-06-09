@@ -71,6 +71,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
             "total_score":      row[5],
             "role":             row[6],
             "level_code":       row[7],
+            "user_level_id":    {"BEGINNER": 1, "NORMAL": 2, "EXPERIENCED": 3}.get(row[7], 1),
             "next_level_code":  row[10],
             "next_level_min":   next_level_min,
             "level_progress_pct": progress,

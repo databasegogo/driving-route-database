@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { Menu, Navigation, BookOpen, User, LogOut, X } from 'lucide-react'
 import logoImg from '../assets/123.jpg'
 
@@ -20,18 +20,21 @@ const MENU_ITEMS = [
   { icon: User,       label: '編輯個人檔案', path: '/profile' },
 ]
 
+function readUsername() {
+  try {
+    const stored = localStorage.getItem('currentUser')
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      return parsed.name ?? parsed.username ?? ''
+    }
+  } catch {}
+  return ''
+}
+
 function MainLayout() {
   const navigate  = useNavigate()
-  const [username] = useState(() => {
-    try {
-      const stored = localStorage.getItem('currentUser')
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        return parsed.name ?? parsed.username ?? 'Nina'
-      }
-    } catch {}
-    return 'Nina'
-  })
+  const location  = useLocation()
+  const [username, setUsername] = useState(readUsername)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
 
@@ -39,6 +42,11 @@ function MainLayout() {
     const token = localStorage.getItem('token')
     if (!token) navigate('/login')
   }, [navigate])
+
+  // 每次路由切換時重新讀 localStorage，確保名字與登入者一致
+  useEffect(() => {
+    setUsername(readUsername())
+  }, [location.pathname])
 
   // 點選選單外部時關閉
   useEffect(() => {
