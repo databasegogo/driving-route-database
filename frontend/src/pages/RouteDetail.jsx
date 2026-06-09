@@ -303,9 +303,16 @@ export default function RouteDetail() {
     const elapsedSec = getElapsedSec()
     const weight     = DIFF_WEIGHT[route.diffCode] ?? 1
 
-    // 與後端計算一致：使用時間比例
-    // （後端收不到 GPS 覆蓋比例，用 GPS 比例會造成 preview 與實際得分不符）
-    const coveredPct = estimatedSec > 0 ? Math.min(elapsedSec / estimatedSec, 1.0) : 0
+    // 優先用 GPS 位置比例（更符合使用者實際走了多遠）
+    // GPS 比例也會傳給後端，讓計分一致
+    let coveredPct
+    const totalM = (route.distance ?? 0) * 1000
+    if (distToEnd !== null && totalM > 0) {
+      coveredPct = Math.max(0, Math.min(1, 1 - distToEnd / totalM))
+    } else {
+      // GPS 不可用：fallback 用時間比例
+      coveredPct = estimatedSec > 0 ? Math.min(elapsedSec / estimatedSec, 1.0) : 0
+    }
 
     const estimatedScore = Math.floor(route.distance * coveredPct * 0.8) * weight
     setTerminateStats({ elapsedSec, coveredPct, estimatedScore })
@@ -366,6 +373,7 @@ export default function RouteDetail() {
         gps_verified:        false,
         terminated_early:    true,
         was_off_route:       wasOffRouteRef.current,
+        covered_pct:         terminateStats?.coveredPct ?? null,
       })
       setResult(res.data)
       // 存練習紀錄到 localStorage（供 Records 頁面顯示起終點、縮圖）

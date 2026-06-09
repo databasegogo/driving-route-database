@@ -14,10 +14,11 @@ LEVEL_CODE   = {1: "BEGINNER", 2: "NORMAL", 3: "EXPERIENCED"}
 class PracticeRequest(BaseModel):
     route_id:            int
     selected_difficulty: str
-    actual_duration_sec: int | None = None  # 實際練習秒數（None = 不計時）
-    gps_verified:        bool       = False # GPS 偵測到達終點為 True（全程完成）
-    terminated_early:    bool       = False # 使用者主動終止練習（提前結束）
-    was_off_route:       bool       = False # 練習中曾偏離路線超過 100m
+    actual_duration_sec: int | None   = None  # 實際練習秒數（None = 不計時）
+    gps_verified:        bool         = False # GPS 偵測到達終點為 True（全程完成）
+    terminated_early:    bool         = False # 使用者主動終止練習（提前結束）
+    was_off_route:       bool         = False # 練習中曾偏離路線超過 100m
+    covered_pct:         float | None = None  # GPS 位置比例（0~1），提前終止時由前端傳入
 
     @property
     def validated_duration(self) -> int | None:
@@ -91,12 +92,16 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
         overtime_penalty = False   # 預設；只有全程完成且超過 2 倍時間才設 True
 
         if req.terminated_early:
-            # 提前終止：依實際行駛時間佔預估時間的比例計算，再打 8 折
+            # 提前終止：依完成比例計算，再打 8 折
+            # 優先用前端傳入的 GPS 位置比例（更準確：1 - 離終點/全程距離）
+            # fallback：時間比例（GPS 不可用時）
             EARLY_DISCOUNT = 0.8
-            if duration and estimated_duration_sec and estimated_duration_sec > 0:
+            if req.covered_pct is not None:
+                covered_pct = max(0.0, min(float(req.covered_pct), 1.0))
+            elif duration and estimated_duration_sec and estimated_duration_sec > 0:
                 covered_pct = min(duration / estimated_duration_sec, 1.0)
             else:
-                covered_pct = 0.0   # 無計時資料就不計分
+                covered_pct = 0.0   # 無計時與 GPS 資料就不計分
             base_score = int(total_distance_m * covered_pct / 1000
                              * EARLY_DISCOUNT) * SCORE_WEIGHT[req.selected_difficulty]
             time_bonus = 0          # 提前終止不給 time_bonus
