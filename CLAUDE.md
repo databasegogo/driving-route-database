@@ -318,8 +318,8 @@ server {
 # 在伺服器上執行
 cd ~/driving-route-database/frontend
 
-# 1. 重新 build（會自動套用 base: '/driving-route/'）
-npm run build
+# 1. 重新 build（使用 vite.config.server.js，套用 base: '/driving-route/'）
+npm run build:server
 
 # 2. 同步到 Nginx 服務目錄
 sudo rsync -av --delete dist/ /var/www/driving-route/
