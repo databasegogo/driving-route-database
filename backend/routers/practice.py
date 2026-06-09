@@ -145,7 +145,7 @@ def complete_practice(req: PracticeRequest, current_user: dict = Depends(get_cur
             overtime_penalty = False
             if duration is not None and estimated_duration_sec and estimated_duration_sec > 0:
                 if duration <= estimated_duration_sec:
-                    time_bonus = int(base_score * 0.5)
+                    time_bonus = (base_score + 1) // 2  # round-half-up，避免奇數 base_score 被 int() 向下截斷
                 elif duration > estimated_duration_sec * 2:
                     overtime_penalty = True
 

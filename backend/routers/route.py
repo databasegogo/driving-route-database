@@ -442,7 +442,8 @@ def plan_route(req: RouteRequest, current_user: dict = Depends(get_current_user)
                                   (req.avoid_tunnel and has_tunnel)
 
             estimated_duration_sec = int(total_distance / avg_speed_m_per_sec * 1.2)
-            estimated_score        = int(total_distance / 1000) * SCORE_WEIGHT[req.selected_difficulty]
+            _raw_score             = int(total_distance / 1000) * SCORE_WEIGHT[req.selected_difficulty]
+            estimated_score        = _raw_score if _raw_score > 0 else (1 if total_distance > 0 else 0)
             route_name             = f"{req.selected_difficulty} 路線 {path_id}"
 
             # 組 GeoJSON（含 base_cost，供前端 /route/save 傳回存入 DB）
@@ -838,16 +839,25 @@ def get_route(route_id: int, current_user: dict = Depends(get_current_user)):
             raise HTTPException(404, "ROUTE_NOT_FOUND")
 
         # 2. 路段幾何（JOIN road_edge 取回 geom）
+        # LEFT JOIN road：虛擬橋接邊 road_id=9000001 不在 road 表，INNER JOIN 會整行遺失
+        # COALESCE geom：部分 OSM 邊 geom 為 NULL，用 source/target 頂點直線補
         cur.execute("""
             SELECT rs.sequence_order,
                    rs.edge_id,
-                   r.name             AS road_name,
+                   COALESCE(r.name, '(路網橋接)')   AS road_name,
                    rs.segment_distance_m,
                    rs.segment_risk_score,
-                   ST_AsGeoJSON(re.geom) AS geom_json
+                   COALESCE(
+                       ST_AsGeoJSON(re.geom),
+                       ST_AsGeoJSON(ST_SetSRID(
+                           ST_MakeLine(vsrc.the_geom, vtgt.the_geom), 4326
+                       ))
+                   )                                AS geom_json
             FROM route_segment rs
-            JOIN road_edge re ON rs.edge_id = re.edge_id
-            JOIN road r       ON re.road_id  = r.road_id
+            JOIN  road_edge re  ON rs.edge_id  = re.edge_id
+            LEFT JOIN road r    ON re.road_id   = r.road_id
+            LEFT JOIN road_edges_guishan_vertices_pgr vsrc ON re.source = vsrc.id
+            LEFT JOIN road_edges_guishan_vertices_pgr vtgt ON re.target = vtgt.id
             WHERE rs.route_id = %s
             ORDER BY rs.sequence_order
         """, (route_id,))
